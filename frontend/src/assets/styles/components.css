@@ -1,0 +1,222 @@
+/* ============================================================
+   CARD
+   ============================================================ */
+
+.hm-card {
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  border-radius: var(--hm-radius-lg);
+  box-shadow: var(--hm-shadow-sm);
+}
+
+.hm-card-header {
+  min-height: 62px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 20px;
+
+  border-bottom: 1px solid var(--hm-border-soft);
+}
+
+.hm-card-body {
+  padding: 20px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.hm-button {
+  height: 40px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 0 14px;
+
+  border: 1px solid transparent;
+  border-radius: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  transition: all 0.15s ease;
+}
+
+.hm-button-primary {
+  background: var(--hm-primary);
+  color: #fff;
+}
+
+.hm-button-primary:hover {
+  background: var(--hm-primary-hover);
+}
+
+.hm-button-secondary {
+  background: #fff;
+  border-color: var(--hm-border);
+  color: var(--hm-text-secondary);
+}
+
+.hm-button-secondary:hover {
+  background: var(--hm-surface-soft);
+}
+
+.hm-button-danger {
+  background: var(--hm-danger);
+  color: #fff;
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+.hm-input {
+  width: 100%;
+  height: 40px;
+
+  padding: 0 12px;
+
+  border: 1px solid var(--hm-border);
+  border-radius: 8px;
+
+  background: #fff;
+
+  color: var(--hm-text);
+
+  font-size: 13px;
+
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hm-input:focus {
+  border-color: #64748b;
+
+  box-shadow:
+    0 0 0 3px rgba(100, 116, 139, 0.12);
+}
+
+/* ============================================================
+   BADGE
+   ============================================================ */
+
+.hm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hm-badge-success {
+  background: var(--hm-success-bg);
+  color: var(--hm-success);
+}
+
+.hm-badge-warning {
+  background: var(--hm-warning-bg);
+  color: var(--hm-warning);
+}
+
+.hm-badge-danger {
+  background: var(--hm-danger-bg);
+  color: var(--hm-danger);
+}
+
+.hm-badge-info {
+  background: var(--hm-info-bg);
+  color: var(--hm-info);
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.hm-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.hm-table {
+  width: 100%;
+  min-width: 700px;
+
+  border-collapse: collapse;
+}
+
+.hm-table th {
+  padding: 11px 14px;
+
+  background: #f8fafc;
+
+  border-bottom: 1px solid var(--hm-border);
+
+  font-size: 10px;
+  font-weight: 700;
+
+  text-align: left;
+  text-transform: uppercase;
+
+  letter-spacing: 0.06em;
+
+  color: var(--hm-text-muted);
+}
+
+.hm-table td {
+  padding: 13px 14px;
+
+  border-bottom: 1px solid var(--hm-border-soft);
+
+  font-size: 12px;
+
+  color: var(--hm-text-secondary);
+}
+
+.hm-table tbody tr:hover {
+  background: #fafafa;
+}
+
+/* ============================================================
+   PAGE
+   ============================================================ */
+
+.hm-page {
+  min-height: 100vh;
+  background: var(--hm-background);
+}
+
+.hm-page-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.hm-page-title {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.hm-page-description {
+  margin-top: 7px;
+
+  font-size: 13px;
+  line-height: 1.6;
+
+  color: var(--hm-text-muted);
+}
