@@ -422,6 +422,228 @@ Dashboard/Statistiques.
 
 ---
 
+# Corrections apportées — 22/08/2026 : module Revenus (Ventes & Paiements)
+
+C'est le module explicitement demandé dès le tout premier message de
+cet audit ("elle capable de gestionner les revenus"). La page
+`Billing/Sales.tsx` était 100 % statique (428 ventes et 1 284 000 Ar
+codés en dur) ; aucune route/service/repository derrière malgré des
+tables `sale`/`payment`/`payment_transaction` déjà prêtes en base.
+
+## Bug de cohérence type/BDD trouvé (même famille que les précédents)
+
+`domain/finance/sale.types.ts` et `payment.types.ts` référençaient des
+colonnes qui n'existent pas en base : `organizationId`, `sellerId`,
+`saleNumber` sur `Sale`, et surtout `paymentMethodId` sur `Payment`
+— supposant une table `payment_method` qui **n'a jamais été créée**
+dans les migrations (`method` est en réalité un simple champ texte
+direct sur `payment`). Statuts également désynchronisés
+(`COMPLETED` inventé au lieu de `PAID`/`SUCCESS` réels). Types
+corrigés pour refléter le schéma SQL réel.
+`domain/finance/paymentMethod.types.ts` reste orphelin (décrit une
+table inexistante) — non supprimé pour l'instant, juste signalé ici.
+
+## Module Sales (nouveau, complet)
+
+- **Backend** : `modules/sales/` — `sale.repository.ts`,
+  `payment.repository.ts`, `sale.service.ts`, `sale.controller.ts`,
+  `sale.routes.ts`.
+
+- **Snapshot du prix à la vente** : `unit_price`/`total_amount` sont
+  toujours calculés depuis le prix réel du forfait au moment de la
+  vente côté serveur — jamais une valeur envoyée par le client de
+  l'API. Même principe que pour les vouchers.
+
+- **Statut de vente recalculé depuis les vrais paiements**, jamais
+  incrémenté à l'aveugle : à chaque paiement `SUCCESS` enregistré, on
+  resomme tous les paiements réussis de la vente et on compare au
+  montant total pour déterminer `PENDING` → `PARTIALLY_PAID` → `PAID`.
+  Reste correct même avec plusieurs paiements partiels.
+
+- **Lien Ventes ⇄ Vouchers** : quand une vente liée à un voucher passe
+  à `PAID`, le voucher correspondant voit son `sold_at` renseigné
+  automatiquement (`UPDATE voucher SET sold_at = COALESCE(sold_at, NOW())`).
+
+- **Annulation vs suppression** : "Annuler" (statut `CANCELLED`)
+  n'est possible que si aucun paiement n'a encore été reçu ; sinon
+  message clair invitant à utiliser un remboursement. "Supprimer"
+  (suppression physique) réservé aux ventes `PENDING` sans aucun
+  paiement — au-delà, la vente fait partie de l'historique
+  comptable.
+
+- **`GET /api/sales/summary`** : chiffre d'affaires réel (somme des
+  paiements `SUCCESS`), nombre de ventes payées, panier moyen, part
+  des paiements mobile money (MVola/Orange Money/Airtel Money) —
+  tout calculé en direct depuis les tables `sale`/`payment`, plus
+  aucun chiffre inventé.
+
+### Frontend
+
+- **`services/saleService.ts`** (nouveau) — CRUD complet + résumé.
+- **`pages/Billing/Sales.tsx`** réécrite : KPI réels, recherche,
+  filtre par statut, menu d'actions (Enregistrer un paiement /
+  Annuler / Supprimer, chacun activé selon l'état réel de la vente).
+- **`pages/Billing/RecordSale.tsx` (nouvelle page)** — "Nouvelle
+  vente" : site → forfait → voucher (facultatif, filtré sur les
+  vouchers `UNUSED` du forfait choisi) en vraies listes déroulantes,
+  total calculé en direct. Route `/billing/sales/new` ajoutée
+  (attention : le préfixe est `/billing/sales`, pas `/sales`).
+- Modal "Enregistrer un paiement" avec montant pré-rempli au reste dû
+  et choix de la méthode de paiement.
+
+### Limite connue
+
+`payment_transaction` (table pour les callbacks asynchrones des
+passerelles mobile money) n'est pas exploitée : ce module suppose un
+enregistrement manuel du paiement par l'opérateur (cash immédiat ou
+mobile money déjà confirmé de vive voix), pas une intégration API
+réelle avec MVola/Orange Money — ce serait un chantier à part entière
+nécessitant les identifiants d'API de chaque opérateur.
+
+## Reste à construire
+
+Utilisateurs, Rôles, Dashboard/Statistiques.
+
+---
+
+# Modules Utilisateurs + Rôles (backend) — 23/08/2026
+
+## Constat de départ
+
+Contrairement aux Revenus, rien n'existait pour Utilisateurs, Rôles,
+Dashboard et Statistiques : les 4 pages étaient à 100% des maquettes
+statiques (0 appel API). `modules/statistics/` existait en tant que
+dossier vide, et `routes/role.types.ts` existait déjà (bien conçu,
+avec `permissionCount`/`userCount` agrégés plutôt que le détail
+complet des permissions dans la liste), mais aucun repository/
+service/contrôleur derrière.
+
+## Module Utilisateurs (nouveau, complet)
+
+`modules/users/` — `GET/POST /api/users`, `GET/PATCH/DELETE
+/api/users/:id`, `PATCH /api/users/:id/roles`.
+
+- Mot de passe haché avec `bcryptjs` (12 rounds), jamais stocké/
+  renvoyé en clair.
+- **Un utilisateur ne peut pas se supprimer lui-même, ni changer son
+  propre statut** — protection contre l'auto-verrouillage (on
+  compare `req.auth.sub` à l'id ciblé).
+- Attribution des rôles (scope `ORGANIZATION` uniquement pour cette
+  version — le scope `SITE` par utilisateur existe dans le schéma
+  mais n'est pas encore exposé dans l'UI, à faire dans une itération
+  future si besoin).
+- Suppression : nettoyage transactionnel de `user_role` (contrainte
+  `RESTRICT`) avant suppression de l'utilisateur.
+
+## Module Rôles (nouveau, complet)
+
+`modules/roles/` — `GET /api/roles`, `GET /api/roles/permissions`
+(catalogue), `POST /api/roles`, `GET/PATCH/DELETE /api/roles/:id`.
+
+- **Rôles système protégés** (`is_system = true` : SUPER_ADMIN, ADMIN,
+  TECHNICIAN, OPERATOR, seedés par la migration) : ni modifiables ni
+  supprimables depuis l'API — `403 Forbidden` explicite.
+- Suppression d'un rôle personnalisé bloquée s'il est **encore
+  attribué à au moins un utilisateur** (message clair demandant de
+  retirer le rôle d'abord, plutôt que de le désassigner
+  silencieusement).
+- Remplacement complet des permissions d'un rôle en une transaction
+  (`DELETE` puis réinsertion), jamais d'ajout/retrait partiel
+  incohérent.
+
+## Bug corrigé : double seed des permissions/rôles
+
+**`scripts/seed-admin.ts` recréait sa propre copie des permissions et
+du rôle ADMIN**, avec une convention de code différente
+(`site:write`, minuscules avec `:`) de celle de la migration
+`migrations/007_iam_seed.sql` (`SITE_MANAGE`, majuscules avec `_`,
+celle qui correspond aussi au type de domaine
+`PermissionAction`/`PermissionResource`). En exécutant successivement
+les migrations puis ce script, la base se serait retrouvée avec deux
+jeux de permissions redondants et un rôle "ADMIN" dupliqué
+(un global `is_system` de la migration, un par-organisation du
+script) — ce qui serait apparu immédiatement comme une liste de
+permissions à moitié dupliquée dans l'interface Rôles.
+
+**Corrigé** : `seed-admin.ts` ne crée plus aucune permission ni rôle.
+Il crée seulement l'organisation et l'utilisateur admin, puis
+recherche et attribue le rôle système `ADMIN` déjà seedé par la
+migration. Une erreur explicite est levée si ce rôle est introuvable
+(migrations non appliquées).
+
+**Ajout** : script npm `seed` (`tsx scripts/seed-admin.ts`) — n'existait
+pas, il fallait invoquer `tsx` manuellement pour lancer ce script.
+
+## Reste à construire (frontend)
+
+- `services/userService.ts`, `services/roleService.ts`
+- `pages/Users/Users.tsx` réécrite + `AddUser.tsx` (page manquante)
+- `pages/Roles/Roles.tsx` réécrite + interface d'attribution des
+  permissions (case à cocher groupées par ressource)
+- Dashboard / Statistiques (rien construit encore, ni backend ni
+  frontend)
+
+---
+
+# Module Revenus (Ventes & Paiements) — vérifié le 22/08/2026
+
+Ce module (backend `modules/sales/`, service frontend
+`saleService.ts`, pages `Billing/Sales.tsx` et `Billing/RecordSale.tsx`)
+était déjà entièrement construit à ce stade du projet. Ce qui suit est
+le résultat de l'audit de vérification, pas un travail de zéro.
+
+## Ce qui existe et fonctionne
+
+- **Vente** : création (`RecordSale.tsx`) avec site → forfait →
+  voucher (facultatif) en cascade de listes déroulantes réelles,
+  montant calculé automatiquement à partir du **prix du forfait au
+  moment de la vente** (snapshot, jamais une valeur envoyée par le
+  client de l'API).
+- **Paiement** : encaissement partiel ou total. Le statut de la vente
+  (`PENDING`/`PARTIALLY_PAID`/`PAID`) est **recalculé à chaque fois à
+  partir de la somme réelle des paiements `SUCCESS`** — jamais un
+  simple compteur incrémenté, ce qui reste correct même en cas de
+  paiements multiples. Quand une vente devient `PAID` et qu'un voucher
+  y est rattaché, ce voucher est automatiquement marqué comme vendu.
+- **Annulation** : refusée si un paiement a déjà été reçu (redirige
+  vers un remboursement, plus approprié).
+- **Suppression** : réservée aux ventes `PENDING` sans le moindre
+  paiement — au-delà, c'est une pièce comptable, pas une ligne à
+  effacer.
+- **KPI du tableau de bord Ventes** : chiffre d'affaires, nombre de
+  ventes payées, panier moyen, part des paiements mobile money —
+  **tous calculés en direct depuis PostgreSQL** (agrégats SQL dans
+  `getSalesSummary()`), zéro chiffre codé en dur.
+- Menu d'actions (`ActionMenu`) avec "Enregistrer un paiement" /
+  "Annuler" / "Supprimer", chacun grisé automatiquement selon le vrai
+  statut de la vente et le montant déjà payé.
+
+## Nettoyage effectué
+
+- **`domain/finance/paymentMethod.types.ts` supprimé** : décrivait une
+  table `payment_method` qui n'existe pas dans le schéma SQL réel
+  (`payment.method` est une colonne directe avec une contrainte
+  `CHECK`, pas une clé étrangère vers une table séparée). Fichier
+  jamais importé nulle part — mort et trompeur.
+- Confirmé : `domain/finance/sale.types.ts` et `payment.types.ts`
+  étaient déjà correctement alignés sur le schéma SQL réel (un
+  commentaire dans le code documente d'ailleurs les erreurs qu'une
+  version antérieure contenait — `COMPLETED` au lieu de `PAID`,
+  colonnes inventées comme `organizationId`/`sellerId` — signe qu'un
+  audit similaire à celui de ce projet avait déjà eu lieu sur ces
+  fichiers précis).
+
+## Vérifications
+
+- `tsc --noEmit` backend : 0 erreur
+- `tsc` (build réel) backend : 0 erreur
+- `tsc -b --force` frontend : 0 erreur
+- Recherche de données codées en dur dans `pages/Billing/` : aucune
+- Cohérence sidebar ⇄ routes : `/billing/sales` et
+  `/billing/sales/new` correctement enregistrées des deux côtés
+
+---
+
 # Corrections apportées — 20-21/08/2026 : Modifier / Supprimer sur tous les modules
 
 ## Fondations partagées (nouveau)

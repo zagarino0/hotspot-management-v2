@@ -15,6 +15,9 @@ import siteRoutes from "./modules/sites/site.routes.js";
 import accessPointRoutes from "./modules/access-points/accessPoint.routes.js";
 import planRoutes from "./modules/plans/plan.routes.js";
 import voucherRoutes from "./modules/vouchers/voucher.routes.js";
+import saleRoutes from "./modules/sales/sale.routes.js";
+import userRoutes from "./modules/users/user.routes.js";
+import roleRoutes from "./modules/roles/role.routes.js";
 
 const app = express();
 
@@ -59,6 +62,9 @@ app.use("/api/sites", authenticate, siteRoutes);
 app.use("/api/access-points", authenticate, accessPointRoutes);
 app.use("/api/plans", authenticate, planRoutes);
 app.use("/api/vouchers", authenticate, voucherRoutes);
+app.use("/api/sales", authenticate, saleRoutes);
+app.use("/api/users", authenticate, userRoutes);
+app.use("/api/roles", authenticate, roleRoutes);
 /*
  * ============================================================
  * SYSTEM
