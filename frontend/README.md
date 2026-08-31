@@ -30,3 +30,58 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+
+src/
+│
+├── app/
+│   ├── App.tsx
+│   ├── router.tsx
+│   └── providers.tsx
+│
+├── components/
+│   ├── ui/
+│   ├── layout/
+│   │   ├── Sidebar.tsx
+│   │   ├── Header.tsx
+│   │   └── DashboardLayout.tsx
+│   └── feedback/
+│
+├── pages/
+│   ├── Login/
+│   ├── Dashboard/
+│   ├── Organizations/
+│   ├── Sites/
+│   ├── Routers/
+│   ├── AccessPoints/
+│   ├── Plans/
+│   ├── Vouchers/
+│   ├── Clients/
+│   ├── Sessions/
+│   ├── Sales/
+│   ├── Payments/
+│   └── Settings/
+│
+├── services/
+│   ├── api.ts
+│   ├── authApi.ts
+│   ├── organizationApi.ts
+│   ├── siteApi.ts
+│   ├── routerApi.ts
+│   ├── accessPointApi.ts
+│   ├── hotspotApi.ts
+│   └── billingApi.ts
+│
+├── hooks/
+│
+├── types/
+│   ├── organization.ts
+│   ├── site.ts
+│   ├── router.ts
+│   ├── hotspot.ts
+│   └── billing.ts
+│
+├── utils/
+│
+├── main.tsx
+└── index.css

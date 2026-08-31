@@ -1,0 +1,46 @@
+:root {
+  /* Brand */
+  --hm-primary: #0f172a;
+  --hm-primary-hover: #1e293b;
+
+  /* Background */
+  --hm-background: #f5f7fa;
+  --hm-surface: #ffffff;
+  --hm-surface-soft: #f8fafc;
+
+  /* Text */
+  --hm-text: #0f172a;
+  --hm-text-secondary: #475569;
+  --hm-text-muted: #64748b;
+  --hm-text-light: #94a3b8;
+
+  /* Borders */
+  --hm-border: #e2e8f0;
+  --hm-border-soft: #f1f5f9;
+
+  /* Status */
+  --hm-success: #059669;
+  --hm-success-bg: #ecfdf5;
+
+  --hm-warning: #d97706;
+  --hm-warning-bg: #fffbeb;
+
+  --hm-danger: #dc2626;
+  --hm-danger-bg: #fef2f2;
+
+  --hm-info: #2563eb;
+  --hm-info-bg: #eff6ff;
+
+  /* Radius */
+  --hm-radius-sm: 6px;
+  --hm-radius-md: 8px;
+  --hm-radius-lg: 12px;
+  --hm-radius-xl: 16px;
+
+  /* Shadow */
+  --hm-shadow-sm:
+    0 1px 2px rgba(15, 23, 42, 0.04);
+
+  --hm-shadow-md:
+    0 8px 25px rgba(15, 23, 42, 0.06);
+}
