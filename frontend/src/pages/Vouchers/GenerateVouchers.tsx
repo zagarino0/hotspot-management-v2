@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,11 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
 import { getSites, type Site } from "../../services/siteService";
-import {
-  createPlan,
-  getPlans,
-  type Plan,
-} from "../../services/planService";
+import { createPlan } from "../../services/planService";
 import {
   generateVouchers,
   type Voucher,
@@ -41,7 +37,6 @@ export default function GenerateVouchers() {
   const navigate = useNavigate();
 
   const [sites, setSites] = useState<Site[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>([]);
   const [refLoading, setRefLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
@@ -78,14 +73,10 @@ export default function GenerateVouchers() {
 
     async function loadRefs() {
       try {
-        const [sitesData, plansData] = await Promise.all([
-          getSites(),
-          getPlans(),
-        ]);
+        const sitesData = await getSites();
 
         if (mounted) {
           setSites(sitesData);
-          setPlans(plansData);
         }
       } catch (err) {
         console.error(
@@ -219,11 +210,10 @@ export default function GenerateVouchers() {
         });
 
         finalPlanId = createdPlan.id;
-        setPlans((current) => [createdPlan, ...current]);
       }
 
-      if (!finalPlanId) {
-        setError("Le forfait est obligatoire.");
+      if (!finalPlanId && !finalMikrotikProfile) {
+        setError("Le forfait ou le profil MikroTik est obligatoire.");
         setSaving(false);
         return;
       }

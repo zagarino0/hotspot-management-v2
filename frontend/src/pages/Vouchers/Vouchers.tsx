@@ -69,8 +69,13 @@ function formatDuration(seconds: number | null): string {
   return `${Math.round(seconds / 60)} min`;
 }
 
-function formatPrice(price: number, currency: string): string {
-  return `${price.toLocaleString("fr-FR")} ${currency}`;
+function formatPrice(
+  price: number | null,
+  currency: string | null
+): string {
+  if (price === null) return "—";
+
+  return `${price.toLocaleString("fr-FR")} ${currency ?? "Ar"}`;
 }
 
 function formatDate(iso: string): string {
@@ -575,7 +580,7 @@ function VoucherRow({
 
       <td className="px-5 py-4">
         <span className="text-sm font-semibold text-slate-700">
-          {voucher.planName} (
+          {voucher.planName ?? voucher.mikrotikProfile ?? "Profil MikroTik"} (
           {formatPrice(voucher.planPrice, voucher.planCurrency)}
           )
         </span>

@@ -28,6 +28,7 @@ import type {
 async function getDashboardCounts(): Promise<DashboardCounts> {
   const result = await pool.query<{
     clients: string;
+    activeSessions: string;
     sites: string;
     routers: string;
     routersOnline: string;
@@ -37,6 +38,7 @@ async function getDashboardCounts(): Promise<DashboardCounts> {
   }>(`
     SELECT
       (SELECT COUNT(*) FROM client) AS clients,
+      (SELECT COUNT(*) FROM session WHERE status = 'ACTIVE' AND ended_at IS NULL) AS "activeSessions",
       (SELECT COUNT(*) FROM site) AS sites,
       (SELECT COUNT(*) FROM router) AS routers,
       (SELECT COUNT(*) FROM router WHERE status = 'ONLINE') AS "routersOnline",
@@ -49,6 +51,7 @@ async function getDashboardCounts(): Promise<DashboardCounts> {
 
   return {
     clients: Number(row.clients),
+    activeSessions: Number(row.activeSessions),
     sites: Number(row.sites),
     routers: Number(row.routers),
     routersOnline: Number(row.routersOnline),

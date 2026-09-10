@@ -12,6 +12,7 @@ export interface TrendValue {
 
 export interface DashboardCounts {
   clients: number;
+  activeSessions: number;
   sites: number;
   routers: number;
   routersOnline: number;

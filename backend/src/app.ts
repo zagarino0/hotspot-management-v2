@@ -19,6 +19,7 @@ import saleRoutes from "./modules/sales/sale.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import roleRoutes from "./modules/roles/role.routes.js";
 import mikrotikRoutes from "./modules/mikrotik/mikrotik.routes.js";
+import statisticsRoutes from "./modules/statistics/statistics.routes.js";
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use("/api/sales", authenticate, saleRoutes);
 app.use("/api/users", authenticate, userRoutes);
 app.use("/api/roles", authenticate, roleRoutes);
 app.use("/api/mikrotik", authenticate, mikrotikRoutes);
+app.use("/api/statistics", authenticate, statisticsRoutes);
 /*
  * ============================================================
  * SYSTEM

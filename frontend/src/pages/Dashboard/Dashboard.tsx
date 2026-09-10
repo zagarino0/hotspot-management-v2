@@ -14,7 +14,6 @@ import {
   Ticket,
   Users,
   Wifi,
-  Radio,
 } from "lucide-react";
 import {
   Area,
@@ -27,8 +26,8 @@ import {
 import {
   getDashboardOverview,
   type DashboardOverview,
-} from "../../services/dashboardService";
-import { useWebSocket, type StatsUpdate } from "../../hooks/useWebSocket";
+} from "../../services/statisticsService";
+import { useWebSocket } from "../../hooks/useWebSocket";
 
 /* ================================================================
    HELPERS
@@ -79,6 +78,8 @@ const METHOD_LABELS: Record<string, string> = {
   BANK: "Banque",
   OTHER: "Autre",
 };
+
+const DEFAULT_TREND = { text: "Nouveau", type: "neutral" as const };
 
 /* ================================================================
    STAT CARD
@@ -185,16 +186,20 @@ export default function Dashboard() {
 
   // Mettre à jour les données quand les stats live arrivent
   useEffect(() => {
-    if (liveStats && data) {
-      setData(prevData => ({
+    if (!liveStats) return;
+
+    setData((prevData) => {
+      if (!prevData) return prevData;
+
+      return {
         ...prevData,
         counts: {
           ...prevData.counts,
           routersOnline: liveStats.routersOnline,
           routers: liveStats.totalRouters,
         },
-      }));
-    }
+      };
+    });
   }, [liveStats]);
 
   useEffect(() => {
@@ -256,12 +261,15 @@ export default function Dashboard() {
   const { counts, trends, recentSales, networkStatus, sessionsSeries } =
     data;
 
-  const activeSessions = recentSales.length; // Temporary placeholder until real sessions data
-
-  const clientsTrend = trends?.clients ? formatTrend(trends.clients.changePercent) : { text: "Nouveau", type: "neutral" };
-  const sessionsTrend = trends?.sessions ? formatTrend(trends.sessions.changePercent) : { text: "Nouveau", type: "neutral" };
-  const revenueTrend = trends?.revenue ? formatTrend(trends.revenue.changePercent) : { text: "Nouveau", type: "neutral" };
-  const vouchersTrend = trends?.vouchers ? formatTrend(trends.vouchers.changePercent) : { text: "Nouveau", type: "neutral" };
+  const clientsTrend = trends.clients
+    ? formatTrend(trends.clients.changePercent)
+    : DEFAULT_TREND;
+  const revenueTrend = trends.revenue
+    ? formatTrend(trends.revenue.changePercent)
+    : DEFAULT_TREND;
+  const vouchersTrend = trends.vouchers
+    ? formatTrend(trends.vouchers.changePercent)
+    : DEFAULT_TREND;
 
   const allOnline =
     counts.routers > 0 &&
@@ -345,7 +353,11 @@ export default function Dashboard() {
 
           <StatCard
             label="Sessions actives"
-            value={liveStats ? String(liveStats.activeUsers) : String(activeSessions)}
+            value={
+              liveStats
+                ? String(liveStats.activeUsers)
+                : String(counts.activeSessions)
+            }
             description="Connexions en temps réel"
             icon={Wifi}
             trend={connected ? "En direct" : "Sync"}
@@ -424,7 +436,7 @@ export default function Dashboard() {
 
           <StatCard
             label="Chiffre d'affaires (30j)"
-            value={formatCurrency(45000)}
+            value={formatCurrency(trends.revenue.current)}
             description="Paiements encaissés"
             icon={Banknote}
             trend={revenueTrend.text}
