@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -5,36 +6,57 @@ import {
   Routes,
 } from "react-router-dom";
 
-import Login from "../pages/Login/Login";
-import Dashboard from "../pages/Dashboard/Dashboard";
-import Sites from "../pages/Sites/Sites";
-import AddSite from "../pages/Sites/AddSite";
-import Routers from "../pages/Routers/Routers";
-import AddRouter from "../pages/Routers/AddRouter";
-import AccessPoints from "../pages/AccessPoints/AccessPoints";
-import AddAccessPoint from "../pages/AccessPoints/AddAccessPoint";
-import Clients from "../pages/Clients/Clients";
-import AddClient from "../pages/Clients/AddClient";
-import Sessions from "../pages/Sessions/Sessions";
-import Vouchers from "../pages/Vouchers/Vouchers";
-import GenerateVouchers from "../pages/Vouchers/GenerateVouchers";
-import Sales from "../pages/Billing/Sales";
-import RecordSale from "../pages/Billing/RecordSale";
-import Statistics from "../pages/Statistics/Statistics";
-import Users from "../pages/Users/Users";
-import AddUser from "../pages/Users/AddUser";
-import Roles from "../pages/Roles/Roles";
-import AddRole from "../pages/Roles/AddRole";
-import Infrastructure from "../pages/Infrastructure/Infrastructure";
-import Settings from "../pages/Settings/Settings";
-
-import DashboardLayout from "../components/layout/DashboardLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+
+const Login = lazy(() => import("../pages/Login/Login"));
+const Dashboard = lazy(() => import("../pages/Dashboard/Dashboard"));
+const Sites = lazy(() => import("../pages/Sites/Sites"));
+const AddSite = lazy(() => import("../pages/Sites/AddSite"));
+const Routers = lazy(() => import("../pages/Routers/Routers"));
+const AddRouter = lazy(() => import("../pages/Routers/AddRouter"));
+const AccessPoints = lazy(
+  () => import("../pages/AccessPoints/AccessPoints")
+);
+const AddAccessPoint = lazy(
+  () => import("../pages/AccessPoints/AddAccessPoint")
+);
+const Clients = lazy(() => import("../pages/Clients/Clients"));
+const AddClient = lazy(() => import("../pages/Clients/AddClient"));
+const Sessions = lazy(() => import("../pages/Sessions/Sessions"));
+const Vouchers = lazy(() => import("../pages/Vouchers/Vouchers"));
+const GenerateVouchers = lazy(
+  () => import("../pages/Vouchers/GenerateVouchers")
+);
+const Sales = lazy(() => import("../pages/Billing/Sales"));
+const RecordSale = lazy(() => import("../pages/Billing/RecordSale"));
+const Statistics = lazy(
+  () => import("../pages/Statistics/Statistics")
+);
+const Users = lazy(() => import("../pages/Users/Users"));
+const AddUser = lazy(() => import("../pages/Users/AddUser"));
+const Roles = lazy(() => import("../pages/Roles/Roles"));
+const AddRole = lazy(() => import("../pages/Roles/AddRole"));
+const Infrastructure = lazy(
+  () => import("../pages/Infrastructure/Infrastructure")
+);
+const Settings = lazy(() => import("../pages/Settings/Settings"));
+const DashboardLayout = lazy(
+  () => import("../components/layout/DashboardLayout")
+);
+
+function PageLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
+      Chargement…
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
 
         {/* =====================================================
             PUBLIC
@@ -175,7 +197,8 @@ export default function App() {
           }
         />
 
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

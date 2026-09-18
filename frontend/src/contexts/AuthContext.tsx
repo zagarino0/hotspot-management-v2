@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -14,6 +12,10 @@ import {
   getStoredUserRaw,
   setStoredSession,
 } from "../lib/authStorage";
+import {
+  AuthContext,
+  type AuthContextValue,
+} from "./auth-context";
 
 /* ============================================================
    CONFIGURATION
@@ -72,33 +74,6 @@ interface ApiErrorResponse {
 /* ============================================================
    CONTEXT
 ============================================================ */
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  token: string | null;
-
-  loading: boolean;
-
-  isAuthenticated: boolean;
-
-  login: (
-    username: string,
-    password: string
-  ) => Promise<void>;
-
-  logout: () => void;
-
-  hasRole: (roleCode: string) => boolean;
-
-  hasPermission: (
-    permissionCode: string
-  ) => boolean;
-}
-
-const AuthContext =
-  createContext<AuthContextValue | undefined>(
-    undefined
-  );
 
 /* ============================================================
    PROVIDER
@@ -389,21 +364,4 @@ export function AuthProvider({
       {children}
     </AuthContext.Provider>
   );
-}
-
-/* ============================================================
-   HOOK
-============================================================ */
-
-export function useAuth(): AuthContextValue {
-  const context =
-    useContext(AuthContext);
-
-  if (!context) {
-    throw new Error(
-      "useAuth doit être utilisé à l'intérieur de AuthProvider."
-    );
-  }
-
-  return context;
 }

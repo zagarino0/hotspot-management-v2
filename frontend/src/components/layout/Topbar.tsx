@@ -4,7 +4,7 @@ import {
   Search,
 } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 
 interface TopbarProps {
   onMenuClick?: () => void;
