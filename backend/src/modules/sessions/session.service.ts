@@ -23,6 +23,7 @@ import {
   findSessionById,
   findSessions,
   findVoucherIdByCode,
+  findVoucherIdsByRouter,
   markSessionTerminated,
   syncVoucherUsage,
   upsertActiveSession,
@@ -230,7 +231,13 @@ export async function syncRouterSessions(
     // Recalcule le temps cumulé des vouchers concernés.
     // Une reconnexion crée une nouvelle session, mais le cumul
     // reste attaché au même voucher.
-    for (const voucherId of voucherIds) {
+    const routerVoucherIds =
+      await findVoucherIdsByRouter(router.id);
+
+    for (const voucherId of new Set([
+      ...voucherIds,
+      ...routerVoucherIds,
+    ])) {
       await syncVoucherUsage(voucherId);
     }
 
