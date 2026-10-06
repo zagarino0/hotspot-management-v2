@@ -15,6 +15,7 @@ export interface Voucher {
 
   planId: string;
   planName: string;
+  mikrotikProfile: string | null;
   planPrice: number;
   planCurrency: string;
 
@@ -43,6 +44,7 @@ export interface GenerateVouchersPayload {
   quantity: number;
   batchName?: string;
   prefix?: string;
+  mikrotikProfile?: string;
 }
 
 export interface GenerateVouchersResult {
