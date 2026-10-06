@@ -153,8 +153,13 @@ export default function Sessions() {
      RECHERCHE / FILTRE
   ============================================================ */
 
+  const sessionRows = useMemo(
+    () => groupSessionsForTable(sessions),
+    [sessions]
+  );
+
   const filteredSessions = useMemo(() => {
-    let rows = sessions;
+    let rows = sessionRows;
 
     if (statusFilter !== "all") {
       rows = rows.filter(
@@ -180,7 +185,7 @@ export default function Sessions() {
           String(value).toLowerCase().includes(query)
         );
     });
-  }, [sessions, statusFilter, search]);
+  }, [sessionRows, statusFilter, search]);
 
   /* ============================================================
      KPI
@@ -384,7 +389,7 @@ export default function Sessions() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Connexion / reconnexion
+                  Dernière connexion
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -486,6 +491,63 @@ export default function Sessions() {
 /* ================================================================
    HELPERS
 ================================================================ */
+
+function groupSessionsForTable(sessions: Session[]): Session[] {
+  const groups = new Map<string, Session>();
+
+  for (const session of sessions) {
+    const username = session.username?.trim();
+
+    // Sans identifiant utilisateur fiable, on conserve la ligne telle quelle.
+    if (!username) {
+      groups.set(session.id, session);
+      continue;
+    }
+
+    const key = [
+      session.siteId ?? "",
+      session.routerId ?? "",
+      username.toLowerCase(),
+    ].join("|");
+
+    const current = groups.get(key);
+
+    if (!current || isNewerSession(session, current)) {
+      groups.set(key, session);
+    }
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    const aTime = new Date(
+      a.updatedAt ?? a.startedAt
+    ).getTime();
+    const bTime = new Date(
+      b.updatedAt ?? b.startedAt
+    ).getTime();
+
+    return bTime - aTime;
+  });
+}
+
+function isNewerSession(candidate: Session, current: Session): boolean {
+  // Une connexion active représente toujours l'état courant du groupe.
+  if (candidate.status === "ACTIVE" && current.status !== "ACTIVE") {
+    return true;
+  }
+
+  if (current.status === "ACTIVE" && candidate.status !== "ACTIVE") {
+    return false;
+  }
+
+  const candidateTime = new Date(
+    candidate.updatedAt ?? candidate.startedAt
+  ).getTime();
+  const currentTime = new Date(
+    current.updatedAt ?? current.startedAt
+  ).getTime();
+
+  return candidateTime >= currentTime;
+}
 
 function averageOf(values: number[]): number {
   if (values.length === 0) {
@@ -669,10 +731,7 @@ function SessionRow({
   const displayName =
     session.username || "Utilisateur inconnu";
 
-  const connectionLabel =
-    session.connectionSequence > 1
-      ? "Reconnexion"
-      : "Première connexion";
+
 
   const displayedRemainingAfterEnd =
     session.status === "ACTIVE"
@@ -777,11 +836,11 @@ function SessionRow({
 
       <td className="px-5 py-4">
         <div className="text-sm font-semibold text-slate-700">
-          {connectionLabel}
+          {formatDateTime(session.startedAt)}
         </div>
 
-        <div className="mt-0.5 text-xs text-slate-500">
-          {formatDateTime(session.startedAt)}
+        <div className="mt-0.5 text-[10px] text-slate-400">
+          Cliquer pour voir tout l'historique
         </div>
       </td>
 
