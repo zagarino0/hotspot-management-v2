@@ -666,7 +666,7 @@ export async function closeSessionsNotIn(
               s.mac_address IS NULL
               OR NOT (s.mac_address = ANY($2::text[]))
             )
-          ORDER BY s.id, matched.ended_at
+          ORDER BY s.id, logout_events.ended_at
         )
         UPDATE session s
         SET
