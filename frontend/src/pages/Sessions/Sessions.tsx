@@ -735,11 +735,6 @@ function SessionRow({
       : liveVoucherRemaining ??
         liveSessionTimeLeft;
 
-  const plannedEndSeconds =
-    session.status === "ACTIVE"
-      ? remainingSeconds
-      : null;
-
   const loginLabel =
     session.loginMethod
       ? session.loginMethod.replace(/-/g, " ")
