@@ -153,7 +153,19 @@ const SESSION_SELECT = `
       WHEN s.voucher_id IS NOT NULL THEN (
         SELECT COUNT(*)::int + 1
         FROM session s2
-        WHERE s2.voucher_id = s.voucher_id
+        WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
           AND (
             s2.started_at < s.started_at
             OR (
@@ -289,7 +301,19 @@ export async function markSessionTerminated(
                   0
                 )
                 FROM session s2
-                WHERE s2.voucher_id = s.voucher_id
+                WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
               ),
               0
             )::bigint
@@ -652,7 +676,19 @@ export async function closeSessionsNotIn(
                     0
                   )
                   FROM session s2
-                  WHERE s2.voucher_id = s.voucher_id
+                  WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
                 ),
                 0
               )::bigint
@@ -726,7 +762,19 @@ export async function closeSessionsNotIn(
                   0
                 )
                 FROM session s2
-                WHERE s2.voucher_id = s.voucher_id
+                WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
               ),
               0
             )::bigint
@@ -813,7 +861,19 @@ export async function closeAllActiveForRouter(
                   0
                 )
                 FROM session s2
-                WHERE s2.voucher_id = s.voucher_id
+                WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
               ),
               0
             )::bigint
