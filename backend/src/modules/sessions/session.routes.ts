@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  historySessions,
   listSessions,
   syncSessions,
   syncSingleRouter,
@@ -10,6 +11,7 @@ import {
 const router = Router();
 
 router.get("/", listSessions);
+router.get("/history", historySessions);
 
 router.post("/sync", syncSessions);
 
