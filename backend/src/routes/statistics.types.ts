@@ -1,3 +1,5 @@
+export type StatsPeriod = "today" | "week" | "month" | "year";
+
 export interface TrendValue {
   current: number;
   previous: number;
