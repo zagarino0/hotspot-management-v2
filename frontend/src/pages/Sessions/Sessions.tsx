@@ -637,7 +637,7 @@ function SessionRow({
 
   const connectionLabel =
     session.connectionSequence > 1
-      ? `Reconnexion #${session.connectionSequence}`
+      ? "Reconnexion"
       : "Première connexion";
 
   const endedRemainingSeconds =
