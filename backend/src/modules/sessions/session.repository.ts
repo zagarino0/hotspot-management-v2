@@ -670,7 +670,64 @@ export async function closeSessionsNotIn(
         )
         UPDATE session s
         SET
-          status = 'COMPLETED',
+          status = CASE
+          WHEN COALESCE(
+                (
+                  SELECT v.duration_seconds
+                  FROM voucher v
+                  WHERE v.id = s.voucher_id
+                ),
+                s.mikrotik_limit_uptime_seconds
+              ) IS NOT NULL
+            AND GREATEST(
+              COALESCE(
+                (
+                  SELECT v.duration_seconds
+                  FROM voucher v
+                  WHERE v.id = s.voucher_id
+                ),
+                s.mikrotik_limit_uptime_seconds
+              ) - (
+                SELECT COALESCE(
+                  SUM(
+                    CASE
+                      WHEN s2.id = s.id
+                        AND s.status = 'ACTIVE'
+                        THEN GREATEST(
+                          EXTRACT(
+                            EPOCH FROM (
+                              NOW() - s.started_at
+                            )
+                          )::bigint,
+                          0
+                        )
+                      WHEN s2.id = s.id
+                        THEN COALESCE(s2.duration_seconds, 0)
+                      ELSE COALESCE(s2.duration_seconds, 0)
+                    END
+                  ),
+                  0
+                )
+                FROM session s2
+                WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
+              ),
+              0
+            ) > 0
+            THEN 'TERMINATED'
+          ELSE 'COMPLETED'
+        END,
           ended_at = matched.ended_at,
           duration_seconds = GREATEST(
             EXTRACT(
@@ -752,7 +809,64 @@ export async function closeSessionsNotIn(
     `
       UPDATE session s
       SET
-        status = 'COMPLETED',
+        status = CASE
+          WHEN COALESCE(
+                (
+                  SELECT v.duration_seconds
+                  FROM voucher v
+                  WHERE v.id = s.voucher_id
+                ),
+                s.mikrotik_limit_uptime_seconds
+              ) IS NOT NULL
+            AND GREATEST(
+              COALESCE(
+                (
+                  SELECT v.duration_seconds
+                  FROM voucher v
+                  WHERE v.id = s.voucher_id
+                ),
+                s.mikrotik_limit_uptime_seconds
+              ) - (
+                SELECT COALESCE(
+                  SUM(
+                    CASE
+                      WHEN s2.id = s.id
+                        AND s.status = 'ACTIVE'
+                        THEN GREATEST(
+                          EXTRACT(
+                            EPOCH FROM (
+                              NOW() - s.started_at
+                            )
+                          )::bigint,
+                          0
+                        )
+                      WHEN s2.id = s.id
+                        THEN COALESCE(s2.duration_seconds, 0)
+                      ELSE COALESCE(s2.duration_seconds, 0)
+                    END
+                  ),
+                  0
+                )
+                FROM session s2
+                WHERE (
+                  (
+                    s.voucher_id IS NOT NULL
+                    AND s2.voucher_id = s.voucher_id
+                  )
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s2.voucher_id IS NULL
+                    AND s2.site_id = s.site_id
+                    AND s2.router_id = s.router_id
+                    AND s2.username = s.username
+                  )
+                )
+              ),
+              0
+            ) > 0
+            THEN 'TERMINATED'
+          ELSE 'COMPLETED'
+        END,
         ended_at = NOW(),
         duration_seconds = GREATEST(
           EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
