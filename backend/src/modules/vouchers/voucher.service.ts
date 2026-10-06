@@ -18,7 +18,6 @@ import {
 
 import { connectMikroTik } from "../../mikrotik/connection.js";
 import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
-import { fetchActiveHotspotUsers } from "../../mikrotik/hotspotActive.js";
 import { decryptSecret } from "../../lib/crypto.js";
 
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -73,28 +72,29 @@ export async function getVoucherStats(): Promise<VoucherStats> {
     });
 
     try {
-      const [hotspotUsers, activeUsers, history] =
+      const [hotspotUsers, history] =
         await Promise.all([
           fetchHotspotUsers(api),
-          fetchActiveHotspotUsers(api),
           findVoucherUsageHistory(router.siteId, router.id),
         ]);
 
-      const usedActiveCount = activeUsers.filter(
-        (user) =>
-          Boolean(user.username?.trim()) &&
-          Boolean(user.macAddress?.trim())
+      // Dans MikroTik, le voucher est considéré comme utilisé
+      // dès que son compte /ip/hotspot/user possède une adresse MAC.
+      // Il ne faut donc pas limiter ce compteur aux connexions
+      // actuellement présentes dans /ip/hotspot/active.
+      const usedCount = hotspotUsers.filter(
+        (user) => Boolean(user.macAddress?.trim())
       ).length;
 
+      // Disponible = voucher qui n'a encore aucune adresse MAC.
+      // Une reconnexion active ne change pas cette règle : la MAC
+      // enregistrée sur le compte MikroTik est la source de vérité.
       const availableCount = hotspotUsers.filter(
-        (user) =>
-          !history.usedUsernames.has(
-            user.username.trim().toLowerCase()
-          )
+        (user) => !user.macAddress?.trim()
       ).length;
 
       total += hotspotUsers.length;
-      used += usedActiveCount;
+      used += usedCount;
       available += availableCount;
       expired += history.expiredSessionCount;
     } finally {
