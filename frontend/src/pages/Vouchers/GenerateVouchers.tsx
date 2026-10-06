@@ -17,6 +17,10 @@ import {
   type Plan,
 } from "../../services/planService";
 import {
+  getHotspotProfiles,
+  type HotspotProfile,
+} from "../../services/mikrotikService";
+import {
   generateVouchers,
   type Voucher,
 } from "../../services/voucherService";
@@ -38,14 +42,17 @@ export default function GenerateVouchers() {
 
   const [sites, setSites] = useState<Site[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>([]);
   const [refLoading, setRefLoading] = useState(true);
+  const [profilesLoading, setProfilesLoading] = useState(false);
 
   const [siteId, setSiteId] = useState("");
   const [mode, setMode] = useState<"existing" | "new">(
     "existing"
   );
 
-  // Forfait existant
+  // Forfait existant : profil Hotspot réel du MikroTik lié au site
+  const [mikrotikProfile, setMikrotikProfile] = useState("");
   const [planId, setPlanId] = useState("");
 
   // Nouveau forfait
@@ -105,9 +112,56 @@ export default function GenerateVouchers() {
     [plans, siteId]
   );
 
+  const selectedProfile = useMemo(
+    () => hotspotProfiles.find((profile) => profile.name === mikrotikProfile) ?? null,
+    [hotspotProfiles, mikrotikProfile]
+  );
+
+  useEffect(() => {
+    if (!siteId) {
+      setHotspotProfiles([]);
+      setMikrotikProfile("");
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadHotspotProfiles() {
+      setProfilesLoading(true);
+      setMikrotikProfile("");
+      setError("");
+
+      try {
+        const profiles = await getHotspotProfiles(siteId);
+        if (mounted) {
+          setHotspotProfiles(profiles);
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setHotspotProfiles([]);
+          setError(
+            err?.response?.data?.message ??
+              "Impossible de récupérer les User Profiles du routeur MikroTik associé à ce site."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setProfilesLoading(false);
+        }
+      }
+    }
+
+    loadHotspotProfiles();
+
+    return () => {
+      mounted = false;
+    };
+  }, [siteId]);
+
   function resetPlanSelection(nextSiteId: string) {
     setSiteId(nextSiteId);
     setPlanId("");
+    setMikrotikProfile("");
   }
 
   async function handleSubmit(
@@ -172,8 +226,18 @@ export default function GenerateVouchers() {
         setPlans((current) => [createdPlan, ...current]);
       }
 
+      if (mode === "existing" && !mikrotikProfile) {
+        setError("Le User Profile MikroTik est obligatoire.");
+        setSaving(false);
+        return;
+      }
+
       if (!finalPlanId) {
-        setError("Le forfait est obligatoire.");
+        setError(
+          mode === "existing"
+            ? "Aucun forfait commercial associé à ce User Profile MikroTik. Le profil doit d'abord être associé à un forfait dans la gestion des forfaits."
+            : "Le forfait est obligatoire."
+        );
         setSaving(false);
         return;
       }
@@ -184,6 +248,8 @@ export default function GenerateVouchers() {
         quantity: numericQuantity,
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
+        mikrotikProfile:
+          mode === "existing" ? mikrotikProfile : undefined,
       });
 
       setResult(generated);
@@ -426,24 +492,35 @@ export default function GenerateVouchers() {
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   >
                     <option value="">
-                      Sélectionnez un forfait
+                      {profilesLoading
+                        ? "Connexion au MikroTik..."
+                        : "Sélectionnez un User Profile"}
                     </option>
 
-                    {plansForSite.map((plan) => (
-                      <option key={plan.id} value={plan.id}>
-                        {plan.name} —{" "}
-                        {plan.price.toLocaleString("fr-FR")}{" "}
-                        {plan.currency}
+                    {hotspotProfiles.map((profile) => (
+                      <option key={profile.name} value={profile.name}>
+                        {profile.name}
                       </option>
                     ))}
                   </select>
                 </label>
 
-                {plansForSite.length === 0 && (
+                {hotspotProfiles.length === 0 && !profilesLoading && (
                   <p className="mt-1.5 text-xs text-amber-600">
-                    Aucun forfait pour ce site. Utilisez « Nouveau
-                    forfait » pour en créer un.
+                    Aucun User Profile n'a été récupéré depuis le MikroTik associé à ce site.
                   </p>
+                )}
+
+                {selectedProfile && (
+                  <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    Profil MikroTik réel : <span className="font-semibold text-slate-700">{selectedProfile.name}</span>
+                    {selectedProfile["session-timeout"] && (
+                      <> · Session timeout : <span className="font-semibold text-slate-700">{selectedProfile["session-timeout"]}</span></>
+                    )}
+                    {selectedProfile["rate-limit"] && (
+                      <> · Rate limit : <span className="font-semibold text-slate-700">{selectedProfile["rate-limit"]}</span></>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
