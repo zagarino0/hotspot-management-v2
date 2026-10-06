@@ -260,7 +260,7 @@ async function reconcileSessionStatuses(): Promise<void> {
 
 /* ============================================================
    LIST
-============================================================
+============================================================ */
 
 export async function findSessions(filter?: {
   status?: SessionStatus;
