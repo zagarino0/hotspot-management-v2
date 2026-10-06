@@ -24,6 +24,7 @@ export interface MikrotikActiveUser {
   ipAddress: string | null;
   uploadBytes: number;
   downloadBytes: number;
+  uptimeSeconds: number;
 }
 
 export async function fetchActiveHotspotUsers(
@@ -80,7 +81,83 @@ function parseActiveUserRow(
 
     uploadBytes: parseByteCount(row["bytes-in"]),
     downloadBytes: parseByteCount(row["bytes-out"]),
+    uptimeSeconds: parseUptimeSeconds(row.uptime),
   };
+}
+
+function parseUptimeSeconds(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  if (typeof value !== "string") {
+    return 0;
+  }
+
+  const raw = value.trim().toLowerCase();
+
+  if (!raw) {
+    return 0;
+  }
+
+  let remaining = raw;
+  let seconds = 0;
+
+  const weeks = remaining.match(/^(\d+)w/);
+  if (weeks) {
+    seconds += Number(weeks[1]) * 7 * 24 * 60 * 60;
+    remaining = remaining.slice(weeks[0].length);
+  }
+
+  const days = remaining.match(/^(\d+)d/);
+  if (days) {
+    seconds += Number(days[1]) * 24 * 60 * 60;
+    remaining = remaining.slice(days[0].length);
+  }
+
+  remaining = remaining.trim();
+
+  const timeParts = remaining.split(":");
+  if (timeParts.length === 3) {
+    const [hours, minutes, secs] = timeParts.map(Number);
+
+    if ([hours, minutes, secs].every(Number.isFinite)) {
+      return Math.max(
+        0,
+        Math.floor(
+          seconds +
+            hours * 60 * 60 +
+            minutes * 60 +
+            secs
+        )
+      );
+    }
+  }
+
+  const durationPattern =
+    /(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?$/;
+
+  const match = remaining.match(durationPattern);
+
+  if (match) {
+    const hours = Number(match[1] ?? 0);
+    const minutes = Number(match[2] ?? 0);
+    const secs = Number(match[3] ?? 0);
+
+    if ([hours, minutes, secs].every(Number.isFinite)) {
+      return Math.max(
+        0,
+        Math.floor(
+          seconds +
+            hours * 60 * 60 +
+            minutes * 60 +
+            secs
+        )
+      );
+    }
+  }
+
+  return seconds;
 }
 
 function parseByteCount(value: unknown): number {
