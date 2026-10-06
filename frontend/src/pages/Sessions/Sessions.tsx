@@ -213,8 +213,13 @@ export default function Sessions() {
 
   const averageDurationSeconds = averageOf(
     sessions
-      .map((s) => s.durationSeconds)
-      .filter((v): v is number => v !== null)
+      .map((s) => toFiniteNumber(s.durationSeconds))
+      .filter(
+        (v): v is number =>
+          v !== null &&
+          v > 0 &&
+          v <= 365 * 24 * 60 * 60
+      )
   );
 
   return (
@@ -363,7 +368,7 @@ export default function Sessions() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1350px]">
+          <table className="w-full min-w-[1550px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -375,7 +380,7 @@ export default function Sessions() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Début
+                  Connexion / reconnexion
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -383,11 +388,11 @@ export default function Sessions() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Restant
+                  Déconnexion
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Fin prévue
+                  Restant après
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -495,13 +500,35 @@ function formatDateTime(value: string | Date): string {
   }).format(date);
 }
 
+function toFiniteNumber(value: number | string | null): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue)
+    ? numericValue
+    : null;
+}
+
 function formatDuration(totalSeconds: number): string {
-  if (!totalSeconds || totalSeconds <= 0) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
     return "—";
   }
 
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor(
+    (totalMinutes % (24 * 60)) / 60
+  );
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return hours > 0
+      ? `${days} j ${hours} h`
+      : `${days} j`;
+  }
 
   if (hours > 0) {
     return `${hours} h ${minutes} min`;
@@ -565,7 +592,14 @@ function SessionStat({
             {label}
           </p>
 
-          <p className="mt-2 text-[26px] font-bold tracking-[-0.03em] text-slate-950">
+          <p
+            className={[
+              "mt-2 font-bold tracking-[-0.03em] text-slate-950",
+              label === "Durée moyenne"
+                ? "whitespace-nowrap text-[22px]"
+                : "text-[26px]",
+            ].join(" ")}
+          >
             {value}
           </p>
         </div>
@@ -600,6 +634,23 @@ function SessionRow({
 
   const displayName =
     session.username || "Utilisateur inconnu";
+
+  const connectionLabel =
+    session.connectionSequence > 1
+      ? `Reconnexion #${session.connectionSequence}`
+      : "Première connexion";
+
+  const endedRemainingSeconds =
+    toFiniteNumber(
+      session.voucherRemainingSecondsAtEnd
+    );
+
+  const displayedRemainingAfterEnd =
+    session.status === "ACTIVE"
+      ? null
+      : endedRemainingSeconds !== null
+        ? endedRemainingSeconds
+        : null;
 
   const now = Date.now();
 
@@ -704,35 +755,76 @@ function SessionRow({
         )}
       </td>
 
-      <td className="px-5 py-4 text-xs text-slate-600">
-        {formatDateTime(session.startedAt)}
-      </td>
+      <td className="px-5 py-4">
+        <div className="text-sm font-semibold text-slate-700">
+          {connectionLabel}
+        </div>
 
-      <td className="px-5 py-4 text-sm font-medium text-slate-600">
-        {formatDuration(liveDuration ?? 0)}
+        <div className="mt-0.5 text-xs text-slate-500">
+          {formatDateTime(session.startedAt)}
+        </div>
       </td>
 
       <td className="px-5 py-4">
         <div className="text-sm font-semibold text-slate-700">
-          {remainingSeconds !== null
-            ? formatDuration(remainingSeconds)
-            : "—"}
+          {formatDuration(liveDuration ?? 0)}
         </div>
 
-        {session.voucherDurationSeconds !== null && (
-          <div className="mt-0.5 text-[10px] text-slate-400">
-            {formatDuration(
-              session.voucherUsedSeconds
-            )}{" "}
-            consommées
+        {session.status === "ACTIVE" && (
+          <div className="mt-0.5 text-[10px] text-emerald-600">
+            en cours
           </div>
         )}
       </td>
 
-      <td className="px-5 py-4 text-xs text-slate-600">
-        {plannedEnd
-          ? formatDateTime(plannedEnd)
-          : "—"}
+      <td className="px-5 py-4">
+        {session.endedAt ? (
+          <>
+            <div className="text-xs font-semibold text-slate-600">
+              {formatDateTime(session.endedAt)}
+            </div>
+
+            <div className="mt-0.5 text-[10px] text-slate-400">
+              {session.terminationReason === "DISCONNECTED"
+                ? "Déconnexion détectée"
+                : "Session clôturée"}
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-emerald-600">
+            Connexion active
+          </div>
+        )}
+      </td>
+
+      <td className="px-5 py-4">
+        {session.status === "ACTIVE" ? (
+          <>
+            <div className="text-sm font-semibold text-emerald-600">
+              {remainingSeconds !== null
+                ? formatDuration(remainingSeconds)
+                : "—"}
+            </div>
+
+            <div className="mt-0.5 text-[10px] text-slate-400">
+              restant maintenant
+            </div>
+          </>
+        ) : displayedRemainingAfterEnd !== null ? (
+          <>
+            <div className="text-sm font-semibold text-slate-700">
+              {formatDuration(displayedRemainingAfterEnd)}
+            </div>
+
+            <div className="mt-0.5 text-[10px] text-slate-400">
+              restant à la déconnexion
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-slate-400">
+            Non disponible
+          </div>
+        )}
       </td>
 
       <td className="px-5 py-4">
