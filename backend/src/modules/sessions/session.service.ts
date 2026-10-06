@@ -151,6 +151,7 @@ export async function syncRouterSessions(
         ipAddress: user.ipAddress,
         uploadBytes: user.uploadBytes,
         downloadBytes: user.downloadBytes,
+        uptimeSeconds: user.uptimeSeconds,
       });
     }
 
