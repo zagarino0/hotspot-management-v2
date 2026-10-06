@@ -134,3 +134,26 @@ function parseCreationDate(comment: string): string | null {
 
   return date.toISOString();
 }
+
+
+export async function updateHotspotUserComment(
+  api: RouterOSAPI,
+  username: string,
+  comment: string
+): Promise<void> {
+  const rows = await api.write("/ip/hotspot/user/print");
+  const target = rows.find(
+    (row: Record<string, unknown>) =>
+      typeof row.name === "string" &&
+      row.name.trim() === username.trim()
+  );
+
+  if (!target || typeof target[".id"] !== "string") {
+    throw new Error(`Utilisateur MikroTik "${username}" introuvable.`);
+  }
+
+  await api.write("/ip/hotspot/user/set", [
+    `=.id=${target[".id"]}`,
+    `=comment=${comment}`,
+  ]);
+}
