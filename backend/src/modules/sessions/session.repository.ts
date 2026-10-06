@@ -326,12 +326,12 @@ export async function findSessionHistory(
 
   if (siteId) {
     values.push(siteId);
-    conditions.push(`s.site_id = ${values.length}`);
+    conditions.push("s.site_id = $" + values.length);
   }
 
   if (routerId) {
     values.push(routerId);
-    conditions.push(`s.router_id = ${values.length}`);
+    conditions.push("s.router_id = $" + values.length);
   }
 
   const result = await pool.query<SessionRow>(
@@ -349,7 +349,7 @@ export async function findSessionHistory(
 
 /* ============================================================
    MARK TERMINATED (déconnexion manuelle déclenchée par un admin)
-============================================================
+============================================================ */
 
 export async function markSessionTerminated(
   id: string,
