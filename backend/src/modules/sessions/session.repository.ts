@@ -35,6 +35,33 @@ const SESSION_SELECT = `
     s.upload_bytes AS "uploadBytes",
     s.download_bytes AS "downloadBytes",
 
+    s.mikrotik_profile AS "mikrotikProfile",
+    s.session_time_left_seconds AS "sessionTimeLeftSeconds",
+    s.login_method AS "loginMethod",
+    s.cookie_present AS "cookiePresent",
+
+    (
+      SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
+      FROM session s2
+      WHERE s2.voucher_id = s.voucher_id
+    )::bigint AS "voucherUsedSeconds",
+
+    v.duration_seconds AS "voucherDurationSeconds",
+
+    CASE
+      WHEN v.duration_seconds IS NULL THEN NULL
+      ELSE GREATEST(
+        v.duration_seconds - (
+          SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
+          FROM session s2
+          WHERE s2.voucher_id = s.voucher_id
+        ),
+        0
+      )::bigint
+    END AS "voucherRemainingSeconds",
+
+    v.code AS "voucherCode",
+
     s.termination_reason AS "terminationReason",
 
     s.status,
@@ -44,6 +71,7 @@ const SESSION_SELECT = `
 
   FROM session s
   LEFT JOIN router r ON r.id = s.router_id
+  LEFT JOIN voucher v ON v.id = s.voucher_id
 `;
 
 const SESSION_LIST_LIMIT = 300;
@@ -146,7 +174,7 @@ export async function upsertActiveSession(
         AND status = 'ACTIVE'
         AND ended_at IS NULL
       LIMIT 1
-    `,
+    `
     [data.routerId, data.macAddress]
   );
 
@@ -155,21 +183,31 @@ export async function upsertActiveSession(
       `
         UPDATE session
         SET
-          username = COALESCE($2, username),
-          ip_address = $3::inet,
-          upload_bytes = $4,
-          download_bytes = $5,
-          started_at = NOW() - ($6::bigint * INTERVAL '1 second'),
-          duration_seconds = $6,
+          voucher_id = COALESCE($2, voucher_id),
+          username = COALESCE($3, username),
+          ip_address = $4::inet,
+          upload_bytes = $5,
+          download_bytes = $6,
+          mikrotik_profile = COALESCE($7, mikrotik_profile),
+          session_time_left_seconds = $8,
+          login_method = COALESCE($9, login_method),
+          cookie_present = $10,
+          started_at = NOW() - ($11::bigint * INTERVAL '1 second'),
+          duration_seconds = $11,
           updated_at = NOW()
         WHERE id = $1
-      `,
+      `
       [
         existing.rows[0].id,
+        data.voucherId ?? null,
         data.username,
         data.ipAddress,
         data.uploadBytes,
         data.downloadBytes,
+        data.mikrotikProfile,
+        data.sessionTimeLeftSeconds,
+        data.loginMethod,
+        data.cookiePresent,
         data.uptimeSeconds,
       ]
     );
@@ -182,6 +220,7 @@ export async function upsertActiveSession(
       INSERT INTO session (
         site_id,
         router_id,
+        voucher_id,
         username,
         mac_address,
         ip_address,
@@ -189,6 +228,10 @@ export async function upsertActiveSession(
         upload_bytes,
         download_bytes,
         duration_seconds,
+        mikrotik_profile,
+        session_time_left_seconds,
+        login_method,
+        cookie_present,
         status
       )
       VALUES (
@@ -196,24 +239,102 @@ export async function upsertActiveSession(
         $2,
         $3,
         $4,
-        $5::inet,
-        NOW() - ($6::bigint * INTERVAL '1 second'),
-        $7,
+        $5,
+        $6::inet,
+        NOW() - ($7::bigint * INTERVAL '1 second'),
         $8,
         $9,
+        $7,
+        $10,
+        $11,
+        $12,
+        $13,
         'ACTIVE'
       )
-    `,
+    `
     [
       data.siteId,
       data.routerId,
+      data.voucherId ?? null,
       data.username,
       data.macAddress,
       data.ipAddress,
       data.uptimeSeconds,
       data.uploadBytes,
       data.downloadBytes,
+      data.mikrotikProfile,
+      data.sessionTimeLeftSeconds,
+      data.loginMethod,
+      data.cookiePresent,
     ]
+  );
+}
+/* ============================================================
+   VOUCHER
+============================================================ */
+
+export async function findVoucherIdByCode(
+  siteId: string,
+  code: string
+): Promise<string | null> {
+  const result = await pool.query<{ id: string }>(
+    `
+      SELECT id
+      FROM voucher
+      WHERE site_id = $1
+        AND code = $2
+      LIMIT 1
+    `
+    [siteId, code]
+  );
+
+  return result.rows[0]?.id ?? null;
+}
+
+export async function activateVoucher(
+  voucherId: string
+): Promise<void> {
+  await pool.query(
+    `
+      UPDATE voucher
+      SET
+        status = CASE
+          WHEN status = 'UNUSED' THEN 'ACTIVE'
+          ELSE status
+        END,
+        activated_at = COALESCE(activated_at, NOW()),
+        used_at = COALESCE(used_at, NOW()),
+        updated_at = NOW()
+      WHERE id = $1
+        AND status NOT IN ('DISABLED', 'REVOKED', 'EXPIRED')
+    `
+    [voucherId]
+  );
+}
+
+export async function syncVoucherUsage(
+  voucherId: string
+): Promise<void> {
+  await pool.query(
+    `
+      UPDATE voucher v
+      SET
+        status = CASE
+          WHEN v.status IN ('DISABLED', 'REVOKED') THEN v.status
+          WHEN v.duration_seconds IS NOT NULL
+            AND (
+              SELECT COALESCE(SUM(COALESCE(s.duration_seconds, 0)), 0)
+              FROM session s
+              WHERE s.voucher_id = v.id
+            ) >= v.duration_seconds
+            THEN 'EXPIRED'
+          WHEN v.status = 'UNUSED' THEN 'ACTIVE'
+          ELSE v.status
+        END,
+        updated_at = NOW()
+      WHERE v.id = $1
+    `
+    [voucherId]
   );
 }
 
