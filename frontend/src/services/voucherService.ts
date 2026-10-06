@@ -53,6 +53,13 @@ export interface GenerateVouchersResult {
   vouchers: Voucher[];
 }
 
+export interface VoucherStats {
+  total: number;
+  available: number;
+  used: number;
+  expired: number;
+}
+
 interface ApiEnvelope<T> {
   success: boolean;
   data: T;
@@ -70,6 +77,14 @@ export async function getVouchers(filter?: {
         ? { status: filter.status }
         : undefined,
     }
+  );
+
+  return response.data.data;
+}
+
+export async function getVoucherStats(): Promise<VoucherStats> {
+  const response = await api.get<ApiEnvelope<VoucherStats>>(
+    "/api/vouchers/stats"
   );
 
   return response.data.data;
