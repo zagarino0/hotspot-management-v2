@@ -76,6 +76,7 @@ export interface LiveSessionData {
   sessionTimeLeftSeconds: number | null;
   loginMethod: string | null;
   mikrotikProfile: string | null;
+  mikrotikLimitUptimeSeconds: number | null;
   cookiePresent: boolean;
   voucherId?: string | null;
 }
