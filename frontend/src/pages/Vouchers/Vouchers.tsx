@@ -17,9 +17,11 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import {
   deleteVoucher,
   getVouchers,
+  getVoucherStats,
   updateVoucherStatus,
   type Voucher,
   type VoucherStatus,
+  type VoucherStats,
 } from "../../services/voucherService";
 
 const STATUS_CONFIG: Record<
@@ -81,6 +83,12 @@ export default function Vouchers() {
   const navigate = useNavigate();
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [stats, setStats] = useState<VoucherStats>({
+    total: 0,
+    available: 0,
+    used: 0,
+    expired: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -110,8 +118,13 @@ export default function Vouchers() {
       setLoading(true);
       setError(null);
 
-      const data = await getVouchers();
+      const [data, voucherStats] = await Promise.all([
+        getVouchers(),
+        getVoucherStats(),
+      ]);
+
       setVouchers(data);
+      setStats(voucherStats);
     } catch (err) {
       console.error(
         "Erreur lors du chargement des vouchers :",
@@ -202,17 +215,6 @@ export default function Vouchers() {
     );
   }, [vouchers, statusFilter, search]);
 
-  const unusedCount = vouchers.filter(
-    (v) => v.status === "UNUSED"
-  ).length;
-
-  const usedCount = vouchers.filter(
-    (v) => v.status === "ACTIVE" || v.usedAt !== null
-  ).length;
-
-  const expiredCount = vouchers.filter(
-    (v) => v.status === "EXPIRED"
-  ).length;
 
   async function handleCopy(code: string) {
     try {
@@ -274,26 +276,26 @@ export default function Vouchers() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <VoucherStat
           label="Total vouchers"
-          value={String(vouchers.length)}
+          value={String(stats.total)}
           icon={Ticket}
         />
 
         <VoucherStat
           label="Disponibles"
-          value={String(unusedCount)}
+          value={String(stats.available)}
           icon={CheckCircle2}
           positive
         />
 
         <VoucherStat
           label="Utilisés"
-          value={String(usedCount)}
+          value={String(stats.used)}
           icon={Copy}
         />
 
         <VoucherStat
           label="Expirés"
-          value={String(expiredCount)}
+          value={String(stats.expired)}
           icon={XCircle}
         />
       </section>
