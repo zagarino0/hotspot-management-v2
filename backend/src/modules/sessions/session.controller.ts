@@ -115,11 +115,11 @@ export async function historySessions(
    SYNC ALL ROUTERS (déclenchement manuel du live sync)
 ============================================================
 
-export async function syncSessions(
+export const syncSessions = async (
   _req: Request,
   res: Response,
   next: NextFunction
-) {
+) => {
   try {
     const results = await syncAllRouters();
 
