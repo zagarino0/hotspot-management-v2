@@ -80,8 +80,18 @@ async function openSiteMikroTikConnection(
 
   const password = await decryptSecret(credential.encryptedSecret);
 
+  const host = (router.domain_name || router.management_ip || "")
+    .split("/")[0]
+    .trim();
+
+  if (!host) {
+    throw new Error(
+      "Le routeur MikroTik associé au site ne possède aucune adresse de connexion valide."
+    );
+  }
+
   const config: MikroTikConnectionConfig = {
-    host: router.domain_name || router.management_ip!,
+    host,
     port: router.api_port,
     user: credential.username,
     password,
