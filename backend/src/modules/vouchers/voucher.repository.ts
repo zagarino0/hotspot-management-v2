@@ -20,6 +20,7 @@ const VOUCHER_SELECT = `
 
     v.plan_id AS "planId",
     p.name AS "planName",
+    v.mikrotik_profile AS "mikrotikProfile",
     p.price::float8 AS "planPrice",
     p.currency AS "planCurrency",
 
@@ -204,12 +205,13 @@ export async function generateVoucherBatch(
           plan_id,
           name,
           prefix,
+          mikrotik_profile,
           quantity,
           created_by,
           status
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, 'ACTIVE'
+          $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
         )
         RETURNING id
       `,
@@ -218,6 +220,7 @@ export async function generateVoucherBatch(
         data.planId,
         data.batchName,
         data.prefix ?? null,
+        data.mikrotikProfile ?? null,
         data.quantity,
         data.createdBy ?? null,
       ]
@@ -267,6 +270,7 @@ async function insertVoucherWithRetry(
     planId: string;
     batchId: string;
     prefix?: string | null;
+    mikrotikProfile?: string | null;
     durationSeconds: number | null;
     dataLimitBytes: number | null;
     downloadSpeedBps: number | null;
@@ -290,6 +294,7 @@ async function insertVoucherWithRetry(
             plan_id,
             batch_id,
             code,
+            mikrotik_profile,
             duration_seconds,
             data_limit_bytes,
             download_speed_bps,
@@ -297,7 +302,7 @@ async function insertVoucherWithRetry(
             status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, 'UNUSED'
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, 'UNUSED'
           )
           RETURNING id
         `,
@@ -306,6 +311,7 @@ async function insertVoucherWithRetry(
           input.planId,
           input.batchId,
           code,
+          input.mikrotikProfile ?? null,
           input.durationSeconds,
           input.dataLimitBytes,
           input.downloadSpeedBps,
