@@ -7,8 +7,6 @@ import {
   updateVoucherStatus,
 } from "./voucher.repository.js";
 
-import { findVoucherUsageHistory } from "./voucherStats.repository.js";
-
 import { findPlanById } from "../plans/plan.repository.js";
 
 import {
@@ -64,24 +62,24 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
     });
 
     try {
-      const [users, history] = await Promise.all([
-        fetchHotspotUsers(api),
-        findVoucherUsageHistory(router.siteId, router.id),
-      ]);
+      const users = await fetchHotspotUsers(api);
 
       for (const user of users) {
-        const username = user.username.trim().toLowerCase();
+        let status: MikrotikVoucherRow["status"] =
+          user.macAddress ? "ACTIVE" : "UNUSED";
 
-        let status: MikrotikVoucherRow["status"] = user.macAddress
-          ? "ACTIVE"
-          : "UNUSED";
-
-        if (history.expiredUsernames.has(username)) {
+        // MikroTik est la source de vérité :
+        // Limit Uptime = Uptime => quota entièrement consommé => EXPIRED.
+        if (
+          user.limitUptimeSeconds !== null &&
+          user.limitUptimeSeconds > 0 &&
+          user.uptimeSeconds >= user.limitUptimeSeconds
+        ) {
           status = "EXPIRED";
         }
 
         rows.push({
-          id: `${router.id}:${user.username}`,
+          id: ${router.id}:${user.username},
           code: user.username,
           profile: user.profile,
           durationSeconds: user.limitUptimeSeconds,
@@ -146,31 +144,39 @@ export async function getVoucherStats(): Promise<VoucherStats> {
     });
 
     try {
-      const [hotspotUsers, history] =
-        await Promise.all([
-          fetchHotspotUsers(api),
-          findVoucherUsageHistory(router.siteId, router.id),
-        ]);
+      const hotspotUsers = await fetchHotspotUsers(api);
 
-      // Dans MikroTik, le voucher est considéré comme utilisé
-      // dès que son compte /ip/hotspot/user possède une adresse MAC.
-      // Il ne faut donc pas limiter ce compteur aux connexions
-      // actuellement présentes dans /ip/hotspot/active.
+      const expiredUsers = hotspotUsers.filter(
+        (user) =>
+          user.limitUptimeSeconds !== null &&
+          user.limitUptimeSeconds > 0 &&
+          user.uptimeSeconds >= user.limitUptimeSeconds
+      );
+
       const usedCount = hotspotUsers.filter(
-        (user) => Boolean(user.macAddress?.trim())
+        (user) =>
+          Boolean(user.macAddress?.trim()) &&
+          !(
+            user.limitUptimeSeconds !== null &&
+            user.limitUptimeSeconds > 0 &&
+            user.uptimeSeconds >= user.limitUptimeSeconds
+          )
       ).length;
 
-      // Disponible = voucher qui n'a encore aucune adresse MAC.
-      // Une reconnexion active ne change pas cette règle : la MAC
-      // enregistrée sur le compte MikroTik est la source de vérité.
       const availableCount = hotspotUsers.filter(
-        (user) => !user.macAddress?.trim()
+        (user) =>
+          !user.macAddress?.trim() &&
+          !(
+            user.limitUptimeSeconds !== null &&
+            user.limitUptimeSeconds > 0 &&
+            user.uptimeSeconds >= user.limitUptimeSeconds
+          )
       ).length;
 
       total += hotspotUsers.length;
       used += usedCount;
       available += availableCount;
-      expired += history.expiredSessionCount;
+      expired += expiredUsers.length;
     } finally {
       await api.close();
     }
