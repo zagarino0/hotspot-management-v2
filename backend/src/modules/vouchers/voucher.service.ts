@@ -73,13 +73,13 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
         if (
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
-          user.uptimeSeconds >= user.limitUptimeSeconds
+          user.uptimeSeconds === user.limitUptimeSeconds
         ) {
           status = "EXPIRED";
         }
 
         rows.push({
-          id: ${router.id}:${user.username},
+          id: `${router.id}:${user.username}`,
           code: user.username,
           profile: user.profile,
           durationSeconds: user.limitUptimeSeconds,
@@ -150,7 +150,7 @@ export async function getVoucherStats(): Promise<VoucherStats> {
         (user) =>
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
-          user.uptimeSeconds >= user.limitUptimeSeconds
+          user.uptimeSeconds === user.limitUptimeSeconds
       );
 
       const usedCount = hotspotUsers.filter(
@@ -159,7 +159,7 @@ export async function getVoucherStats(): Promise<VoucherStats> {
           !(
             user.limitUptimeSeconds !== null &&
             user.limitUptimeSeconds > 0 &&
-            user.uptimeSeconds >= user.limitUptimeSeconds
+            user.uptimeSeconds === user.limitUptimeSeconds
           )
       ).length;
 
@@ -169,7 +169,7 @@ export async function getVoucherStats(): Promise<VoucherStats> {
           !(
             user.limitUptimeSeconds !== null &&
             user.limitUptimeSeconds > 0 &&
-            user.uptimeSeconds >= user.limitUptimeSeconds
+            user.uptimeSeconds === user.limitUptimeSeconds
           )
       ).length;
 
