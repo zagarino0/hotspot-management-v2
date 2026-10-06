@@ -14,8 +14,13 @@ export async function findVoucherUsageHistory(
       FROM session
       WHERE site_id = $1
         AND router_id = $2
-        AND status IN ('COMPLETED', 'TERMINATED')
-        AND voucher_remaining_seconds_at_end = 0
+        AND (
+          status = 'COMPLETED'
+          OR (
+            status = 'TERMINATED'
+            AND voucher_remaining_seconds_at_end = 0
+          )
+        )
     `,
     [siteId, routerId]
   );
