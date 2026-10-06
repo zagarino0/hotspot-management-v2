@@ -78,8 +78,13 @@ export default function SessionHistoryModal({
     [history]
   );
 
+  // L'état réel du groupe est prioritaire : une connexion ACTIVE
+  // représente toujours l'état courant, même si un historique plus
+  // ancien est encore présent dans la réponse.
   const latestSession =
-    orderedHistory[0] ?? session;
+    history.find((item) => item.status === "ACTIVE") ??
+    orderedHistory[0] ??
+    session;
 
   const totalQuota =
     toNumber(latestSession.voucherDurationSeconds);
