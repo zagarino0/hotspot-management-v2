@@ -321,6 +321,8 @@ export async function findSessionHistory(
   siteId?: string,
   routerId?: string
 ): Promise<SessionRow[]> {
+  await reconcileSessionStatuses();
+
   const conditions = ["s.username = $1"];
   const values: string[] = [username];
 
