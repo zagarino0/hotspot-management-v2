@@ -42,6 +42,11 @@ export interface SessionRow {
   loginMethod: string | null;
   cookiePresent: boolean;
 
+  voucherUsedSeconds: number;
+  voucherDurationSeconds: number | null;
+  voucherRemainingSeconds: number | null;
+  voucherCode: string | null;
+
   terminationReason: string | null;
 
   status: SessionStatus;
