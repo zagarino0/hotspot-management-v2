@@ -20,7 +20,7 @@ import {
 
 import {
   activateVoucher,
-  backfillMikrotikQuotaForUser,
+  backfillMikrotikMetadataForUser,
   closeSessionsNotIn,
   findSessionById,
   findSessions,
@@ -207,6 +207,20 @@ export async function syncRouterSessions(
       ])
     );
 
+    // Enrichit aussi l'historique des utilisateurs actuellement
+    // déconnectés. /ip/hotspot/user/print est la source du
+    // profil et du quota total, contrairement à /active/print
+    // qui ne contient que les connexions en cours.
+    for (const hotspotUser of hotspotUsers) {
+      await backfillMikrotikMetadataForUser(
+        router.siteId,
+        router.id,
+        hotspotUser.username,
+        hotspotUser.profile,
+        hotspotUser.limitUptimeSeconds
+      );
+    }
+
     const cookieKeys = new Set(
       cookies
         .filter(
@@ -256,10 +270,11 @@ export async function syncRouterSessions(
         user.username !== null &&
         mikrotikLimitUptimeSeconds !== null
       ) {
-        await backfillMikrotikQuotaForUser(
+        await backfillMikrotikMetadataForUser(
           router.siteId,
           router.id,
           user.username,
+          mikrotikProfile,
           mikrotikLimitUptimeSeconds
         );
       }
