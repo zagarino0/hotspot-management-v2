@@ -217,10 +217,10 @@ export async function syncRouterSessions(
       cookies = [];
     }
 
-    const profileByUsername = new Map(
+    const hotspotUserByUsername = new Map(
       hotspotUsers.map((user) => [
         user.username,
-        user.profile,
+        user,
       ])
     );
 
@@ -252,10 +252,16 @@ export async function syncRouterSessions(
             )
           : null;
 
-      const mikrotikProfile =
+      const hotspotUser =
         user.username !== null
-          ? profileByUsername.get(user.username) ?? null
+          ? hotspotUserByUsername.get(user.username) ?? null
           : null;
+
+      const mikrotikProfile =
+        hotspotUser?.profile ?? null;
+
+      const mikrotikLimitUptimeSeconds =
+        hotspotUser?.limitUptimeSeconds ?? null;
 
       const cookiePresent =
         user.username !== null &&
@@ -276,6 +282,7 @@ export async function syncRouterSessions(
           user.sessionTimeLeftSeconds,
         loginMethod: user.loginMethod,
         mikrotikProfile,
+        mikrotikLimitUptimeSeconds,
         cookiePresent,
         voucherId,
       });
