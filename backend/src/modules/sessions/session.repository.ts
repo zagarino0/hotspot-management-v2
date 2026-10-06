@@ -162,9 +162,17 @@ export async function markSessionTerminated(
           EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN v.duration_seconds IS NULL THEN NULL
+            WHEN (
+              SELECT v.duration_seconds
+              FROM voucher v
+              WHERE v.id = s.voucher_id
+            ) IS NULL THEN NULL
             ELSE GREATEST(
-              v.duration_seconds - (
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ) - (
                 SELECT COALESCE(
                   SUM(
                     CASE
@@ -183,9 +191,7 @@ export async function markSessionTerminated(
           END,
         termination_reason = $2,
         updated_at = NOW()
-      FROM voucher v
       WHERE s.id = $1
-        AND v.id = s.voucher_id
     `,
     [id, reason]
   );
@@ -414,9 +420,17 @@ export async function closeSessionsNotIn(
         duration_seconds = COALESCE(s.duration_seconds, 0),
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN v.duration_seconds IS NULL THEN NULL
+            WHEN (
+              SELECT v.duration_seconds
+              FROM voucher v
+              WHERE v.id = s.voucher_id
+            ) IS NULL THEN NULL
             ELSE GREATEST(
-              v.duration_seconds - (
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ) - (
                 SELECT COALESCE(
                   SUM(COALESCE(s2.duration_seconds, 0)),
                   0
@@ -429,11 +443,9 @@ export async function closeSessionsNotIn(
           END,
         termination_reason = 'DISCONNECTED',
         updated_at = NOW()
-      FROM voucher v
       WHERE s.router_id = $1
         AND s.status = 'ACTIVE'
         AND s.ended_at IS NULL
-        AND v.id = s.voucher_id
         AND (
           s.mac_address IS NULL
           OR NOT (s.mac_address = ANY($2::text[]))
@@ -468,9 +480,17 @@ export async function closeAllActiveForRouter(
           EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN v.duration_seconds IS NULL THEN NULL
+            WHEN (
+              SELECT v.duration_seconds
+              FROM voucher v
+              WHERE v.id = s.voucher_id
+            ) IS NULL THEN NULL
             ELSE GREATEST(
-              v.duration_seconds - (
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ) - (
                 SELECT COALESCE(
                   SUM(
                     CASE
@@ -489,11 +509,9 @@ export async function closeAllActiveForRouter(
           END,
         termination_reason = $2,
         updated_at = NOW()
-      FROM voucher v
       WHERE s.router_id = $1
         AND s.status = 'ACTIVE'
         AND s.ended_at IS NULL
-        AND v.id = s.voucher_id
     `,
     [routerId, reason]
   );
