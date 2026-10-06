@@ -313,8 +313,43 @@ export async function findSessionById(
 }
 
 /* ============================================================
-   MARK TERMINATED (déconnexion manuelle déclenchée par un admin)
+   HISTORIQUE D'UN UTILISATEUR
 ============================================================ */
+
+export async function findSessionHistory(
+  username: string,
+  siteId?: string,
+  routerId?: string
+): Promise<SessionRow[]> {
+  const conditions = ["s.username = $1"];
+  const values: string[] = [username];
+
+  if (siteId) {
+    values.push(siteId);
+    conditions.push(`s.site_id = ${values.length}`);
+  }
+
+  if (routerId) {
+    values.push(routerId);
+    conditions.push(`s.router_id = ${values.length}`);
+  }
+
+  const result = await pool.query<SessionRow>(
+    `
+      ${SESSION_SELECT}
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY s.started_at ASC
+      LIMIT ${SESSION_LIST_LIMIT}
+    `,
+    values
+  );
+
+  return result.rows;
+}
+
+/* ============================================================
+   MARK TERMINATED (déconnexion manuelle déclenchée par un admin)
+============================================================
 
 export async function markSessionTerminated(
   id: string,
