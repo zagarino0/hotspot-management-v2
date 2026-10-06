@@ -30,6 +30,7 @@ import {
 } from "./session.repository.js";
 
 import type { SessionStatus } from "../../routes/session.types.js";
+import type { MikrotikHotspotCookie } from "../../mikrotik/hotspotCookies.js";
 
 /* ============================================================
    LIST
@@ -145,7 +146,7 @@ export async function syncRouterSessions(
     const activeUsers = await fetchActiveHotspotUsers(api);
     const hotspotUsers = await fetchHotspotUsers(api);
 
-    let cookies = [];
+    let cookies: MikrotikHotspotCookie[] = [];
     try {
       cookies = await fetchHotspotCookies(api);
     } catch {
