@@ -159,8 +159,8 @@ export async function upsertActiveSession(
           ip_address = $3::inet,
           upload_bytes = $4,
           download_bytes = $5,
-          duration_seconds =
-            EXTRACT(EPOCH FROM (NOW() - started_at))::bigint,
+          started_at = NOW() - ($6::bigint * INTERVAL '1 second'),
+          duration_seconds = $6,
           updated_at = NOW()
         WHERE id = $1
       `,
@@ -170,6 +170,7 @@ export async function upsertActiveSession(
         data.ipAddress,
         data.uploadBytes,
         data.downloadBytes,
+        data.uptimeSeconds,
       ]
     );
 
@@ -184,12 +185,23 @@ export async function upsertActiveSession(
         username,
         mac_address,
         ip_address,
+        started_at,
         upload_bytes,
         download_bytes,
+        duration_seconds,
         status
       )
       VALUES (
-        $1, $2, $3, $4, $5::inet, $6, $7, 'ACTIVE'
+        $1,
+        $2,
+        $3,
+        $4,
+        $5::inet,
+        NOW() - ($6::bigint * INTERVAL '1 second'),
+        $7,
+        $8,
+        $8,
+        'ACTIVE'
       )
     `,
     [
@@ -198,6 +210,7 @@ export async function upsertActiveSession(
       data.username,
       data.macAddress,
       data.ipAddress,
+      data.uptimeSeconds,
       data.uploadBytes,
       data.downloadBytes,
     ]
