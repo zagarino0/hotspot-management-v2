@@ -322,6 +322,9 @@ export default function Vouchers() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
 
 /* ================================================================
    STAT
