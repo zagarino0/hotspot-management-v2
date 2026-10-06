@@ -157,16 +157,6 @@ export async function syncRouterSessions(
 
     try {
       const hotspotLogs = await fetchHotspotLogs(api);
-      const latestLogoutByUserIp = new Map<
-        string,
-        {
-          username: string;
-          ipAddress: string;
-          endedAt: string;
-          reason: string | null;
-        }
-      >();
-
       for (const event of hotspotLogs) {
         if (
           event.eventType !== "LOGOUT" ||
@@ -182,26 +172,18 @@ export async function syncRouterSessions(
           continue;
         }
 
-        const endedAt = parsedDate.toISOString();
-        const key = `${event.username}|${event.ipAddress}`;
-        const existing = latestLogoutByUserIp.get(key);
-
-        if (
-          !existing ||
-          new Date(existing.endedAt).getTime() <
-            parsedDate.getTime()
-        ) {
-          latestLogoutByUserIp.set(key, {
-            username: event.username,
-            ipAddress: event.ipAddress,
-            endedAt,
-            reason: event.logoutReason,
-          });
-        }
+        logoutEvents.push({
+          username: event.username,
+          ipAddress: event.ipAddress,
+          endedAt: parsedDate.toISOString(),
+          reason: event.logoutReason,
+        });
       }
 
-      logoutEvents = Array.from(
-        latestLogoutByUserIp.values()
+      logoutEvents.sort(
+        (a, b) =>
+          new Date(a.endedAt).getTime() -
+          new Date(b.endedAt).getTime()
       );
     } catch {
       // Le journal est une source historique complémentaire :
