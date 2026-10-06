@@ -59,4 +59,5 @@ export interface LiveSessionData {
 
   uploadBytes: number;
   downloadBytes: number;
+  uptimeSeconds: number;
 }
