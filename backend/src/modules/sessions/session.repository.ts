@@ -52,15 +52,46 @@ const SESSION_SELECT = `
       WHEN v.duration_seconds IS NULL THEN NULL
       ELSE GREATEST(
         v.duration_seconds - (
-          SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
+          SELECT COALESCE(
+            SUM(COALESCE(s2.duration_seconds, 0)),
+            0
+          )
           FROM session s2
           WHERE s2.voucher_id = s.voucher_id
+            AND (
+              s2.started_at < s.started_at
+              OR (
+                s2.started_at = s.started_at
+                AND s2.id <= s.id
+              )
+            )
         ),
         0
       )::bigint
     END AS "voucherRemainingSeconds",
 
-    s.voucher_remaining_seconds_at_end AS "voucherRemainingSecondsAtEnd",
+    CASE
+      WHEN v.duration_seconds IS NULL THEN NULL
+      ELSE GREATEST(
+        v.duration_seconds - (
+          SELECT COALESCE(
+            SUM(COALESCE(s2.duration_seconds, 0)),
+            0
+          )
+          FROM session s2
+          WHERE s2.voucher_id = s.voucher_id
+            AND (
+              s2.started_at < s.started_at
+              OR (
+                s2.started_at = s.started_at
+                AND s2.id <= s.id
+              )
+            )
+        ),
+        0
+      )::bigint
+    END AS "voucherRemainingSecondsAtEnd",
+
 
     v.code AS "voucherCode",
 
