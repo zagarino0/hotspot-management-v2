@@ -15,7 +15,7 @@ import {
 } from "../routers/router.repository.js";
 
 import { connectMikroTik } from "../../mikrotik/connection.js";
-import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
+import { fetchHotspotUsers, updateHotspotUserComment } from "../../mikrotik/hotspotUsers.js";
 import { decryptSecret } from "../../lib/crypto.js";
 
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -110,6 +110,85 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
   }
 
   return rows;
+}
+
+export async function updateMikrotikVoucherComment(
+  routerId: string,
+  username: string,
+  comment: string
+): Promise<MikrotikVoucherRow> {
+  const router = await findRoutersForSync().then((routers) =>
+    routers.find((item) => item.id === routerId)
+  );
+
+  if (!router) {
+    throw notFoundError("Routeur introuvable.");
+  }
+
+  const credential = await findRouterCredential(router.id);
+
+  if (!credential) {
+    throw new Error(
+      `Aucun identifiant MikroTik enregistré pour le routeur "${router.name}".`
+    );
+  }
+
+  const api = await connectMikroTik({
+    host: router.managementIp.split("/")[0].trim(),
+    port: router.apiPort,
+    user: credential.username,
+    password: decryptSecret(credential.encryptedSecret),
+  });
+
+  try {
+    await updateHotspotUserComment(api, username, comment.trim());
+
+    const users = await fetchHotspotUsers(api);
+    const user = users.find(
+      (item) => item.username.toLowerCase() === username.trim().toLowerCase()
+    );
+
+    if (!user) {
+      throw notFoundError("Voucher introuvable sur MikroTik.");
+    }
+
+    const quotaExhausted =
+      user.limitUptimeSeconds !== null &&
+      user.limitUptimeSeconds > 0 &&
+      user.uptimeSeconds === user.limitUptimeSeconds;
+
+    const hasMac = Boolean(user.macAddress?.trim());
+    const withinQuota =
+      user.limitUptimeSeconds === null ||
+      user.uptimeSeconds <= user.limitUptimeSeconds;
+
+    let status: MikrotikVoucherRow["status"] = "UNUSED";
+
+    if (quotaExhausted) {
+      status = "EXPIRED";
+    } else if (hasMac && withinQuota) {
+      status = "ACTIVE";
+    } else if (!hasMac && user.uptimeSeconds === 0) {
+      status = "UNUSED";
+    }
+
+    return {
+      id: `${router.id}:${user.username}`,
+      code: user.username,
+      profile: user.profile,
+      durationSeconds: user.limitUptimeSeconds,
+      siteId: router.siteId,
+      siteName: router.name,
+      routerId: router.id,
+      routerName: router.name,
+      macAddress: user.macAddress,
+      comment: user.comment,
+      createdAt: user.createdAt,
+      status,
+    };
+  } finally {
+    await api.close();
+  }
 }
 
 export async function getVouchers(filter?: {
