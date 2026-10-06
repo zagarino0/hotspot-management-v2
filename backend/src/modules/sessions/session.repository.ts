@@ -338,6 +338,22 @@ export async function syncVoucherUsage(
   );
 }
 
+export async function findVoucherIdsByRouter(
+  routerId: string
+): Promise<string[]> {
+  const result = await pool.query<{ voucherId: string }>(
+    `
+      SELECT DISTINCT voucher_id AS "voucherId"
+      FROM session
+      WHERE router_id = $1
+        AND voucher_id IS NOT NULL
+    `,
+    [routerId]
+  );
+
+  return result.rows.map((row) => row.voucherId);
+}
+
 /* ============================================================
    CLOSE SESSIONS NOT IN LIST
    Toute session ACTIVE en base pour ce routeur qui n'apparaît
@@ -354,8 +370,7 @@ export async function closeSessionsNotIn(
       SET
         status = 'COMPLETED',
         ended_at = NOW(),
-        duration_seconds =
-          EXTRACT(EPOCH FROM (NOW() - started_at))::bigint,
+        duration_seconds = COALESCE(duration_seconds, 0),
         termination_reason = 'DISCONNECTED',
         updated_at = NOW()
       WHERE router_id = $1
