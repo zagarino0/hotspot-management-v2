@@ -3,6 +3,8 @@ import {
   fetchActiveHotspotUsers,
   removeActiveHotspotUser,
 } from "../../mikrotik/hotspotActive.js";
+import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
+import { fetchHotspotCookies } from "../../mikrotik/hotspotCookies.js";
 
 import { decryptSecret } from "../../lib/crypto.js";
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -16,10 +18,13 @@ import {
 } from "../routers/router.repository.js";
 
 import {
+  activateVoucher,
   closeSessionsNotIn,
   findSessionById,
   findSessions,
+  findVoucherIdByCode,
   markSessionTerminated,
+  syncVoucherUsage,
   upsertActiveSession,
 } from "./session.repository.js";
 
@@ -137,12 +142,63 @@ export async function syncRouterSessions(
 
   try {
     const activeUsers = await fetchActiveHotspotUsers(api);
+    const hotspotUsers = await fetchHotspotUsers(api);
+
+    let cookies = [];
+    try {
+      cookies = await fetchHotspotCookies(api);
+    } catch {
+      // Les cookies sont une donnée complémentaire : une absence
+      // de permission ou de support ne doit pas bloquer le live sync.
+      cookies = [];
+    }
+
+    const profileByUsername = new Map(
+      hotspotUsers.map((user) => [
+        user.username,
+        user.profile,
+      ])
+    );
+
+    const cookieKeys = new Set(
+      cookies
+        .filter(
+          (cookie) =>
+            cookie.username !== null &&
+            cookie.macAddress !== null
+        )
+        .map(
+          (cookie) =>
+            `${cookie.username}|${cookie.macAddress}`
+        )
+    );
 
     const usableUsers = activeUsers.filter(
       (user) => user.macAddress !== null
     );
 
+    const voucherIds = new Set<string>();
+
     for (const user of usableUsers) {
+      const voucherId =
+        user.username !== null
+          ? await findVoucherIdByCode(
+              router.siteId,
+              user.username
+            )
+          : null;
+
+      const mikrotikProfile =
+        user.username !== null
+          ? profileByUsername.get(user.username) ?? null
+          : null;
+
+      const cookiePresent =
+        user.username !== null &&
+        cookieKeys.has(
+          `${user.username}|${user.macAddress}`
+        );
+
       await upsertActiveSession({
         siteId: router.siteId,
         routerId: router.id,
@@ -152,13 +208,31 @@ export async function syncRouterSessions(
         uploadBytes: user.uploadBytes,
         downloadBytes: user.downloadBytes,
         uptimeSeconds: user.uptimeSeconds,
+        sessionTimeLeftSeconds:
+          user.sessionTimeLeftSeconds,
+        loginMethod: user.loginMethod,
+        mikrotikProfile,
+        cookiePresent,
+        voucherId,
       });
+
+      if (voucherId) {
+        voucherIds.add(voucherId);
+        await activateVoucher(voucherId);
+      }
     }
 
     const closedCount = await closeSessionsNotIn(
       router.id,
       usableUsers.map((user) => user.macAddress as string)
     );
+
+    // Recalcule le temps cumulé des vouchers concernés.
+    // Une reconnexion crée une nouvelle session, mais le cumul
+    // reste attaché au même voucher.
+    for (const voucherId of voucherIds) {
+      await syncVoucherUsage(voucherId);
+    }
 
     await updateRouterHealth({
       routerId: router.id,
