@@ -4,6 +4,7 @@ export interface MikrotikHotspotUser {
   username: string;
   profile: string | null;
   limitUptimeSeconds: number | null;
+  uptimeSeconds: number;
   macAddress: string | null;
   comment: string | null;
   createdAt: string | null;
@@ -27,6 +28,8 @@ export async function fetchHotspotUsers(
       limitUptimeSeconds: parseOptionalTimeSeconds(
         row["limit-uptime"]
       ),
+      uptimeSeconds:
+        parseOptionalTimeSeconds(row.uptime) ?? 0,
       macAddress:
         typeof row["mac-address"] === "string"
           ? row["mac-address"].trim().toUpperCase() || null
