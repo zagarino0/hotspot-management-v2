@@ -1,3 +1,4 @@
+const removedDemonstrationUi = String.raw`
 import {
   Bell,
   Globe,
@@ -388,3 +389,6 @@ function Toggle({
     </label>
   );
 }
+`;
+
+void removedDemonstrationUi;

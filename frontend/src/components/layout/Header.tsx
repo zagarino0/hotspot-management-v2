@@ -4,6 +4,9 @@ import {
   Menu,
   UserCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getSites } from "../../services/siteService";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -12,6 +15,29 @@ interface HeaderProps {
 export default function Header({
   onMenuClick,
 }: HeaderProps) {
+  const { user } = useAuth();
+  const [siteCount, setSiteCount] = useState<number | null>(null);
+  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void getSites()
+      .then((sites) => {
+        if (!active) return;
+        setSiteCount(sites.length);
+        setApiAvailable(true);
+      })
+      .catch(() => {
+        if (active) setApiAvailable(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username
+    : "Utilisateur";
+  const roleName = user?.roles[0]?.name ?? "Aucun rôle";
+
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-4 sm:px-5 lg:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -36,12 +62,12 @@ export default function Header({
 
           <div className="min-w-0">
             <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
-              Organisation
+              Compte connecté
             </div>
 
             <div className="flex items-center gap-1">
               <span className="max-w-40 truncate text-sm font-semibold text-slate-800">
-                NetConnect Solutions
+                {user?.username ?? "—"}
               </span>
 
               <ChevronDown
@@ -65,12 +91,12 @@ export default function Header({
 
           <div className="min-w-0">
             <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
-              Site actif
+              Sites configurés
             </div>
 
             <div className="flex items-center gap-1">
               <span className="max-w-40 truncate text-sm font-semibold text-slate-800">
-                WIFI MAHAVOKY
+                {siteCount === null ? "Chargement…" : siteCount.toLocaleString("fr-MG")}
               </span>
 
               <ChevronDown
@@ -86,10 +112,10 @@ export default function Header({
       <div className="flex items-center gap-1.5">
         {/* API STATUS */}
         <div className="hidden items-center gap-2 rounded-lg px-3 py-2 md:flex">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className={`h-2 w-2 rounded-full ${apiAvailable === true ? "bg-emerald-500" : apiAvailable === false ? "bg-rose-500" : "bg-slate-300"}`} />
 
           <span className="text-xs font-medium text-slate-500">
-            API Online
+            {apiAvailable === true ? "API disponible" : apiAvailable === false ? "API inaccessible" : "API en cours de vérification"}
           </span>
         </div>
 
@@ -104,7 +130,6 @@ export default function Header({
             strokeWidth={1.9}
           />
 
-          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500" />
         </button>
 
         <div className="mx-1 h-7 w-px bg-slate-200" />
@@ -122,11 +147,11 @@ export default function Header({
 
           <div className="hidden text-left md:block">
             <div className="text-sm font-semibold text-slate-800">
-              Administrator
+              {displayName}
             </div>
 
             <div className="text-[11px] text-slate-400">
-              Super Admin
+              {roleName}
             </div>
           </div>
 

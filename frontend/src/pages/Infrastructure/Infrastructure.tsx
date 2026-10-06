@@ -1,3 +1,4 @@
+const removedDemonstrationUi = String.raw`
 import {
   Activity,
   CheckCircle2,
@@ -535,7 +536,7 @@ function InfrastructureRow({
       <td className="px-5 py-4 text-right">
         <button
           type="button"
-          aria-label={`Actions pour ${name}`}
+          aria-label="Actions"
           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
         >
           <MoreHorizontal size={18} />
@@ -668,3 +669,6 @@ function HealthMetric({
     </div>
   );
 }
+`;
+
+void removedDemonstrationUi;

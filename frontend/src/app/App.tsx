@@ -20,11 +20,11 @@ import Vouchers from "../pages/Vouchers/Vouchers";
 import GenerateVouchers from "../pages/Vouchers/GenerateVouchers";
 import Sales from "../pages/Billing/Sales";
 import RecordSale from "../pages/Billing/RecordSale";
-import Statistics from "../pages/Statistics/Statistics";
+import Statistics from "../pages/Statistics/StatisticsLive";
 import Users from "../pages/Users/Users";
 import Roles from "../pages/Roles/Roles";
-import Infrastructure from "../pages/Infrastructure/Infrastructure";
-import Settings from "../pages/Settings/Settings";
+import Infrastructure from "../pages/Infrastructure/InfrastructureLive";
+import Settings from "../pages/Settings/SettingsLive";
 
 import DashboardLayout from "../components/layout/DashboardLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";

@@ -1,3 +1,4 @@
+const removedDemonstrationUi = String.raw`
 import {
   Activity,
   BarChart3,
@@ -457,3 +458,6 @@ function MiniMetric({
     </div>
   );
 }
+`;
+
+void removedDemonstrationUi;
