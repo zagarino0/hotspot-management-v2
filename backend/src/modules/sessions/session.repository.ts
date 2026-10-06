@@ -222,12 +222,51 @@ const SESSION_SELECT = `
 const SESSION_LIST_LIMIT = 300;
 
 /* ============================================================
-   LIST
+   RECONCILIATION DU STATUT PERSISTÉ
+   ACTIVE      = connexion en cours
+   TERMINATED  = déconnectée mais quota encore disponible
+   COMPLETED   = déconnectée et quota épuisé
 ============================================================ */
+
+async function reconcileSessionStatuses(): Promise<void> {
+  await pool.query(
+    `
+      UPDATE session
+      SET
+        status = CASE
+          WHEN voucher_remaining_seconds_at_end > 0
+            THEN 'TERMINATED'
+          WHEN voucher_remaining_seconds_at_end = 0
+            THEN 'COMPLETED'
+          ELSE status
+        END,
+        updated_at = CASE
+          WHEN (
+            (voucher_remaining_seconds_at_end > 0
+              AND status <> 'TERMINATED')
+            OR
+            (voucher_remaining_seconds_at_end = 0
+              AND status <> 'COMPLETED')
+          )
+          THEN NOW()
+          ELSE updated_at
+        END
+      WHERE ended_at IS NOT NULL
+        AND status IN ('COMPLETED', 'TERMINATED')
+        AND voucher_remaining_seconds_at_end IS NOT NULL
+    `
+  );
+}
+
+/* ============================================================
+   LIST
+============================================================
 
 export async function findSessions(filter?: {
   status?: SessionStatus;
 }): Promise<SessionRow[]> {
+  await reconcileSessionStatuses();
+
   if (filter?.status) {
     const result = await pool.query<SessionRow>(
       `
@@ -260,6 +299,8 @@ export async function findSessions(filter?: {
 export async function findSessionById(
   id: string
 ): Promise<SessionRow | null> {
+  await reconcileSessionStatuses();
+
   const result = await pool.query<SessionRow>(
     `
       ${SESSION_SELECT}
