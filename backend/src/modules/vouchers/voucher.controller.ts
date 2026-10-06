@@ -10,9 +10,29 @@ import {
   deleteVoucherById,
   getVouchers,
   getVoucherStats,
+  getMikrotikVouchers,
 } from "./voucher.service.js";
 
 import type { VoucherStatus } from "../../routes/voucher.types.js";
+
+
+export async function mikrotikVouchers(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const vouchers = await getMikrotikVouchers();
+
+    return res.status(200).json({
+      success: true,
+      data: vouchers,
+      count: vouchers.length,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 export async function voucherStats(
   _req: Request,
