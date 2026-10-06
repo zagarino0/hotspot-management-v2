@@ -377,8 +377,8 @@ export default function Sessions() {
           </select>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1550px]">
+        <div className="overflow-x-hidden">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
