@@ -164,7 +164,7 @@ export default function Sessions() {
     if (statusFilter !== "all") {
       rows = rows.filter(
         (session) =>
-          getEffectiveStatus(session) === statusFilter
+          getRealStatus(session) === statusFilter
       );
     }
 
@@ -550,13 +550,21 @@ function isNewerSession(candidate: Session, current: Session): boolean {
   return candidateTime >= currentTime;
 }
 
-function getEffectiveStatus(session: Session): SessionStatus {
+function getRealStatus(session: Session): SessionStatus {
+  // Le statut ACTIVE du dernier état reçu depuis le backend est
+  // toujours prioritaire. Une session active ne doit jamais être
+  // classée comme "Interrompue" par le filtre.
+  if (session.status === "ACTIVE") {
+    return "ACTIVE";
+  }
+
+  // Une déconnexion avec du temps restant est une interruption,
+  // même si l'ancien statut persistant est encore COMPLETED.
   const endedRemainingSeconds = toFiniteNumber(
     session.voucherRemainingSecondsAtEnd
   );
 
   if (
-    session.status !== "ACTIVE" &&
     endedRemainingSeconds !== null &&
     endedRemainingSeconds > 0
   ) {
@@ -736,7 +744,7 @@ function SessionRow({
       session.voucherRemainingSecondsAtEnd
     );
 
-  const effectiveStatus = getEffectiveStatus(session);
+  const effectiveStatus = getRealStatus(session);
 
   const statusInfo = STATUS_CONFIG[effectiveStatus];
 
