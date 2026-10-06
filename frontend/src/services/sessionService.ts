@@ -42,7 +42,9 @@ export interface Session {
   voucherUsedSeconds: number;
   voucherDurationSeconds: number | null;
   voucherRemainingSeconds: number | null;
+  voucherRemainingSecondsAtEnd: number | null;
   voucherCode: string | null;
+  connectionSequence: number;
 
   terminationReason: string | null;
 
