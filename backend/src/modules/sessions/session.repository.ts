@@ -737,7 +737,7 @@ export async function closeSessionsNotIn(
                         THEN GREATEST(
                           EXTRACT(
                             EPOCH FROM (
-                              NOW() - s.started_at
+                              matched.ended_at - s.started_at
                             )
                           )::bigint,
                           0
