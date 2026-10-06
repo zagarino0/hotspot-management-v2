@@ -642,11 +642,31 @@ export async function closeSessionsNotIn(
             ended_at timestamptz,
             reason text
           )
+        ),
+        matched AS (
+          SELECT DISTINCT ON (s.id)
+            s.id AS session_id,
+            logout_events.ended_at,
+            logout_events.reason
+          FROM session s
+          JOIN logout_events
+            ON logout_events.username = s.username
+            AND logout_events.ip_address = s.ip_address::text
+            AND logout_events.ended_at >= s.started_at
+            AND logout_events.ended_at <= NOW()
+          WHERE s.router_id = $1
+            AND s.status = 'ACTIVE'
+            AND s.ended_at IS NULL
+            AND (
+              s.mac_address IS NULL
+              OR NOT (s.mac_address = ANY($2::text[]))
+            )
+          ORDER BY s.id, logout_events.ended_at
         )
         UPDATE session s
         SET
           status = 'COMPLETED',
-          ended_at = logout_events.ended_at,
+          ended_at = matched.ended_at,
           duration_seconds = GREATEST(
             EXTRACT(
               EPOCH FROM (
@@ -714,18 +734,8 @@ export async function closeSessionsNotIn(
             'DISCONNECTED'
           ),
           updated_at = NOW()
-        FROM logout_events
-        WHERE s.router_id = $1
-          AND s.status = 'ACTIVE'
-          AND s.ended_at IS NULL
-          AND s.username = logout_events.username
-          AND s.ip_address::text = logout_events.ip_address
-          AND logout_events.ended_at >= s.started_at
-          AND logout_events.ended_at <= NOW()
-          AND (
-            s.mac_address IS NULL
-            OR NOT (s.mac_address = ANY($2::text[]))
-          )
+        FROM matched
+        WHERE s.id = matched.session_id
       `,
       [routerId, stillActiveMacAddresses, logoutEventsJson]
     );
