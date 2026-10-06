@@ -4,12 +4,14 @@ import {
   deleteVoucherController,
   generateVouchers,
   listVouchers,
+  mikrotikVouchers,
   voucherStats,
   updateVoucherStatusController,
 } from "./voucher.controller.js";
 
 const router = Router();
 
+router.get("/mikrotik", mikrotikVouchers);
 router.get("/stats", voucherStats);
 router.get("/", listVouchers);
 
