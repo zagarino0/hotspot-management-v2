@@ -174,7 +174,7 @@ export async function upsertActiveSession(
         AND status = 'ACTIVE'
         AND ended_at IS NULL
       LIMIT 1
-    `
+    `,
     [data.routerId, data.macAddress]
   );
 
@@ -196,7 +196,7 @@ export async function upsertActiveSession(
           duration_seconds = $11,
           updated_at = NOW()
         WHERE id = $1
-      `
+      `,
       [
         existing.rows[0].id,
         data.voucherId ?? null,
@@ -251,7 +251,7 @@ export async function upsertActiveSession(
         $13,
         'ACTIVE'
       )
-    `
+    `,
     [
       data.siteId,
       data.routerId,
@@ -284,7 +284,7 @@ export async function findVoucherIdByCode(
       WHERE site_id = $1
         AND code = $2
       LIMIT 1
-    `
+    `,
     [siteId, code]
   );
 
@@ -307,7 +307,7 @@ export async function activateVoucher(
         updated_at = NOW()
       WHERE id = $1
         AND status NOT IN ('DISABLED', 'REVOKED', 'EXPIRED')
-    `
+    `,
     [voucherId]
   );
 }
