@@ -163,7 +163,8 @@ export default function Sessions() {
 
     if (statusFilter !== "all") {
       rows = rows.filter(
-        (session) => session.status === statusFilter
+        (session) =>
+          getEffectiveStatus(session) === statusFilter
       );
     }
 
@@ -549,6 +550,22 @@ function isNewerSession(candidate: Session, current: Session): boolean {
   return candidateTime >= currentTime;
 }
 
+function getEffectiveStatus(session: Session): SessionStatus {
+  const endedRemainingSeconds = toFiniteNumber(
+    session.voucherRemainingSecondsAtEnd
+  );
+
+  if (
+    session.status !== "ACTIVE" &&
+    endedRemainingSeconds !== null &&
+    endedRemainingSeconds > 0
+  ) {
+    return "TERMINATED";
+  }
+
+  return session.status;
+}
+
 function averageOf(values: number[]): number {
   if (values.length === 0) {
     return 0;
@@ -719,12 +736,7 @@ function SessionRow({
       session.voucherRemainingSecondsAtEnd
     );
 
-  const effectiveStatus: SessionStatus =
-    session.status !== "ACTIVE" &&
-    endedRemainingSeconds !== null &&
-    endedRemainingSeconds > 0
-      ? "TERMINATED"
-      : session.status;
+  const effectiveStatus = getEffectiveStatus(session);
 
   const statusInfo = STATUS_CONFIG[effectiveStatus];
 
