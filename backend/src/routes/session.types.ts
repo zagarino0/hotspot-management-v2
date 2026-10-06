@@ -38,6 +38,7 @@ export interface SessionRow {
   downloadBytes: number;
 
   mikrotikProfile: string | null;
+  mikrotikLimitUptimeSeconds: number | null;
   sessionTimeLeftSeconds: number | null;
   loginMethod: string | null;
   cookiePresent: boolean;
