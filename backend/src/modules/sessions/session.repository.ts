@@ -261,17 +261,23 @@ export async function markSessionTerminated(
           EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN (
-              SELECT v.duration_seconds
-              FROM voucher v
-              WHERE v.id = s.voucher_id
-            ) IS NULL THEN NULL
-            ELSE GREATEST(
+            WHEN COALESCE(
               (
                 SELECT v.duration_seconds
                 FROM voucher v
                 WHERE v.id = s.voucher_id
-              ) - (
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) IS NULL THEN NULL
+            ELSE GREATEST(
+              COALESCE(
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) - (
                 SELECT COALESCE(
                   SUM(
                     CASE
@@ -611,17 +617,23 @@ export async function closeSessionsNotIn(
           ),
           voucher_remaining_seconds_at_end =
             CASE
-              WHEN (
+              WHEN COALESCE(
+              (
                 SELECT v.duration_seconds
                 FROM voucher v
                 WHERE v.id = s.voucher_id
-              ) IS NULL THEN NULL
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) IS NULL THEN NULL
               ELSE GREATEST(
-                (
-                  SELECT v.duration_seconds
-                  FROM voucher v
-                  WHERE v.id = s.voucher_id
-                ) - (
+                COALESCE(
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) - (
                   SELECT COALESCE(
                     SUM(
                       CASE
@@ -681,17 +693,23 @@ export async function closeSessionsNotIn(
         ),
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN (
-              SELECT v.duration_seconds
-              FROM voucher v
-              WHERE v.id = s.voucher_id
-            ) IS NULL THEN NULL
-            ELSE GREATEST(
+            WHEN COALESCE(
               (
                 SELECT v.duration_seconds
                 FROM voucher v
                 WHERE v.id = s.voucher_id
-              ) - (
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) IS NULL THEN NULL
+            ELSE GREATEST(
+              COALESCE(
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) - (
                 SELECT COALESCE(
                   SUM(
                     CASE
@@ -767,17 +785,23 @@ export async function closeAllActiveForRouter(
           EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
         voucher_remaining_seconds_at_end =
           CASE
-            WHEN (
-              SELECT v.duration_seconds
-              FROM voucher v
-              WHERE v.id = s.voucher_id
-            ) IS NULL THEN NULL
-            ELSE GREATEST(
+            WHEN COALESCE(
               (
                 SELECT v.duration_seconds
                 FROM voucher v
                 WHERE v.id = s.voucher_id
-              ) - (
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) IS NULL THEN NULL
+            ELSE GREATEST(
+              COALESCE(
+              (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ),
+              s.mikrotik_limit_uptime_seconds
+            ) - (
                 SELECT COALESCE(
                   SUM(
                     CASE
