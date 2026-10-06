@@ -1,17 +1,17 @@
 BEGIN;
 
--- Historique créé avant la migration 012 :
--- si la durée n'était pas enregistrée, on la reconstruit à partir
--- de la date de connexion et de la date de déconnexion.
--- Rattacher les anciennes sessions au voucher lorsque le nom MikroTik
--- correspond au code voucher du même site.
+-- Rattache les anciennes sessions au voucher réellement utilisé lorsque
+-- l'ancien système n'avait pas encore enregistré voucher_id.
+-- Le code voucher est globalement unique, donc la correspondance est sûre.
 UPDATE session s
 SET voucher_id = v.id
 FROM voucher v
 WHERE s.voucher_id IS NULL
-  AND s.site_id = v.site_id
-  AND s.username = v.code;
+  AND s.username IS NOT NULL
+  AND v.code = s.username
+  AND v.site_id = s.site_id;
 
+-- Reconstruit la durée des anciennes sessions lorsqu'elle manque.
 UPDATE session
 SET duration_seconds = GREATEST(
   EXTRACT(EPOCH FROM (ended_at - started_at))::bigint,
@@ -22,9 +22,7 @@ WHERE status <> 'ACTIVE'
   AND started_at IS NOT NULL
   AND duration_seconds IS NULL;
 
--- Pour les anciennes sessions déjà déconnectées, on calcule le
--- temps restant à la fin de chaque connexion selon l'ordre réel
--- des connexions du même voucher.
+-- Calcule le temps restant après chaque ancienne connexion du même voucher.
 WITH ordered_sessions AS (
   SELECT
     s.id,
