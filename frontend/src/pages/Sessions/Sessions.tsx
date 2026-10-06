@@ -638,7 +638,19 @@ function SessionRow({
   session: Session;
   onTerminate: () => void;
 }) {
-  const statusInfo = STATUS_CONFIG[session.status];
+  const endedRemainingSeconds =
+    toFiniteNumber(
+      session.voucherRemainingSecondsAtEnd
+    );
+
+  const effectiveStatus: SessionStatus =
+    session.status !== "ACTIVE" &&
+    endedRemainingSeconds !== null &&
+    endedRemainingSeconds > 0
+      ? "TERMINATED"
+      : session.status;
+
+  const statusInfo = STATUS_CONFIG[effectiveStatus];
 
   const displayName =
     session.username || "Utilisateur inconnu";
@@ -647,11 +659,6 @@ function SessionRow({
     session.connectionSequence > 1
       ? "Reconnexion"
       : "Première connexion";
-
-  const endedRemainingSeconds =
-    toFiniteNumber(
-      session.voucherRemainingSecondsAtEnd
-    );
 
   const displayedRemainingAfterEnd =
     session.status === "ACTIVE"
