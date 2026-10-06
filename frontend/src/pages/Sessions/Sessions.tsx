@@ -740,13 +740,6 @@ function SessionRow({
       ? remainingSeconds
       : null;
 
-  const plannedEnd =
-    plannedEndSeconds !== null
-      ? new Date(
-          now + plannedEndSeconds * 1000
-        )
-      : null;
-
   const loginLabel =
     session.loginMethod
       ? session.loginMethod.replace(/-/g, " ")
