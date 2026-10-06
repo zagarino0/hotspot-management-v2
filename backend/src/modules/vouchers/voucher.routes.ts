@@ -9,6 +9,7 @@ import {
 
 const router = Router();
 
+router.get("/stats", voucherStats);
 router.get("/", listVouchers);
 
 router.post("/generate", generateVouchers);
