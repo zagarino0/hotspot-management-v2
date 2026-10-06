@@ -45,15 +45,24 @@ const SESSION_SELECT = `
       SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
       FROM session s2
       WHERE (
-        s.voucher_id IS NOT NULL
-        AND s2.voucher_id = s.voucher_id
+        (
+          s.voucher_id IS NOT NULL
+          AND s2.voucher_id = s.voucher_id
+        )
+        OR (
+          s.voucher_id IS NULL
+          AND s2.voucher_id IS NULL
+          AND s2.site_id = s.site_id
+          AND s2.router_id = s.router_id
+          AND s2.username = s.username
+        )
       )
-      OR (
-        s.voucher_id IS NULL
-        AND s2.voucher_id IS NULL
-        AND s2.site_id = s.site_id
-        AND s2.router_id = s.router_id
-        AND s2.username = s.username
+      AND (
+        s2.started_at < s.started_at
+        OR (
+          s2.started_at = s.started_at
+          AND s2.id <= s.id
+        )
       )
     )::bigint AS "voucherUsedSeconds",
 
@@ -140,6 +149,13 @@ const SESSION_SELECT = `
               AND s2.site_id = s.site_id
               AND s2.router_id = s.router_id
               AND s2.username = s.username
+            )
+          )
+          AND (
+            s2.started_at < s.started_at
+            OR (
+              s2.started_at = s.started_at
+              AND s2.id <= s.id
             )
           )
         ),
