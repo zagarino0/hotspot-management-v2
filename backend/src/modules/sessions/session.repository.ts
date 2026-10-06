@@ -342,8 +342,8 @@ export async function upsertActiveSession(
           session_time_left_seconds = $9,
           login_method = COALESCE($10, login_method),
           cookie_present = $11,
-          started_at = NOW() - ($11::bigint * INTERVAL '1 second'),
-          duration_seconds = $11,
+          started_at = NOW() - ($12::bigint * INTERVAL '1 second'),
+          duration_seconds = $12,
           updated_at = NOW()
         WHERE id = $1
       `,
