@@ -5,6 +5,7 @@ import type {
 } from "express";
 
 import {
+  getSessionHistory,
   getSessions,
   syncAllRouters,
   syncSingleRouterById,
@@ -63,8 +64,56 @@ export async function listSessions(
 }
 
 /* ============================================================
-   SYNC ALL ROUTERS (déclenchement manuel du live sync)
+   HISTORIQUE D'UN UTILISATEUR
 ============================================================ */
+
+export async function historySessions(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const username =
+      typeof req.query.username === "string"
+        ? req.query.username.trim()
+        : "";
+
+    const siteId =
+      typeof req.query.siteId === "string"
+        ? req.query.siteId.trim()
+        : undefined;
+
+    const routerId =
+      typeof req.query.routerId === "string"
+        ? req.query.routerId.trim()
+        : undefined;
+
+    if (!username) {
+      return res.status(400).json({
+        success: false,
+        message: "Le nom d'utilisateur est requis.",
+      });
+    }
+
+    const sessions = await getSessionHistory(
+      username,
+      siteId,
+      routerId
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: sessions,
+      count: sessions.length,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/* ============================================================
+   SYNC ALL ROUTERS (déclenchement manuel du live sync)
+============================================================
 
 export async function syncSessions(
   _req: Request,
