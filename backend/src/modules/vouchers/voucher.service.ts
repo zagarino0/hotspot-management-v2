@@ -65,17 +65,21 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
       const users = await fetchHotspotUsers(api);
 
       for (const user of users) {
-        let status: MikrotikVoucherRow["status"] =
-          user.macAddress ? "ACTIVE" : "UNUSED";
+        // Règle métier définitive, basée sur les valeurs MikroTik :
+        // 1. Uptime = Limit Uptime -> EXPIRED (prioritaire)
+        // 2. Sinon MAC renseignée + Uptime <= Limit Uptime -> ACTIVE/Utilisé
+        // 3. Sinon MAC vide -> UNUSED/Disponible
+        let status: MikrotikVoucherRow["status"] = "UNUSED";
 
-        // MikroTik est la source de vérité :
-        // Limit Uptime = Uptime => quota entièrement consommé => EXPIRED.
-        if (
+        const quotaExhausted =
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
-          user.uptimeSeconds === user.limitUptimeSeconds
-        ) {
+          user.uptimeSeconds === user.limitUptimeSeconds;
+
+        if (quotaExhausted) {
           status = "EXPIRED";
+        } else if (user.macAddress?.trim()) {
+          status = "ACTIVE";
         }
 
         rows.push({
@@ -146,31 +150,19 @@ export async function getVoucherStats(): Promise<VoucherStats> {
     try {
       const hotspotUsers = await fetchHotspotUsers(api);
 
-      const expiredUsers = hotspotUsers.filter(
-        (user) =>
-          user.limitUptimeSeconds !== null &&
-          user.limitUptimeSeconds > 0 &&
-          user.uptimeSeconds === user.limitUptimeSeconds
-      );
+      const isQuotaExhausted = (user: Awaited<ReturnType<typeof fetchHotspotUsers>>[number]) =>
+        user.limitUptimeSeconds !== null &&
+        user.limitUptimeSeconds > 0 &&
+        user.uptimeSeconds === user.limitUptimeSeconds;
+
+      const expiredUsers = hotspotUsers.filter(isQuotaExhausted);
 
       const usedCount = hotspotUsers.filter(
-        (user) =>
-          Boolean(user.macAddress?.trim()) &&
-          !(
-            user.limitUptimeSeconds !== null &&
-            user.limitUptimeSeconds > 0 &&
-            user.uptimeSeconds === user.limitUptimeSeconds
-          )
+        (user) => !isQuotaExhausted(user) && Boolean(user.macAddress?.trim())
       ).length;
 
       const availableCount = hotspotUsers.filter(
-        (user) =>
-          !user.macAddress?.trim() &&
-          !(
-            user.limitUptimeSeconds !== null &&
-            user.limitUptimeSeconds > 0 &&
-            user.uptimeSeconds === user.limitUptimeSeconds
-          )
+        (user) => !isQuotaExhausted(user) && !user.macAddress?.trim()
       ).length;
 
       total += hotspotUsers.length;
