@@ -43,6 +43,7 @@ export interface Session {
   downloadBytes: number;
 
   mikrotikProfile?: string | null;
+  mikrotikLimitUptimeSeconds?: number | null;
   sessionTimeLeftSeconds?: number | null;
   loginMethod?: string | null;
   cookiePresent?: boolean;
