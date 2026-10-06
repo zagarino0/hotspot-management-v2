@@ -6,7 +6,10 @@ export async function getHotspotProfiles(
   res: Response
 ): Promise<Response> {
   try {
-    const { siteId } = req.params;
+    const siteId =
+      typeof req.params.siteId === "string"
+        ? req.params.siteId
+        : undefined;
 
     if (!siteId) {
       return res.status(400).json({
