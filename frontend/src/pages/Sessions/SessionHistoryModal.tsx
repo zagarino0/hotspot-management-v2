@@ -72,8 +72,8 @@ export default function SessionHistoryModal({
     () =>
       [...history].sort(
         (a, b) =>
-          new Date(a.startedAt).getTime() -
-          new Date(b.startedAt).getTime()
+          new Date(b.startedAt).getTime() -
+          new Date(a.startedAt).getTime()
       ),
     [history]
   );
@@ -200,7 +200,7 @@ export default function SessionHistoryModal({
                   <HistoryItem
                     key={item.id}
                     session={item}
-                    sequence={index + 1}
+                    sequence={orderedHistory.length - index}
                   />
                 ))}
               </div>
