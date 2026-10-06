@@ -237,6 +237,7 @@ export async function generateVoucherBatch(
           planId: plan.id,
           batchId,
           prefix: data.prefix,
+          mikrotikProfile: data.mikrotikProfile,
           durationSeconds: plan.durationSeconds,
           dataLimitBytes: plan.dataLimitBytes,
           downloadSpeedBps: plan.downloadSpeedBps,
