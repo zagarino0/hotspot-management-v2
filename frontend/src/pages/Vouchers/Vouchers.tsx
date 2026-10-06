@@ -270,7 +270,7 @@ export default function Vouchers() {
 
         {/* TABLE */}
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[600px] overflow-auto">
           <table className="w-full min-w-[1000px] table-fixed">
             <colgroup>
               <col className="w-[24%]" />
@@ -282,8 +282,8 @@ export default function Vouchers() {
               <col className="w-[15%]" />
             </colgroup>
 
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-slate-100 bg-white">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Voucher
                 </th>
