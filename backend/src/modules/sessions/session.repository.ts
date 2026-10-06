@@ -299,6 +299,43 @@ export async function markSessionTerminated(
 }
 
 /* ============================================================
+   BACKFILL QUOTA MIKROTIK POUR L'HISTORIQUE
+   Le compte HotSpot MikroTik est la source du quota total.
+   Lorsqu'un utilisateur est actif, on rattache ce quota aux
+   anciennes sessions du même compte qui n'en avaient pas encore.
+============================================================ */
+
+export async function backfillMikrotikQuotaForUser(
+  siteId: string,
+  routerId: string,
+  username: string,
+  limitUptimeSeconds: number | null
+): Promise<void> {
+  if (!username.trim() || limitUptimeSeconds === null) {
+    return;
+  }
+
+  await pool.query(
+    `
+      UPDATE session
+      SET
+        mikrotik_limit_uptime_seconds = $4,
+        updated_at = NOW()
+      WHERE site_id = $1
+        AND router_id = $2
+        AND username = $3
+        AND mikrotik_limit_uptime_seconds IS NULL
+    `,
+    [
+      siteId,
+      routerId,
+      username,
+      limitUptimeSeconds,
+    ]
+  );
+}
+
+/* ============================================================
    UPSERT ACTIVE SESSION (appelé par le live sync MikroTik)
 
    Clé de correspondance : (router_id, mac_address) sur une
