@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Copy,
+  Pencil,
   Plus,
+  Save,
+  X,
   Search,
   Ticket,
   XCircle,
@@ -12,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getMikrotikVouchers,
   getVoucherStats,
+  updateMikrotikVoucherComment,
   type MikrotikVoucher,
   type VoucherStats,
 } from "../../services/voucherService";
@@ -343,6 +347,13 @@ export default function Vouchers() {
                     key={voucher.id}
                     voucher={voucher}
                     onCopy={handleCopy}
+                    onCommentSaved={(updated) => {
+                      setVouchers((current) =>
+                        current.map((item) =>
+                          item.id === updated.id ? updated : item
+                        )
+                      );
+                    }}
                   />
                 ))
               )}
@@ -418,10 +429,45 @@ function VoucherStat({
 function VoucherRow({
   voucher,
   onCopy,
+  onCommentSaved,
 }: {
   voucher: MikrotikVoucher;
   onCopy: (code: string) => void;
+  onCommentSaved: (voucher: MikrotikVoucher) => void;
 }) {
+  const [editingComment, setEditingComment] = useState(false);
+  const [comment, setComment] = useState(voucher.comment ?? "");
+  const [savingComment, setSavingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setComment(voucher.comment ?? "");
+  }, [voucher.comment]);
+
+  async function handleSaveComment() {
+    setSavingComment(true);
+    setCommentError(null);
+
+    try {
+      const updated = await updateMikrotikVoucherComment(
+        voucher.routerId,
+        voucher.code,
+        comment
+      );
+
+      onCommentSaved(updated);
+      setComment(updated.comment ?? "");
+      setEditingComment(false);
+    } catch (err) {
+      setCommentError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de modifier le commentaire."
+      );
+    } finally {
+      setSavingComment(false);
+    }
+  }
   const statusInfo = STATUS_CONFIG[voucher.status];
 
   return (
@@ -431,7 +477,78 @@ function VoucherRow({
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
             <Ticket size={16} strokeWidth={1.8} />
           </div>
-          <div>
+          <div className="min-w-0">
+            {editingComment ? (
+              <div className="mb-2 flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={comment}
+                  maxLength={255}
+                  onChange={(event) => setComment(event.target.value)}
+                  placeholder="Ajouter un commentaire..."
+                  className="h-8 min-w-0 flex-1 rounded-md border border-slate-200 px-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void handleSaveComment();
+                    }
+                    if (event.key === "Escape") {
+                      setComment(voucher.comment ?? "");
+                      setCommentError(null);
+                      setEditingComment(false);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={savingComment}
+                  onClick={() => void handleSaveComment()}
+                  title="Enregistrer"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                >
+                  <Save size={14} />
+                </button>
+                <button
+                  type="button"
+                  disabled={savingComment}
+                  onClick={() => {
+                    setComment(voucher.comment ?? "");
+                    setCommentError(null);
+                    setEditingComment(false);
+                  }}
+                  title="Annuler"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="mb-1 flex min-w-0 items-center gap-1.5">
+                <p
+                  className="max-w-[260px] truncate text-[11px] text-slate-400"
+                  title={voucher.comment ?? "Aucun commentaire"}
+                >
+                  {voucher.comment ?? "Aucun commentaire"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommentError(null);
+                    setEditingComment(true);
+                  }}
+                  title="Modifier le commentaire"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <Pencil size={12} />
+                </button>
+              </div>
+            )}
+
+            {commentError && (
+              <p className="mb-1 text-[10px] font-medium text-red-500">
+                {commentError}
+              </p>
+            )}
+
             <p className="font-mono text-sm font-semibold text-slate-800">
               {voucher.code}
             </p>
