@@ -75,8 +75,14 @@ export async function generateVouchers(
   next: NextFunction
 ) {
   try {
-    const { siteId, planId, quantity, batchName, prefix } =
-      req.body;
+    const {
+      siteId,
+      planId,
+      quantity,
+      batchName,
+      prefix,
+      mikrotikProfile,
+    } = req.body;
 
     if (typeof siteId !== "string" || !siteId.trim()) {
       return res.status(400).json({
@@ -116,6 +122,10 @@ export async function generateVouchers(
       prefix:
         typeof prefix === "string" && prefix.trim()
           ? prefix.trim()
+          : null,
+      mikrotikProfile:
+        typeof mikrotikProfile === "string" && mikrotikProfile.trim()
+          ? mikrotikProfile.trim()
           : null,
       createdBy: req.auth?.sub ?? null,
     });
