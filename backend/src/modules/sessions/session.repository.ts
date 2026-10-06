@@ -646,14 +646,14 @@ export async function closeSessionsNotIn(
         matched AS (
           SELECT DISTINCT ON (s.id)
             s.id AS session_id,
-            logout_events.ended_at,
-            logout_events.reason
+            matched.ended_at,
+            matched.reason
           FROM session s
           JOIN logout_events
-            ON logout_events.username = s.username
-            AND logout_events.ip_address = s.ip_address::text
-            AND logout_events.ended_at >= s.started_at
-            AND logout_events.ended_at <= NOW()
+            ON matched.username = s.username
+            AND matched.ip_address = s.ip_address::text
+            AND matched.ended_at >= s.started_at
+            AND matched.ended_at <= NOW()
           WHERE s.router_id = $1
             AND s.status = 'ACTIVE'
             AND s.ended_at IS NULL
@@ -661,7 +661,7 @@ export async function closeSessionsNotIn(
               s.mac_address IS NULL
               OR NOT (s.mac_address = ANY($2::text[]))
             )
-          ORDER BY s.id, logout_events.ended_at
+          ORDER BY s.id, matched.ended_at
         )
         UPDATE session s
         SET
@@ -670,7 +670,7 @@ export async function closeSessionsNotIn(
           duration_seconds = GREATEST(
             EXTRACT(
               EPOCH FROM (
-                logout_events.ended_at - s.started_at
+                matched.ended_at - s.started_at
               )
             )::bigint,
             0
@@ -701,7 +701,7 @@ export async function closeSessionsNotIn(
                           THEN GREATEST(
                             EXTRACT(
                               EPOCH FROM (
-                                logout_events.ended_at - s.started_at
+                                matched.ended_at - s.started_at
                               )
                             )::bigint,
                             0
@@ -730,7 +730,7 @@ export async function closeSessionsNotIn(
               )::bigint
             END,
           termination_reason = COALESCE(
-            NULLIF(logout_events.reason, ''),
+            NULLIF(matched.reason, ''),
             'DISCONNECTED'
           ),
           updated_at = NOW()
