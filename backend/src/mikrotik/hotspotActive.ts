@@ -25,6 +25,8 @@ export interface MikrotikActiveUser {
   uploadBytes: number;
   downloadBytes: number;
   uptimeSeconds: number;
+  sessionTimeLeftSeconds: number | null;
+  loginMethod: string | null;
 }
 
 export async function fetchActiveHotspotUsers(
@@ -82,6 +84,13 @@ function parseActiveUserRow(
     uploadBytes: parseByteCount(row["bytes-in"]),
     downloadBytes: parseByteCount(row["bytes-out"]),
     uptimeSeconds: parseUptimeSeconds(row.uptime),
+    sessionTimeLeftSeconds: parseOptionalTimeSeconds(
+      row["session-time-left"]
+    ),
+    loginMethod:
+      typeof row["login-by"] === "string"
+        ? row["login-by"]
+        : null,
   };
 }
 
@@ -158,6 +167,20 @@ function parseUptimeSeconds(value: unknown): number {
   }
 
   return seconds;
+}
+
+function parseOptionalTimeSeconds(
+  value: unknown
+): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string" && !value.trim()) {
+    return null;
+  }
+
+  return parseUptimeSeconds(value);
 }
 
 function parseByteCount(value: unknown): number {
