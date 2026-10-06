@@ -37,6 +37,11 @@ export interface SessionRow {
   uploadBytes: number;
   downloadBytes: number;
 
+  mikrotikProfile: string | null;
+  sessionTimeLeftSeconds: number | null;
+  loginMethod: string | null;
+  cookiePresent: boolean;
+
   terminationReason: string | null;
 
   status: SessionStatus;
@@ -60,4 +65,9 @@ export interface LiveSessionData {
   uploadBytes: number;
   downloadBytes: number;
   uptimeSeconds: number;
+  sessionTimeLeftSeconds: number | null;
+  loginMethod: string | null;
+  mikrotikProfile: string | null;
+  cookiePresent: boolean;
+  voucherId?: string | null;
 }
