@@ -5,6 +5,7 @@ import {
 } from "../../mikrotik/hotspotActive.js";
 import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
 import { fetchHotspotCookies } from "../../mikrotik/hotspotCookies.js";
+import { fetchHotspotLogs } from "../../mikrotik/hotspotLogs.js";
 
 import { decryptSecret } from "../../lib/crypto.js";
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -146,6 +147,67 @@ export async function syncRouterSessions(
     const activeUsers = await fetchActiveHotspotUsers(api);
     const hotspotUsers = await fetchHotspotUsers(api);
 
+    let logoutEvents: Array<{
+      username: string;
+      ipAddress: string;
+      endedAt: string;
+      reason: string | null;
+    }> = [];
+
+    try {
+      const hotspotLogs = await fetchHotspotLogs(api);
+      const latestLogoutByUserIp = new Map<
+        string,
+        {
+          username: string;
+          ipAddress: string;
+          endedAt: string;
+          reason: string | null;
+        }
+      >();
+
+      for (const event of hotspotLogs) {
+        if (
+          event.eventType !== "LOGOUT" ||
+          !event.username ||
+          !event.ipAddress
+        ) {
+          continue;
+        }
+
+        const parsedDate = new Date(event.timestamp);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+          continue;
+        }
+
+        const endedAt = parsedDate.toISOString();
+        const key = `${event.username}|${event.ipAddress}`;
+        const existing = latestLogoutByUserIp.get(key);
+
+        if (
+          !existing ||
+          new Date(existing.endedAt).getTime() <
+            parsedDate.getTime()
+        ) {
+          latestLogoutByUserIp.set(key, {
+            username: event.username,
+            ipAddress: event.ipAddress,
+            endedAt,
+            reason: event.logoutReason,
+          });
+        }
+      }
+
+      logoutEvents = Array.from(
+        latestLogoutByUserIp.values()
+      );
+    } catch {
+      // Le journal est une source historique complémentaire :
+      // une erreur de lecture ne doit jamais bloquer le live sync.
+      logoutEvents = [];
+    }
+
     let cookies: MikrotikHotspotCookie[] = [];
     try {
       cookies = await fetchHotspotCookies(api);
@@ -226,7 +288,8 @@ export async function syncRouterSessions(
 
     const closedCount = await closeSessionsNotIn(
       router.id,
-      usableUsers.map((user) => user.macAddress as string)
+      usableUsers.map((user) => user.macAddress as string),
+      logoutEvents
     );
 
     // Recalcule le temps cumulé des vouchers concernés.
