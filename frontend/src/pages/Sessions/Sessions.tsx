@@ -10,6 +10,7 @@ import {
 
 import ActionMenu from "../../components/ui/ActionMenu";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import SessionHistoryModal from "./SessionHistoryModal";
 
 import {
   fetchSessions,
@@ -42,6 +43,9 @@ export default function Sessions() {
   const [syncResults, setSyncResults] = useState<
     RouterSyncResult[]
   >([]);
+
+  const [historySession, setHistorySession] =
+    useState<Session | null>(null);
 
   const [terminatingSession, setTerminatingSession] =
     useState<Session | null>(null);
@@ -441,6 +445,7 @@ export default function Sessions() {
                   <SessionRow
                     key={session.id}
                     session={session}
+                    onOpenHistory={() => setHistorySession(session)}
                     onTerminate={() => {
                       setTerminatingSession(session);
                       setTerminateError(null);
@@ -452,6 +457,13 @@ export default function Sessions() {
           </table>
         </div>
       </section>
+
+      {historySession && (
+        <SessionHistoryModal
+          session={historySession}
+          onClose={() => setHistorySession(null)}
+        />
+      )}
 
       {/* ============================================================
           TERMINATE CONFIRM
@@ -633,9 +645,11 @@ function SessionStat({
 
 function SessionRow({
   session,
+  onOpenHistory,
   onTerminate,
 }: {
   session: Session;
+  onOpenHistory: () => void;
   onTerminate: () => void;
 }) {
   const endedRemainingSeconds =
@@ -739,7 +753,10 @@ function SessionRow({
       : null;
 
   return (
-    <tr className="group transition-colors hover:bg-slate-50/70">
+    <tr
+      className="group cursor-pointer transition-colors hover:bg-slate-50/70"
+      onClick={onOpenHistory}
+    >
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
@@ -892,7 +909,10 @@ function SessionRow({
         </span>
       </td>
 
-      <td className="px-5 py-4 text-right">
+      <td
+        className="px-5 py-4 text-right"
+        onClick={(event) => event.stopPropagation()}
+      >
         <ActionMenu
           ariaLabel={`Actions pour ${displayName}`}
           items={[
