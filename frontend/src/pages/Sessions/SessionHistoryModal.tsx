@@ -79,7 +79,7 @@ export default function SessionHistoryModal({
   );
 
   const latestSession =
-    orderedHistory[orderedHistory.length - 1] ?? session;
+    orderedHistory[0] ?? session;
 
   const totalQuota =
     toNumber(latestSession.voucherDurationSeconds);
