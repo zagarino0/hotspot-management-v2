@@ -663,7 +663,7 @@ function SessionRow({
               1000
           )
         )
-      : session.durationSeconds;
+      : toFiniteNumber(session.durationSeconds);
 
   const secondsSinceSync =
     session.status === "ACTIVE" && session.updatedAt
@@ -769,6 +769,15 @@ function SessionRow({
         <div className="text-sm font-semibold text-slate-700">
           {formatDuration(liveDuration ?? 0)}
         </div>
+
+        {toFiniteNumber(session.voucherUsedSeconds) !== null && (
+          <div className="mt-0.5 text-[10px] text-slate-400">
+            total utilisé :{" "}
+            {formatDuration(
+              toFiniteNumber(session.voucherUsedSeconds) ?? 0
+            )}
+          </div>
+        )}
 
         {session.status === "ACTIVE" && (
           <div className="mt-0.5 text-[10px] text-emerald-600">
