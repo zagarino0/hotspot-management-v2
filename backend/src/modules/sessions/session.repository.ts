@@ -351,13 +351,14 @@ export async function markSessionTerminated(
    anciennes sessions du même compte qui n'en avaient pas encore.
 ============================================================ */
 
-export async function backfillMikrotikQuotaForUser(
+export async function backfillMikrotikMetadataForUser(
   siteId: string,
   routerId: string,
   username: string,
+  profile: string | null,
   limitUptimeSeconds: number | null
 ): Promise<void> {
-  if (!username.trim() || limitUptimeSeconds === null) {
+  if (!username.trim()) {
     return;
   }
 
@@ -365,17 +366,21 @@ export async function backfillMikrotikQuotaForUser(
     `
       UPDATE session
       SET
-        mikrotik_limit_uptime_seconds = $4,
+        mikrotik_profile = COALESCE($4, mikrotik_profile),
+        mikrotik_limit_uptime_seconds = COALESCE(
+          $5,
+          mikrotik_limit_uptime_seconds
+        ),
         updated_at = NOW()
       WHERE site_id = $1
         AND router_id = $2
         AND username = $3
-        AND mikrotik_limit_uptime_seconds IS NULL
     `,
     [
       siteId,
       routerId,
       username,
+      profile,
       limitUptimeSeconds,
     ]
   );
@@ -646,14 +651,14 @@ export async function closeSessionsNotIn(
         matched AS (
           SELECT DISTINCT ON (s.id)
             s.id AS session_id,
-            matched.ended_at,
-            matched.reason
+            logout_events.ended_at,
+            logout_events.reason
           FROM session s
           JOIN logout_events
-            ON matched.username = s.username
-            AND matched.ip_address = s.ip_address::text
-            AND matched.ended_at >= s.started_at
-            AND matched.ended_at <= NOW()
+            ON logout_events.username = s.username
+            AND logout_events.ip_address = s.ip_address::text
+            AND logout_events.ended_at >= s.started_at
+            AND logout_events.ended_at <= NOW()
           WHERE s.router_id = $1
             AND s.status = 'ACTIVE'
             AND s.ended_at IS NULL
