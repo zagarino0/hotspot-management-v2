@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Clock3,
   History,
@@ -338,7 +338,7 @@ function Detail({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>
