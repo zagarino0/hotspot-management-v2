@@ -11,6 +11,7 @@ import {
   getVouchers,
   getVoucherStats,
   getMikrotikVouchers,
+  updateMikrotikVoucherComment,
 } from "./voucher.service.js";
 
 import type { VoucherStatus } from "../../routes/voucher.types.js";
@@ -28,6 +29,49 @@ export async function mikrotikVouchers(
       success: true,
       data: vouchers,
       count: vouchers.length,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateMikrotikVoucherCommentController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const routerId = String(req.params.routerId ?? "").trim();
+    const username = String(req.params.username ?? "").trim();
+    const comment =
+      typeof req.body?.comment === "string"
+        ? req.body.comment.trim()
+        : "";
+
+    if (!routerId || !username) {
+      return res.status(400).json({
+        success: false,
+        message: "Le routeur et le voucher sont obligatoires.",
+      });
+    }
+
+    if (comment.length > 255) {
+      return res.status(400).json({
+        success: false,
+        message: "Le commentaire ne peut pas dépasser 255 caractères.",
+      });
+    }
+
+    const voucher = await updateMikrotikVoucherComment(
+      routerId,
+      username,
+      comment
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Commentaire du voucher mis à jour avec succès.",
+      data: voucher,
     });
   } catch (error) {
     return next(error);
