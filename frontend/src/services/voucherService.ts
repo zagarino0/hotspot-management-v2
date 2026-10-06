@@ -53,6 +53,21 @@ export interface GenerateVouchersResult {
   vouchers: Voucher[];
 }
 
+export interface MikrotikVoucher {
+  id: string;
+  code: string;
+  profile: string | null;
+  durationSeconds: number | null;
+  siteId: string;
+  siteName: string;
+  routerId: string;
+  routerName: string;
+  macAddress: string | null;
+  comment: string | null;
+  createdAt: string | null;
+  status: "UNUSED" | "ACTIVE" | "EXPIRED";
+}
+
 export interface VoucherStats {
   total: number;
   available: number;
@@ -77,6 +92,14 @@ export async function getVouchers(filter?: {
         ? { status: filter.status }
         : undefined,
     }
+  );
+
+  return response.data.data;
+}
+
+export async function getMikrotikVouchers(): Promise<MikrotikVoucher[]> {
+  const response = await api.get<ApiEnvelope<MikrotikVoucher[]>>(
+    "/api/vouchers/mikrotik"
   );
 
   return response.data.data;
