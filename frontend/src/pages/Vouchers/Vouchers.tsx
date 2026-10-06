@@ -99,7 +99,7 @@ export default function Vouchers() {
     }
 
     return rows.filter((v) =>
-      [v.code, v.planName, v.siteName]
+      [v.code, v.profile, v.siteName, v.comment, v.macAddress]
         .filter(Boolean)
         .some((value) =>
           String(value).toLowerCase().includes(query)
@@ -265,7 +265,7 @@ export default function Vouchers() {
                 </th>
 
                 <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Actions
+                  Adresse MAC
                 </th>
               </tr>
             </thead>
