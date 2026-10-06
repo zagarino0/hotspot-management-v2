@@ -50,6 +50,8 @@ export interface Session {
   voucherUsedSeconds?: number;
   voucherDurationSeconds?: number | null;
   voucherRemainingSeconds?: number | null;
+  voucherRemainingSecondsAtEnd?: number | null;
+  connectionSequence?: number;
 
   status: SessionStatus;
 
