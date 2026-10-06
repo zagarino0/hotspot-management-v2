@@ -497,6 +497,7 @@ function formatDateTime(value: string | Date): string {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   }).format(date);
 }
 
@@ -517,28 +518,35 @@ function formatDuration(totalSeconds: number): string {
     return "—";
   }
 
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const days = Math.floor(totalMinutes / (24 * 60));
+  const roundedSeconds = Math.floor(totalSeconds);
+  const days = Math.floor(roundedSeconds / 86400);
   const hours = Math.floor(
-    (totalMinutes % (24 * 60)) / 60
+    (roundedSeconds % 86400) / 3600
   );
-  const minutes = totalMinutes % 60;
+  const minutes = Math.floor(
+    (roundedSeconds % 3600) / 60
+  );
+  const seconds = roundedSeconds % 60;
+
+  const parts: string[] = [];
 
   if (days > 0) {
-    return hours > 0
-      ? `${days} j ${hours} h`
-      : `${days} j`;
+    parts.push(`${days} j`);
   }
 
   if (hours > 0) {
-    return `${hours} h ${minutes} min`;
+    parts.push(`${hours} h`);
   }
 
   if (minutes > 0) {
-    return `${minutes} min`;
+    parts.push(`${minutes} min`);
   }
 
-  return `${Math.floor(totalSeconds)} s`;
+  if (seconds > 0 || parts.length === 0) {
+    parts.push(`${seconds} s`);
+  }
+
+  return parts.join(" ");
 }
 
 const STATUS_CONFIG: Record<
@@ -794,9 +802,9 @@ function SessionRow({
             </div>
 
             <div className="mt-0.5 text-[10px] text-slate-400">
-              {session.terminationReason === "DISCONNECTED"
-                ? "Déconnexion détectée"
-                : "Session clôturée"}
+              {session.terminationReason
+                ? session.terminationReason
+                : "Déconnexion détectée"}
             </div>
           </>
         ) : (
