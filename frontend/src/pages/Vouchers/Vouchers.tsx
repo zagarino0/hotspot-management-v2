@@ -1,31 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   CheckCircle2,
   Copy,
   Plus,
   Search,
   Ticket,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import ActionMenu from "../../components/ui/ActionMenu";
-import ConfirmDialog from "../../components/ui/ConfirmDialog";
-
 import {
-  deleteVoucher,
-  getVouchers,
+  getMikrotikVouchers,
   getVoucherStats,
-  updateVoucherStatus,
-  type Voucher,
-  type VoucherStatus,
+  type MikrotikVoucher,
   type VoucherStats,
 } from "../../services/voucherService";
 
 const STATUS_CONFIG: Record<
-  VoucherStatus,
+  MikrotikVoucher["status"],
   { label: string; className: string; dot: string }
 > = {
   UNUSED: {
@@ -34,7 +26,7 @@ const STATUS_CONFIG: Record<
     dot: "bg-emerald-500",
   },
   ACTIVE: {
-    label: "En cours d'utilisation",
+    label: "Utilisé",
     className: "bg-blue-50 text-blue-600",
     dot: "bg-blue-500",
   },
@@ -71,18 +63,15 @@ function formatDuration(seconds: number | null): string {
   return `${Math.round(seconds / 60)} min`;
 }
 
-function formatPrice(price: number, currency: string): string {
-  return `${price.toLocaleString("fr-FR")} ${currency}`;
-}
-
-function formatDate(iso: string): string {
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
   return new Date(iso).toLocaleDateString("fr-FR");
 }
 
 export default function Vouchers() {
   const navigate = useNavigate();
 
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [vouchers, setVouchers] = useState<MikrotikVoucher[]>([]);
   const [stats, setStats] = useState<VoucherStats>({
     total: 0,
     available: 0,
@@ -93,105 +82,8 @@ export default function Vouchers() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
-    "all" | VoucherStatus
+    "all" | MikrotikVoucher["status"]
   >("all");
-
-  const [disablingVoucher, setDisablingVoucher] =
-    useState<Voucher | null>(null);
-  const [disableTarget, setDisableTarget] = useState<
-    "DISABLED" | "REVOKED"
-  >("DISABLED");
-  const [disabling, setDisabling] = useState(false);
-  const [disableError, setDisableError] = useState<
-    string | null
-  >(null);
-
-  const [deletingVoucher, setDeletingVoucher] =
-    useState<Voucher | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<
-    string | null
-  >(null);
-
-  async function load() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [data, voucherStats] = await Promise.all([
-        getVouchers(),
-        getVoucherStats(),
-      ]);
-
-      setVouchers(data);
-      setStats(voucherStats);
-    } catch (err) {
-      console.error(
-        "Erreur lors du chargement des vouchers :",
-        err
-      );
-
-      setError("Impossible de charger les vouchers.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openDisable(
-    voucher: Voucher,
-    target: "DISABLED" | "REVOKED"
-  ) {
-    setDisablingVoucher(voucher);
-    setDisableTarget(target);
-    setDisableError(null);
-  }
-
-  async function handleConfirmDisable() {
-    if (!disablingVoucher) return;
-
-    setDisabling(true);
-    setDisableError(null);
-
-    try {
-      await updateVoucherStatus(
-        disablingVoucher.id,
-        disableTarget
-      );
-      setDisablingVoucher(null);
-      await load();
-    } catch (err: any) {
-      setDisableError(
-        err?.response?.data?.message ??
-          "Impossible de modifier ce voucher."
-      );
-    } finally {
-      setDisabling(false);
-    }
-  }
-
-  async function handleConfirmDelete() {
-    if (!deletingVoucher) return;
-
-    setDeleting(true);
-    setDeleteError(null);
-
-    try {
-      await deleteVoucher(deletingVoucher.id);
-      setDeletingVoucher(null);
-      await load();
-    } catch (err: any) {
-      setDeleteError(
-        err?.response?.data?.message ??
-          "Impossible de supprimer ce voucher."
-      );
-    } finally {
-      setDeleting(false);
-    }
-  }
 
   const filtered = useMemo(() => {
     let rows = vouchers;
@@ -330,17 +222,15 @@ export default function Vouchers() {
             value={statusFilter}
             onChange={(event) =>
               setStatusFilter(
-                event.target.value as "all" | VoucherStatus
+                event.target.value as "all" | MikrotikVoucher["status"]
               )
             }
             className="h-10 w-fit rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 outline-none focus:border-slate-400"
           >
             <option value="all">Tous les statuts</option>
             <option value="UNUSED">Disponibles</option>
-            <option value="ACTIVE">En cours</option>
+            <option value="ACTIVE">Utilisés</option>
             <option value="EXPIRED">Expirés</option>
-            <option value="DISABLED">Désactivés</option>
-            <option value="REVOKED">Révoqués</option>
           </select>
         </div>
 
@@ -413,16 +303,6 @@ export default function Vouchers() {
                     key={voucher.id}
                     voucher={voucher}
                     onCopy={handleCopy}
-                    onDisable={() =>
-                      openDisable(voucher, "DISABLED")
-                    }
-                    onRevoke={() =>
-                      openDisable(voucher, "REVOKED")
-                    }
-                    onDelete={() => {
-                      setDeletingVoucher(voucher);
-                      setDeleteError(null);
-                    }}
                   />
                 ))
               )}
@@ -442,45 +322,6 @@ export default function Vouchers() {
           </div>
         )}
       </section>
-
-      {/* ============================================================
-          DISABLE / REVOKE CONFIRM
-      ============================================================ */}
-
-      <ConfirmDialog
-        open={disablingVoucher !== null}
-        title={
-          disableTarget === "REVOKED"
-            ? "Révoquer ce voucher ?"
-            : "Désactiver ce voucher ?"
-        }
-        message={`Le voucher "${disablingVoucher?.code}" ne pourra plus être utilisé pour se connecter. Cette action est irréversible.`}
-        confirmLabel={
-          disableTarget === "REVOKED" ? "Révoquer" : "Désactiver"
-        }
-        loading={disabling}
-        error={disableError}
-        onConfirm={handleConfirmDisable}
-        onCancel={() => setDisablingVoucher(null)}
-      />
-
-      {/* ============================================================
-          DELETE CONFIRM
-      ============================================================ */}
-
-      <ConfirmDialog
-        open={deletingVoucher !== null}
-        title="Supprimer ce voucher ?"
-        message={`Le voucher "${deletingVoucher?.code}" sera définitivement supprimé. Possible uniquement s'il n'a jamais été utilisé.`}
-        confirmLabel="Supprimer"
-        loading={deleting}
-        error={deleteError}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeletingVoucher(null)}
-      />
-    </div>
-  );
-}
 
 /* ================================================================
    STAT
@@ -534,21 +375,11 @@ function VoucherStat({
 function VoucherRow({
   voucher,
   onCopy,
-  onDisable,
-  onRevoke,
-  onDelete,
 }: {
-  voucher: Voucher;
+  voucher: MikrotikVoucher;
   onCopy: (code: string) => void;
-  onDisable: () => void;
-  onRevoke: () => void;
-  onDelete: () => void;
 }) {
   const statusInfo = STATUS_CONFIG[voucher.status];
-
-  const canChangeStatus =
-    voucher.status === "UNUSED" || voucher.status === "ACTIVE";
-  const canDelete = voucher.status === "UNUSED";
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
@@ -557,12 +388,10 @@ function VoucherRow({
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
             <Ticket size={16} strokeWidth={1.8} />
           </div>
-
           <div>
             <p className="font-mono text-sm font-semibold text-slate-800">
               {voucher.code}
             </p>
-
             <button
               type="button"
               onClick={() => onCopy(voucher.code)}
@@ -574,27 +403,20 @@ function VoucherRow({
           </div>
         </div>
       </td>
-
       <td className="px-5 py-4">
         <span className="text-sm font-semibold text-slate-700">
-          {voucher.planName} (
-          {formatPrice(voucher.planPrice, voucher.planCurrency)}
-          )
+          {voucher.profile ?? "—"}
         </span>
       </td>
-
       <td className="px-5 py-4 text-sm text-slate-600">
         {formatDuration(voucher.durationSeconds)}
       </td>
-
       <td className="px-5 py-4 text-sm font-medium text-slate-600">
         {voucher.siteName}
       </td>
-
       <td className="px-5 py-4 text-sm text-slate-500">
         {formatDate(voucher.createdAt)}
       </td>
-
       <td className="px-5 py-4">
         <span
           className={[
@@ -609,37 +431,11 @@ function VoucherRow({
               statusInfo.dot,
             ].join(" ")}
           />
-
           {statusInfo.label}
         </span>
       </td>
-
-      <td className="px-5 py-4 text-right">
-        <ActionMenu
-          ariaLabel={`Actions pour ${voucher.code}`}
-          items={[
-            {
-              label: "Désactiver",
-              icon: Ban,
-              onClick: onDisable,
-              disabled: !canChangeStatus,
-            },
-            {
-              label: "Révoquer",
-              icon: XCircle,
-              onClick: onRevoke,
-              disabled: !canChangeStatus,
-              danger: true,
-            },
-            {
-              label: "Supprimer",
-              icon: Trash2,
-              onClick: onDelete,
-              disabled: !canDelete,
-              danger: true,
-            },
-          ]}
-        />
+      <td className="px-5 py-4 text-right text-xs text-slate-400">
+        {voucher.macAddress ?? "—"}
       </td>
     </tr>
   );
