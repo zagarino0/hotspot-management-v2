@@ -5,6 +5,8 @@ export interface MikrotikHotspotUser {
   profile: string | null;
   limitUptimeSeconds: number | null;
   macAddress: string | null;
+  comment: string | null;
+  createdAt: string | null;
 }
 
 export async function fetchHotspotUsers(
@@ -28,6 +30,14 @@ export async function fetchHotspotUsers(
       macAddress:
         typeof row["mac-address"] === "string"
           ? row["mac-address"].trim().toUpperCase() || null
+          : null,
+      comment:
+        typeof row.comment === "string"
+          ? row.comment.trim() || null
+          : null,
+      createdAt:
+        typeof row.comment === "string"
+          ? parseCreationDate(row.comment)
           : null,
     }))
     .filter((user) => user.username.length > 0);
@@ -91,4 +101,33 @@ function parseOptionalTimeSeconds(
   return Number.isFinite(seconds)
     ? Math.max(0, Math.floor(seconds))
     : null;
+}
+
+
+function parseCreationDate(comment: string): string | null {
+  const match = comment.match(
+    /(?:^|[^0-9])(\\d{2})\\.(\\d{2})\\.(\\d{2}|\\d{4})(?:[^0-9]|$)/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const rawYear = Number(match[3]);
+  const year =
+    match[3].length === 2 ? 2000 + rawYear : rawYear;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date.toISOString();
 }
