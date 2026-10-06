@@ -60,7 +60,25 @@ const SESSION_SELECT = `
       )::bigint
     END AS "voucherRemainingSeconds",
 
+    s.voucher_remaining_seconds_at_end AS "voucherRemainingSecondsAtEnd",
+
     v.code AS "voucherCode",
+
+    CASE
+      WHEN s.voucher_id IS NULL THEN 1
+      ELSE (
+        SELECT COUNT(*)::int + 1
+        FROM session s2
+        WHERE s2.voucher_id = s.voucher_id
+          AND (
+            s2.started_at < s.started_at
+            OR (
+              s2.started_at = s.started_at
+              AND s2.id < s.id
+            )
+          )
+      )
+    END AS "connectionSequence",
 
     s.termination_reason AS "terminationReason",
 
@@ -136,15 +154,38 @@ export async function markSessionTerminated(
 ): Promise<SessionRow | null> {
   await pool.query(
     `
-      UPDATE session
+      UPDATE session s
       SET
         status = 'TERMINATED',
         ended_at = NOW(),
         duration_seconds =
-          EXTRACT(EPOCH FROM (NOW() - started_at))::bigint,
+          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+        voucher_remaining_seconds_at_end =
+          CASE
+            WHEN v.duration_seconds IS NULL THEN NULL
+            ELSE GREATEST(
+              v.duration_seconds - (
+                SELECT COALESCE(
+                  SUM(
+                    CASE
+                      WHEN s2.id = s.id
+                        THEN EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint
+                      ELSE COALESCE(s2.duration_seconds, 0)
+                    END
+                  ),
+                  0
+                )
+                FROM session s2
+                WHERE s2.voucher_id = s.voucher_id
+              ),
+              0
+            )::bigint
+          END,
         termination_reason = $2,
         updated_at = NOW()
-      WHERE id = $1
+      FROM voucher v
+      WHERE s.id = $1
+        AND v.id = s.voucher_id
     `,
     [id, reason]
   );
@@ -366,19 +407,36 @@ export async function closeSessionsNotIn(
 ): Promise<number> {
   const result = await pool.query(
     `
-      UPDATE session
+      UPDATE session s
       SET
         status = 'COMPLETED',
         ended_at = NOW(),
-        duration_seconds = COALESCE(duration_seconds, 0),
+        duration_seconds = COALESCE(s.duration_seconds, 0),
+        voucher_remaining_seconds_at_end =
+          CASE
+            WHEN v.duration_seconds IS NULL THEN NULL
+            ELSE GREATEST(
+              v.duration_seconds - (
+                SELECT COALESCE(
+                  SUM(COALESCE(s2.duration_seconds, 0)),
+                  0
+                )
+                FROM session s2
+                WHERE s2.voucher_id = s.voucher_id
+              ),
+              0
+            )::bigint
+          END,
         termination_reason = 'DISCONNECTED',
         updated_at = NOW()
-      WHERE router_id = $1
-        AND status = 'ACTIVE'
-        AND ended_at IS NULL
+      FROM voucher v
+      WHERE s.router_id = $1
+        AND s.status = 'ACTIVE'
+        AND s.ended_at IS NULL
+        AND v.id = s.voucher_id
         AND (
-          mac_address IS NULL
-          OR NOT (mac_address = ANY($2::text[]))
+          s.mac_address IS NULL
+          OR NOT (s.mac_address = ANY($2::text[]))
         )
     `,
     [routerId, stillActiveMacAddresses]
@@ -402,17 +460,40 @@ export async function closeAllActiveForRouter(
 ): Promise<number> {
   const result = await pool.query(
     `
-      UPDATE session
+      UPDATE session s
       SET
         status = 'TERMINATED',
         ended_at = NOW(),
         duration_seconds =
-          EXTRACT(EPOCH FROM (NOW() - started_at))::bigint,
+          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+        voucher_remaining_seconds_at_end =
+          CASE
+            WHEN v.duration_seconds IS NULL THEN NULL
+            ELSE GREATEST(
+              v.duration_seconds - (
+                SELECT COALESCE(
+                  SUM(
+                    CASE
+                      WHEN s2.id = s.id
+                        THEN EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint
+                      ELSE COALESCE(s2.duration_seconds, 0)
+                    END
+                  ),
+                  0
+                )
+                FROM session s2
+                WHERE s2.voucher_id = s.voucher_id
+              ),
+              0
+            )::bigint
+          END,
         termination_reason = $2,
         updated_at = NOW()
-      WHERE router_id = $1
-        AND status = 'ACTIVE'
-        AND ended_at IS NULL
+      FROM voucher v
+      WHERE s.router_id = $1
+        AND s.status = 'ACTIVE'
+        AND s.ended_at IS NULL
+        AND v.id = s.voucher_id
     `,
     [routerId, reason]
   );
