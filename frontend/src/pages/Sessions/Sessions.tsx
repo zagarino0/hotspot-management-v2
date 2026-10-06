@@ -814,9 +814,12 @@ function SessionRow({
       : liveVoucherRemaining ??
         liveSessionTimeLeft;
 
+  // Méthode de connexion réelle fournie par MikroTik via "login-by".
+  // Ne pas utiliser cookiePresent : il s'agit d'un indicateur technique
+  // distinct de la méthode de connexion réellement utilisée.
   const loginLabel =
-    session.loginMethod
-      ? session.loginMethod.replace(/-/g, " ")
+    session.loginMethod?.trim()
+      ? session.loginMethod.trim().replace(/-/g, " ")
       : null;
 
   return (
