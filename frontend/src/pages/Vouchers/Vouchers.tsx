@@ -35,16 +35,6 @@ const STATUS_CONFIG: Record<
     className: "bg-red-50 text-red-500",
     dot: "bg-red-500",
   },
-  DISABLED: {
-    label: "Désactivé",
-    className: "bg-slate-100 text-slate-500",
-    dot: "bg-slate-400",
-  },
-  REVOKED: {
-    label: "Révoqué",
-    className: "bg-slate-100 text-slate-500",
-    dot: "bg-slate-400",
-  },
 };
 
 function formatDuration(seconds: number | null): string {
@@ -84,6 +74,46 @@ export default function Vouchers() {
   const [statusFilter, setStatusFilter] = useState<
     "all" | MikrotikVoucher["status"]
   >("all");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVouchers() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [data, voucherStats] = await Promise.all([
+          getMikrotikVouchers(),
+          getVoucherStats(),
+        ]);
+
+        if (cancelled) return;
+
+        setVouchers(data);
+        setStats(voucherStats);
+      } catch (err) {
+        if (cancelled) return;
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Impossible de charger les vouchers."
+        );
+        setVouchers([]);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadVouchers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     let rows = vouchers;
