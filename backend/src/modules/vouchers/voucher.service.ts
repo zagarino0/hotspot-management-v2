@@ -7,7 +7,19 @@ import {
   updateVoucherStatus,
 } from "./voucher.repository.js";
 
+import { findVoucherUsageHistory } from "./voucherStats.repository.js";
+
 import { findPlanById } from "../plans/plan.repository.js";
+
+import {
+  findRoutersForSync,
+  findRouterCredential,
+} from "../routers/router.repository.js";
+
+import { connectMikroTik } from "../../mikrotik/connection.js";
+import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
+import { fetchActiveHotspotUsers } from "../../mikrotik/hotspotActive.js";
+import { decryptSecret } from "../../lib/crypto.js";
 
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
 
@@ -26,11 +38,75 @@ export async function getVouchers(filter?: {
   return findVouchers(filter);
 }
 
+export interface VoucherStats {
+  total: number;
+  available: number;
+  used: number;
+  expired: number;
+}
+
+export async function getVoucherStats(): Promise<VoucherStats> {
+  const routers = await findRoutersForSync();
+
+  let total = 0;
+  let available = 0;
+  let used = 0;
+  let expired = 0;
+
+  for (const router of routers) {
+    const credential = await findRouterCredential(router.id);
+
+    if (!credential) {
+      throw new Error(
+        `Aucun identifiant MikroTik enregistré pour le routeur "${router.name}".`
+      );
+    }
+
+    const password = decryptSecret(credential.encryptedSecret);
+    const host = router.managementIp.split("/")[0].trim();
+
+    const api = await connectMikroTik({
+      host,
+      port: router.apiPort,
+      user: credential.username,
+      password,
+    });
+
+    try {
+      const [hotspotUsers, activeUsers, history] =
+        await Promise.all([
+          fetchHotspotUsers(api),
+          fetchActiveHotspotUsers(api),
+          findVoucherUsageHistory(router.siteId, router.id),
+        ]);
+
+      const usedActiveCount = activeUsers.filter(
+        (user) =>
+          Boolean(user.username?.trim()) &&
+          Boolean(user.macAddress?.trim())
+      ).length;
+
+      const availableCount = hotspotUsers.filter(
+        (user) =>
+          !history.usedUsernames.has(
+            user.username.trim().toLowerCase()
+          )
+      ).length;
+
+      total += hotspotUsers.length;
+      used += usedActiveCount;
+      available += availableCount;
+      expired += history.expiredSessionCount;
+    } finally {
+      await api.close();
+    }
+  }
+
+  return { total, available, used, expired };
+}
+
 /* ============================================================
    CHANGE STATUS (désactiver / révoquer)
-   Transitions autorisées uniquement vers DISABLED ou REVOKED,
-   et seulement depuis UNUSED ou ACTIVE — jamais depuis un état
-   déjà terminal (EXPIRED déjà consommé son cycle de vie).
 ============================================================ */
 
 const ALLOWED_TARGET_STATUSES: readonly VoucherStatus[] = [
@@ -71,8 +147,6 @@ export async function changeVoucherStatus(
 
 /* ============================================================
    DELETE
-   Seuls les vouchers jamais utilisés (UNUSED) peuvent être
-   supprimés — au-delà, ils font partie de l'historique/l'audit.
 ============================================================ */
 
 export async function deleteVoucherById(id: string) {
