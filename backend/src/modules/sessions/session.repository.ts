@@ -36,6 +36,7 @@ const SESSION_SELECT = `
     s.download_bytes AS "downloadBytes",
 
     s.mikrotik_profile AS "mikrotikProfile",
+    s.mikrotik_limit_uptime_seconds AS "mikrotikLimitUptimeSeconds",
     s.session_time_left_seconds AS "sessionTimeLeftSeconds",
     s.login_method AS "loginMethod",
     s.cookie_present AS "cookiePresent",
@@ -43,64 +44,131 @@ const SESSION_SELECT = `
     (
       SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
       FROM session s2
-      WHERE s2.voucher_id = s.voucher_id
+      WHERE (
+        s.voucher_id IS NOT NULL
+        AND s2.voucher_id = s.voucher_id
+      )
+      OR (
+        s.voucher_id IS NULL
+        AND s2.voucher_id IS NULL
+        AND s2.site_id = s.site_id
+        AND s2.router_id = s.router_id
+        AND s2.username = s.username
+      )
     )::bigint AS "voucherUsedSeconds",
 
-    v.duration_seconds AS "voucherDurationSeconds",
+    COALESCE(
+      v.duration_seconds,
+      s.mikrotik_limit_uptime_seconds
+    ) AS "voucherDurationSeconds",
 
     CASE
-      WHEN v.duration_seconds IS NULL THEN NULL
+      WHEN COALESCE(
+        v.duration_seconds,
+        s.mikrotik_limit_uptime_seconds
+      ) IS NULL THEN NULL
       ELSE GREATEST(
-        v.duration_seconds - (
+        COALESCE(
+          v.duration_seconds,
+          s.mikrotik_limit_uptime_seconds
+        ) - (
           SELECT COALESCE(
             SUM(COALESCE(s2.duration_seconds, 0)),
             0
           )
           FROM session s2
-          WHERE s2.voucher_id = s.voucher_id
-            AND (
-              s2.started_at < s.started_at
-              OR (
-                s2.started_at = s.started_at
-                AND s2.id <= s.id
-              )
+          WHERE (
+            (
+              s.voucher_id IS NOT NULL
+              AND s2.voucher_id = s.voucher_id
             )
+            OR (
+              s.voucher_id IS NULL
+              AND s2.voucher_id IS NULL
+              AND s2.site_id = s.site_id
+              AND s2.router_id = s.router_id
+              AND s2.username = s.username
+            )
+          )
+          AND (
+            s2.started_at < s.started_at
+            OR (
+              s2.started_at = s.started_at
+              AND s2.id <= s.id
+            )
+          )
         ),
         0
       )::bigint
     END AS "voucherRemainingSeconds",
 
     CASE
-      WHEN v.duration_seconds IS NULL THEN NULL
+      WHEN COALESCE(
+        v.duration_seconds,
+        s.mikrotik_limit_uptime_seconds
+      ) IS NULL THEN NULL
       ELSE GREATEST(
-        v.duration_seconds - (
+        COALESCE(
+          v.duration_seconds,
+          s.mikrotik_limit_uptime_seconds
+        ) - (
           SELECT COALESCE(
-            SUM(COALESCE(s2.duration_seconds, 0)),
+            SUM(
+              CASE
+                WHEN s2.id = s.id
+                  AND s.status = 'ACTIVE'
+                  THEN GREATEST(
+                    EXTRACT(
+                      EPOCH FROM (NOW() - s.started_at)
+                    )::bigint,
+                    0
+                  )
+                ELSE COALESCE(s2.duration_seconds, 0)
+              END
+            ),
             0
           )
           FROM session s2
-          WHERE s2.voucher_id = s.voucher_id
-            AND (
-              s2.started_at < s.started_at
-              OR (
-                s2.started_at = s.started_at
-                AND s2.id <= s.id
-              )
+          WHERE (
+            (
+              s.voucher_id IS NOT NULL
+              AND s2.voucher_id = s.voucher_id
             )
+            OR (
+              s.voucher_id IS NULL
+              AND s2.voucher_id IS NULL
+              AND s2.site_id = s.site_id
+              AND s2.router_id = s.router_id
+              AND s2.username = s.username
+            )
+          )
         ),
         0
       )::bigint
     END AS "voucherRemainingSecondsAtEnd",
 
-
     v.code AS "voucherCode",
 
     CASE
-      WHEN s.voucher_id IS NULL THEN 1
-      ELSE (
+      WHEN s.voucher_id IS NOT NULL THEN (
         SELECT COUNT(*)::int + 1
         FROM session s2
         WHERE s2.voucher_id = s.voucher_id
+          AND (
+            s2.started_at < s.started_at
+            OR (
+              s2.started_at = s.started_at
+              AND s2.id < s.id
+            )
+          )
+      )
+      ELSE (
+        SELECT COUNT(*)::int + 1
+        FROM session s2
+        WHERE s2.voucher_id IS NULL
+          AND s2.site_id = s.site_id
+          AND s2.router_id = s.router_id
+          AND s2.username = s.username
           AND (
             s2.started_at < s.started_at
             OR (
@@ -267,9 +335,13 @@ export async function upsertActiveSession(
           upload_bytes = $5,
           download_bytes = $6,
           mikrotik_profile = COALESCE($7, mikrotik_profile),
-          session_time_left_seconds = $8,
-          login_method = COALESCE($9, login_method),
-          cookie_present = $10,
+          mikrotik_limit_uptime_seconds = COALESCE(
+            $8,
+            mikrotik_limit_uptime_seconds
+          ),
+          session_time_left_seconds = $9,
+          login_method = COALESCE($10, login_method),
+          cookie_present = $11,
           started_at = NOW() - ($11::bigint * INTERVAL '1 second'),
           duration_seconds = $11,
           updated_at = NOW()
@@ -283,6 +355,7 @@ export async function upsertActiveSession(
         data.uploadBytes,
         data.downloadBytes,
         data.mikrotikProfile,
+        data.mikrotikLimitUptimeSeconds ?? null,
         data.sessionTimeLeftSeconds,
         data.loginMethod,
         data.cookiePresent,
@@ -307,6 +380,7 @@ export async function upsertActiveSession(
         download_bytes,
         duration_seconds,
         mikrotik_profile,
+        mikrotik_limit_uptime_seconds,
         session_time_left_seconds,
         login_method,
         cookie_present,
@@ -327,6 +401,7 @@ export async function upsertActiveSession(
         $11,
         $12,
         $13,
+        $14,
         'ACTIVE'
       )
     `,
@@ -341,6 +416,7 @@ export async function upsertActiveSession(
       data.uploadBytes,
       data.downloadBytes,
       data.mikrotikProfile,
+      data.mikrotikLimitUptimeSeconds ?? null,
       data.sessionTimeLeftSeconds,
       data.loginMethod,
       data.cookiePresent,
