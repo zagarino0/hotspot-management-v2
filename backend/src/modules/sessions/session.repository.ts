@@ -438,17 +438,134 @@ export async function findVoucherIdsByRouter(
    plus dans /ip/hotspot/active/print est considérée terminée.
 ============================================================ */
 
+export interface HotspotLogoutEventForSession {
+  username: string;
+  ipAddress: string;
+  endedAt: string;
+  reason: string | null;
+}
+
 export async function closeSessionsNotIn(
   routerId: string,
-  stillActiveMacAddresses: string[]
+  stillActiveMacAddresses: string[],
+  logoutEvents: HotspotLogoutEventForSession[] = []
 ): Promise<number> {
-  const result = await pool.query(
+  const logoutEventsJson = JSON.stringify(
+    logoutEvents
+      .filter(
+        (event) =>
+          event.username.trim().length > 0 &&
+          event.ipAddress.trim().length > 0 &&
+          event.endedAt.trim().length > 0
+      )
+      .map((event) => ({
+        username: event.username.trim(),
+        ipAddress: event.ipAddress.trim(),
+        endedAt: event.endedAt,
+        reason: event.reason?.trim() || null,
+      }))
+  );
+
+  let closedCount = 0;
+
+  if (logoutEvents.length > 0) {
+    const loggedOut = await pool.query(
+      `
+        WITH logout_events AS (
+          SELECT
+            username,
+            ip_address,
+            ended_at,
+            reason
+          FROM jsonb_to_recordset($3::jsonb) AS events(
+            username text,
+            ip_address text,
+            ended_at timestamptz,
+            reason text
+          )
+        )
+        UPDATE session s
+        SET
+          status = 'COMPLETED',
+          ended_at = logout_events.ended_at,
+          duration_seconds = GREATEST(
+            EXTRACT(
+              EPOCH FROM (
+                logout_events.ended_at - s.started_at
+              )
+            )::bigint,
+            0
+          ),
+          voucher_remaining_seconds_at_end =
+            CASE
+              WHEN (
+                SELECT v.duration_seconds
+                FROM voucher v
+                WHERE v.id = s.voucher_id
+              ) IS NULL THEN NULL
+              ELSE GREATEST(
+                (
+                  SELECT v.duration_seconds
+                  FROM voucher v
+                  WHERE v.id = s.voucher_id
+                ) - (
+                  SELECT COALESCE(
+                    SUM(
+                      CASE
+                        WHEN s2.id = s.id
+                          THEN GREATEST(
+                            EXTRACT(
+                              EPOCH FROM (
+                                logout_events.ended_at - s.started_at
+                              )
+                            )::bigint,
+                            0
+                          )
+                        ELSE COALESCE(s2.duration_seconds, 0)
+                      END
+                    ),
+                    0
+                  )
+                  FROM session s2
+                  WHERE s2.voucher_id = s.voucher_id
+                ),
+                0
+              )::bigint
+            END,
+          termination_reason = COALESCE(
+            NULLIF(logout_events.reason, ''),
+            'DISCONNECTED'
+          ),
+          updated_at = NOW()
+        FROM logout_events
+        WHERE s.router_id = $1
+          AND s.status = 'ACTIVE'
+          AND s.ended_at IS NULL
+          AND s.username = logout_events.username
+          AND s.ip_address::text = logout_events.ip_address
+          AND logout_events.ended_at >= s.started_at
+          AND logout_events.ended_at <= NOW()
+          AND (
+            s.mac_address IS NULL
+            OR NOT (s.mac_address = ANY($2::text[]))
+          )
+      `,
+      [routerId, stillActiveMacAddresses, logoutEventsJson]
+    );
+
+    closedCount += loggedOut.rowCount ?? 0;
+  }
+
+  const fallback = await pool.query(
     `
       UPDATE session s
       SET
         status = 'COMPLETED',
         ended_at = NOW(),
-        duration_seconds = COALESCE(s.duration_seconds, 0),
+        duration_seconds = GREATEST(
+          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+          0
+        ),
         voucher_remaining_seconds_at_end =
           CASE
             WHEN (
@@ -463,7 +580,18 @@ export async function closeSessionsNotIn(
                 WHERE v.id = s.voucher_id
               ) - (
                 SELECT COALESCE(
-                  SUM(COALESCE(s2.duration_seconds, 0)),
+                  SUM(
+                    CASE
+                      WHEN s2.id = s.id
+                        THEN GREATEST(
+                          EXTRACT(
+                            EPOCH FROM (NOW() - s.started_at)
+                          )::bigint,
+                          0
+                        )
+                      ELSE COALESCE(s2.duration_seconds, 0)
+                    END
+                  ),
                   0
                 )
                 FROM session s2
@@ -481,11 +609,26 @@ export async function closeSessionsNotIn(
           s.mac_address IS NULL
           OR NOT (s.mac_address = ANY($2::text[]))
         )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_to_recordset($3::jsonb) AS events(
+            username text,
+            ip_address text,
+            ended_at timestamptz,
+            reason text
+          )
+          WHERE events.username = s.username
+            AND events.ip_address = s.ip_address::text
+            AND events.ended_at >= s.started_at
+            AND events.ended_at <= NOW()
+        )
     `,
-    [routerId, stillActiveMacAddresses]
+    [routerId, stillActiveMacAddresses, logoutEventsJson]
   );
 
-  return result.rowCount ?? 0;
+  closedCount += fallback.rowCount ?? 0;
+
+  return closedCount;
 }
 
 /* ============================================================
