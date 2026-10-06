@@ -481,14 +481,21 @@ export default function GenerateVouchers() {
               <div className="mb-5">
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-                    Forfait
+                    Forfait MikroTik
                   </span>
 
                   <select
-                    value={planId}
-                    onChange={(event) =>
-                      setPlanId(event.target.value)
-                    }
+                    value={mikrotikProfile}
+                    onChange={(event) => {
+                      const profileName = event.target.value;
+                      setMikrotikProfile(profileName);
+
+                      const matchingPlan = plansForSite.find(
+                        (plan) => plan.name === profileName
+                      );
+
+                      setPlanId(matchingPlan?.id ?? "");
+                    }}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   >
                     <option value="">
