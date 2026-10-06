@@ -267,7 +267,17 @@ export default function Vouchers() {
         {/* TABLE */}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[1000px] table-fixed">
+            <colgroup>
+              <col className="w-[24%]" />
+              <col className="w-[14%]" />
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[15%]" />
+            </colgroup>
+
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -294,7 +304,7 @@ export default function Vouchers() {
                   Statut
                 </th>
 
-                <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Adresse MAC
                 </th>
               </tr>
@@ -467,8 +477,10 @@ function VoucherRow({
           {statusInfo.label}
         </span>
       </td>
-      <td className="px-5 py-4 text-right text-xs text-slate-400">
-        {voucher.macAddress ?? "—"}
+      <td className="px-4 py-4 text-left text-xs text-slate-400">
+        <span className="block truncate font-mono" title={voucher.macAddress ?? "—"}>
+          {voucher.macAddress ?? "—"}
+        </span>
       </td>
     </tr>
   );
