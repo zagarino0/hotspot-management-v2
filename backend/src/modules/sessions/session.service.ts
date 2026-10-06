@@ -20,6 +20,7 @@ import {
 
 import {
   activateVoucher,
+  backfillMikrotikQuotaForUser,
   closeSessionsNotIn,
   findSessionById,
   findSessions,
@@ -268,6 +269,18 @@ export async function syncRouterSessions(
         cookieKeys.has(
           `${user.username}|${user.macAddress}`
         );
+
+      if (
+        user.username !== null &&
+        mikrotikLimitUptimeSeconds !== null
+      ) {
+        await backfillMikrotikQuotaForUser(
+          router.siteId,
+          router.id,
+          user.username,
+          mikrotikLimitUptimeSeconds
+        );
+      }
 
       await upsertActiveSession({
         siteId: router.siteId,
