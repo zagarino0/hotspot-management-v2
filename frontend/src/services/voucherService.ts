@@ -105,6 +105,19 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucher[]> {
   return response.data.data;
 }
 
+export async function updateMikrotikVoucherComment(
+  routerId: string,
+  username: string,
+  comment: string
+): Promise<MikrotikVoucher> {
+  const response = await api.patch<ApiEnvelope<MikrotikVoucher>>(
+    `/api/vouchers/mikrotik/${encodeURIComponent(routerId)}/${encodeURIComponent(username)}/comment`,
+    { comment }
+  );
+
+  return response.data.data;
+}
+
 export async function getVoucherStats(): Promise<VoucherStats> {
   const response = await api.get<ApiEnvelope<VoucherStats>>(
     "/api/vouchers/stats"
