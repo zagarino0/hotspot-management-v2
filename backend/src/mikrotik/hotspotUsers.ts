@@ -106,7 +106,7 @@ function parseOptionalTimeSeconds(
 
 function parseCreationDate(comment: string): string | null {
   const match = comment.match(
-    /(?:^|[^0-9])(\\d{2})\\.(\\d{2})\\.(\\d{2}|\\d{4})(?:[^0-9]|$)/
+    /(?:^|[^0-9])(\d{2})\.(\d{2})\.(\d{2}|\d{4})(?:[^0-9]|$)/
   );
 
   if (!match) {
