@@ -949,11 +949,6 @@ function SessionRow({
             </span>
           )}
 
-          {session.cookiePresent && (
-            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-emerald-600">
-              cookie
-            </span>
-          )}
         </div>
       </td>
 
