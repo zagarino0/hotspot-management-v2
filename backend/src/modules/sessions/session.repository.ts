@@ -333,7 +333,7 @@ export async function syncVoucherUsage(
         END,
         updated_at = NOW()
       WHERE v.id = $1
-    `
+    `,
     [voucherId]
   );
 }
