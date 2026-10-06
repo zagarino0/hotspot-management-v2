@@ -23,6 +23,7 @@ import {
   backfillMikrotikMetadataForUser,
   closeSessionsNotIn,
   findSessionById,
+  findSessionHistory,
   findSessions,
   findVoucherIdByCode,
   findVoucherIdsByRouter,
@@ -42,6 +43,14 @@ export async function getSessions(filter?: {
   status?: SessionStatus;
 }) {
   return findSessions(filter);
+}
+
+export async function getSessionHistory(
+  username: string,
+  siteId?: string,
+  routerId?: string
+) {
+  return findSessionHistory(username, siteId, routerId);
 }
 
 /* ============================================================
