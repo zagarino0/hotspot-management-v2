@@ -87,6 +87,25 @@ export async function fetchSessions(
   return response.data.data;
 }
 
+export async function fetchSessionHistory(
+  username: string,
+  siteId?: string,
+  routerId?: string
+): Promise<Session[]> {
+  const response = await api.get<ApiEnvelope<Session[]>>(
+    "/api/sessions/history",
+    {
+      params: {
+        username,
+        siteId,
+        routerId,
+      },
+    }
+  );
+
+  return response.data.data;
+}
+
 /* ============================================================
    SYNC (déclenche une lecture live sur tous les routeurs)
 ============================================================ */
