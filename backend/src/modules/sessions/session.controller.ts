@@ -113,7 +113,7 @@ export async function historySessions(
 
 /* ============================================================
    SYNC ALL ROUTERS (déclenchement manuel du live sync)
-============================================================
+============================================================ */
 
 export const syncSessions = async (
   _req: Request,
