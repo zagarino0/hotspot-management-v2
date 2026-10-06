@@ -9,9 +9,27 @@ import {
   createVoucherBatch,
   deleteVoucherById,
   getVouchers,
+  getVoucherStats,
 } from "./voucher.service.js";
 
 import type { VoucherStatus } from "../../routes/voucher.types.js";
+
+export async function voucherStats(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const stats = await getVoucherStats();
+
+    return res.status(200).json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 const VALID_STATUSES: readonly VoucherStatus[] = [
   "UNUSED",
