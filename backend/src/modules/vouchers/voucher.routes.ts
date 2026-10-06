@@ -4,6 +4,7 @@ import {
   deleteVoucherController,
   generateVouchers,
   listVouchers,
+  voucherStats,
   updateVoucherStatusController,
 } from "./voucher.controller.js";
 
