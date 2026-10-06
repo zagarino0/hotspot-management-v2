@@ -29,6 +29,80 @@ import type {
 
 const MAX_BATCH_QUANTITY = 1000;
 
+
+export interface MikrotikVoucherRow {
+  id: string;
+  code: string;
+  profile: string | null;
+  durationSeconds: number | null;
+  siteId: string;
+  siteName: string;
+  routerId: string;
+  routerName: string;
+  macAddress: string | null;
+  comment: string | null;
+  createdAt: string | null;
+  status: "UNUSED" | "ACTIVE" | "EXPIRED";
+}
+
+export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
+  const routers = await findRoutersForSync();
+  const rows: MikrotikVoucherRow[] = [];
+
+  for (const router of routers) {
+    const credential = await findRouterCredential(router.id);
+
+    if (!credential) {
+      continue;
+    }
+
+    const api = await connectMikroTik({
+      host: router.managementIp.split("/")[0].trim(),
+      port: router.apiPort,
+      user: credential.username,
+      password: decryptSecret(credential.encryptedSecret),
+    });
+
+    try {
+      const [users, history] = await Promise.all([
+        fetchHotspotUsers(api),
+        findVoucherUsageHistory(router.siteId, router.id),
+      ]);
+
+      for (const user of users) {
+        const username = user.username.trim().toLowerCase();
+
+        let status: MikrotikVoucherRow["status"] = user.macAddress
+          ? "ACTIVE"
+          : "UNUSED";
+
+        if (history.expiredUsernames.has(username)) {
+          status = "EXPIRED";
+        }
+
+        rows.push({
+          id: `${router.id}:${user.username}`,
+          code: user.username,
+          profile: user.profile,
+          durationSeconds: user.limitUptimeSeconds,
+          siteId: router.siteId,
+          siteName: router.name,
+          routerId: router.id,
+          routerName: router.name,
+          macAddress: user.macAddress,
+          comment: user.comment,
+          createdAt: user.createdAt,
+          status,
+        });
+      }
+    } finally {
+      await api.close();
+    }
+  }
+
+  return rows;
+}
+
 export async function getVouchers(filter?: {
   status?: VoucherStatus;
   siteId?: string;
