@@ -363,7 +363,7 @@ export default function Sessions() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px]">
+          <table className="w-full min-w-[1350px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -371,19 +371,27 @@ export default function Sessions() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Adresse IP
+                  Forfait
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Adresse MAC
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Routeur
+                  Début
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Durée
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Restant
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Fin prévue
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Routeur
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -400,7 +408,7 @@ export default function Sessions() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des sessions...
@@ -470,6 +478,21 @@ function averageOf(values: number[]): number {
   return (
     values.reduce((sum, v) => sum + v, 0) / values.length
   );
+}
+
+function formatDateTime(value: string | Date): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -578,14 +601,76 @@ function SessionRow({
   const displayName =
     session.username || "Utilisateur inconnu";
 
+  const now = Date.now();
+
   const liveDuration =
     session.status === "ACTIVE" && session.startedAt
-      ? Math.floor(
-          (Date.now() -
-            new Date(session.startedAt).getTime()) /
-            1000
+      ? Math.max(
+          0,
+          Math.floor(
+            (now - new Date(session.startedAt).getTime()) /
+              1000
+          )
         )
       : session.durationSeconds;
+
+  const secondsSinceSync =
+    session.status === "ACTIVE" && session.updatedAt
+      ? Math.max(
+          0,
+          Math.floor(
+            (now - new Date(session.updatedAt).getTime()) /
+              1000
+          )
+        )
+      : 0;
+
+  const liveSessionTimeLeft =
+    session.status === "ACTIVE" &&
+    session.sessionTimeLeftSeconds !== null
+      ? Math.max(
+          0,
+          session.sessionTimeLeftSeconds -
+            secondsSinceSync
+        )
+      : null;
+
+  const liveVoucherRemaining =
+    session.status === "ACTIVE" &&
+    session.voucherRemainingSeconds !== null
+      ? Math.max(
+          0,
+          session.voucherRemainingSeconds -
+            secondsSinceSync
+        )
+      : null;
+
+  const remainingSeconds =
+    liveVoucherRemaining !== null &&
+    liveSessionTimeLeft !== null
+      ? Math.min(
+          liveVoucherRemaining,
+          liveSessionTimeLeft
+        )
+      : liveVoucherRemaining ??
+        liveSessionTimeLeft;
+
+  const plannedEndSeconds =
+    session.status === "ACTIVE"
+      ? remainingSeconds
+      : null;
+
+  const plannedEnd =
+    plannedEndSeconds !== null
+      ? new Date(
+          now + plannedEndSeconds * 1000
+        )
+      : null;
+
+  const loginLabel =
+    session.loginMethod
+      ? session.loginMethod.replace(/-/g, " ")
+      : null;
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
@@ -599,24 +684,77 @@ function SessionRow({
             <p className="truncate text-sm font-semibold text-slate-800">
               {displayName}
             </p>
+
+            <p className="mt-0.5 truncate font-mono text-[10px] text-slate-400">
+              {session.ipAddress || "IP inconnue"}
+            </p>
           </div>
         </div>
       </td>
 
-      <td className="px-5 py-4 font-mono text-xs text-slate-500">
-        {session.ipAddress || "—"}
+      <td className="px-5 py-4">
+        <div className="text-sm font-semibold text-slate-700">
+          {session.mikrotikProfile || "—"}
+        </div>
+
+        {session.voucherCode && (
+          <div className="mt-0.5 font-mono text-[10px] text-slate-400">
+            {session.voucherCode}
+          </div>
+        )}
       </td>
 
-      <td className="px-5 py-4 font-mono text-xs text-slate-500">
-        {session.macAddress || "—"}
+      <td className="px-5 py-4 text-xs text-slate-600">
+        {formatDateTime(session.startedAt)}
       </td>
 
       <td className="px-5 py-4 text-sm font-medium text-slate-600">
-        {session.routerName || "—"}
+        {formatDuration(liveDuration ?? 0)}
       </td>
 
-      <td className="px-5 py-4 text-sm text-slate-600">
-        {formatDuration(liveDuration ?? 0)}
+      <td className="px-5 py-4">
+        <div className="text-sm font-semibold text-slate-700">
+          {remainingSeconds !== null
+            ? formatDuration(remainingSeconds)
+            : "—"}
+        </div>
+
+        {session.voucherDurationSeconds !== null && (
+          <div className="mt-0.5 text-[10px] text-slate-400">
+            {formatDuration(
+              session.voucherUsedSeconds
+            )}{" "}
+            consommées
+          </div>
+        )}
+      </td>
+
+      <td className="px-5 py-4 text-xs text-slate-600">
+        {plannedEnd
+          ? formatDateTime(plannedEnd)
+          : "—"}
+      </td>
+
+      <td className="px-5 py-4">
+        <div className="text-sm font-medium text-slate-600">
+          {session.routerName || "—"}
+        </div>
+
+        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
+          {session.macAddress || "MAC inconnue"}
+
+          {loginLabel && (
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 uppercase">
+              {loginLabel}
+            </span>
+          )}
+
+          {session.cookiePresent && (
+            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-emerald-600">
+              cookie
+            </span>
+          )}
+        </div>
       </td>
 
       <td className="px-5 py-4">
