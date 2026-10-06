@@ -200,7 +200,7 @@ export async function upsertActiveSession(
         NOW() - ($6::bigint * INTERVAL '1 second'),
         $7,
         $8,
-        $8,
+        $9,
         'ACTIVE'
       )
     `,
