@@ -105,8 +105,10 @@ export async function syncRouterSessions(
   let api;
 
   try {
+    const host = router.managementIp.split("/")[0].trim();
+
     api = await connectMikroTik({
-      host: router.managementIp,
+      host,
       port: router.apiPort,
       user: credential.username,
       password,
@@ -297,8 +299,10 @@ export async function terminateSession(sessionId: string) {
 
   const password = decryptSecret(credential.encryptedSecret);
 
+  const host = router.managementIp.split("/")[0].trim();
+
   const api = await connectMikroTik({
-    host: router.managementIp,
+    host,
     port: router.apiPort,
     user: credential.username,
     password,
