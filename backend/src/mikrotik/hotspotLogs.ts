@@ -64,7 +64,7 @@ function parseHotspotLogRow(
   }
 
   const match = message.match(
-    /^->\\s*([^\\s]+)\\s+\\(([^)]+)\\):\\s*(.*)$/i
+    /^->\s*([^\s]+)\s+\(([^)]+)\):\s*(.*)$/i
   );
 
   if (!match) {
@@ -117,7 +117,7 @@ function parseHotspotLogRow(
   if (normalizedMessage.startsWith("logged out")) {
     const reason = eventMessage
       .slice("logged out".length)
-      .replace(/^:\\s*/, "")
+      .replace(/^:\s*/, "")
       .trim();
 
     return {
@@ -167,13 +167,10 @@ function parseTimestamp(value: unknown): string | null {
     return null;
   }
 
-  const date = new Date(raw);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date.toISOString();
+  // On conserve l'heure telle que fournie par MikroTik.
+  // La conversion en instant UTC sera faite au moment de la
+  // persistance, après détermination du fuseau du routeur.
+  return raw;
 }
 
 function parseRouterLogId(value: unknown): string | null {
