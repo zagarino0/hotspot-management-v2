@@ -417,7 +417,7 @@ export default function Sessions() {
               ) : filteredSessions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-5 py-12 text-center"
                   >
                     <div className="text-sm font-semibold text-slate-600">
