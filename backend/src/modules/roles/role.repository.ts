@@ -37,6 +37,23 @@ const ROLE_SELECT = `
 
 const ROLE_GROUP_BY = `GROUP BY r.id`;
 
+export async function findUserRoleCodes(
+  userId: string
+): Promise<string[]> {
+  const result = await pool.query<{ code: string }>(
+    `
+      SELECT r.code
+      FROM user_role ur
+      INNER JOIN role r ON r.id = ur.role_id
+      WHERE ur.user_id = $1
+        AND r.status = 'ACTIVE'
+    `,
+    [userId]
+  );
+
+  return result.rows.map((row) => row.code);
+}
+
 /* ============================================================
    LIST
 ============================================================ */
