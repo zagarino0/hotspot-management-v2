@@ -8,73 +8,131 @@ import {
   Users as UsersIcon,
   XCircle,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import PageHeader from "../../components/ui/PageHeader";
+import {
+  getUsers,
+  type AppUser,
+} from "../../services/userService";
 
-interface UserRowProps {
-  name: string;
-  username: string;
-  email: string;
-  role: string;
-  status: "ACTIVE" | "INACTIVE";
-  lastLogin: string;
+function formatLastLogin(value: string | null): string {
+  if (!value) return "Jamais";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / 3_600_000);
+
+  if (diffHours < 1) return "À l'instant";
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+
+  return date.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
-interface UserSummaryProps {
-  label: string;
-  value: string;
-  icon: typeof UsersIcon;
-  positive?: boolean;
-  negative?: boolean;
+function getDisplayName(user: AppUser): string {
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.username
+  );
 }
 
-const users: UserRowProps[] = [
-  {
-    name: "Zagarino",
-    username: "zagarino",
-    email: "zagarino@netconnect.local",
-    role: "Super Admin",
-    status: "ACTIVE",
-    lastLogin: "Aujourd'hui",
-  },
-  {
-    name: "Administrateur",
-    username: "admin",
-    email: "admin@netconnect.local",
-    role: "Administrateur",
-    status: "ACTIVE",
-    lastLogin: "Aujourd'hui",
-  },
-  {
-    name: "Technicien",
-    username: "technicien",
-    email: "technicien@netconnect.local",
-    role: "Technicien",
-    status: "ACTIVE",
-    lastLogin: "Il y a 2 h",
-  },
-];
+function getRoleName(user: AppUser): string {
+  return user.roles[0]?.name ?? "Aucun rôle";
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 export default function Users() {
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadUsers() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await getUsers();
+
+        if (active) {
+          setUsers(result);
+        }
+      } catch (requestError) {
+        if (active) {
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : "Impossible de charger les utilisateurs."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadUsers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) return users;
+
+    return users.filter((user) => {
+      const haystack = [
+        getDisplayName(user),
+        user.username,
+        user.email ?? "",
+        user.phone ?? "",
+        ...user.roles.map((role) => role.name),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [search, users]);
+
   const totalUsers = users.length;
   const activeUsers = users.filter(
     (user) => user.status === "ACTIVE",
   ).length;
   const inactiveUsers = users.filter(
-    (user) => user.status === "INACTIVE",
+    (user) => user.status !== "ACTIVE",
   ).length;
-  const administrators = users.filter(
-    (user) =>
-      user.role === "Super Admin" ||
-      user.role === "Administrateur",
+  const administrators = users.filter((user) =>
+    user.roles.some((role) =>
+      role.name.toLowerCase().includes("admin"),
+    ),
   ).length;
 
   return (
     <div className="space-y-6">
-      {/* ============================================================
-          PAGE HEADER
-      ============================================================ */}
-
       <PageHeader
         eyebrow="Administration"
         title="Utilisateurs"
@@ -90,13 +148,7 @@ export default function Users() {
         }
       />
 
-      {/* ============================================================
-          USERS TABLE
-      ============================================================ */}
-
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-        {/* TOOLBAR */}
-
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search
@@ -104,20 +156,25 @@ export default function Users() {
               strokeWidth={1.8}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
-
             <input
               type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher un utilisateur..."
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
             />
           </div>
 
           <div className="text-xs font-medium text-slate-400">
-            {totalUsers} utilisateurs
+            {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? "s" : ""}
           </div>
         </div>
 
-        {/* TABLE */}
+        {error ? (
+          <div className="m-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px]">
@@ -126,19 +183,15 @@ export default function Users() {
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Utilisateur
                 </th>
-
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Rôle
                 </th>
-
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Statut
                 </th>
-
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Dernière connexion
                 </th>
-
                 <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Actions
                 </th>
@@ -146,20 +199,33 @@ export default function Users() {
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-              {users.map((user) => (
-                <UserRow
-                  key={user.username}
-                  {...user}
-                />
-              ))}
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-12 text-center text-sm text-slate-400"
+                  >
+                    Chargement des utilisateurs...
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-12 text-center text-sm text-slate-400"
+                  >
+                    Aucun utilisateur trouvé.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <UserRow key={user.id} user={user} />
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </section>
-
-      {/* ============================================================
-          SUMMARY
-      ============================================================ */}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <UserSummary
@@ -167,21 +233,18 @@ export default function Users() {
           value={String(totalUsers)}
           icon={UsersIcon}
         />
-
         <UserSummary
           label="Utilisateurs actifs"
           value={String(activeUsers)}
           icon={CheckCircle2}
           positive
         />
-
         <UserSummary
           label="Utilisateurs inactifs"
           value={String(inactiveUsers)}
           icon={XCircle}
           negative
         />
-
         <UserSummary
           label="Administrateurs"
           value={String(administrators)}
@@ -192,71 +255,46 @@ export default function Users() {
   );
 }
 
-/* ================================================================
-   USER ROW
-================================================================ */
-
-function UserRow({
-  name,
-  username,
-  email,
-  role,
-  status,
-  lastLogin,
-}: UserRowProps) {
-  const active = status === "ACTIVE";
+function UserRow({ user }: { user: AppUser }) {
+  const name = getDisplayName(user);
+  const role = getRoleName(user);
+  const active = user.status === "ACTIVE";
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
-      {/* USER */}
-
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
             {getInitials(name)}
           </div>
-
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-800">
               {name}
             </p>
-
             <p className="mt-0.5 truncate text-xs text-slate-400">
-              @{username}
+              @{user.username}
             </p>
-
             <p className="mt-0.5 truncate text-xs text-slate-400">
-              {email}
+              {user.email ?? "E-mail non renseigné"}
             </p>
           </div>
         </div>
       </td>
 
-      {/* ROLE */}
-
       <td className="px-5 py-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-            {role === "Super Admin" ? (
-              <ShieldCheck
-                size={15}
-                strokeWidth={1.8}
-              />
+            {role.toLowerCase().includes("admin") ? (
+              <ShieldCheck size={15} strokeWidth={1.8} />
             ) : (
-              <UserCog
-                size={15}
-                strokeWidth={1.8}
-              />
+              <UserCog size={15} strokeWidth={1.8} />
             )}
           </div>
-
           <span className="text-sm font-medium text-slate-600">
             {role}
           </span>
         </div>
       </td>
-
-      {/* STATUS */}
 
       <td className="px-5 py-4">
         <span
@@ -271,25 +309,18 @@ function UserRow({
           <span
             className={[
               "h-1.5 w-1.5 rounded-full",
-              active
-                ? "bg-emerald-500"
-                : "bg-red-500",
+              active ? "bg-emerald-500" : "bg-red-500",
             ].join(" ")}
           />
-
-          {active ? "ACTIF" : "INACTIF"}
+          {active ? "ACTIF" : user.status}
         </span>
       </td>
-
-      {/* LAST LOGIN */}
 
       <td className="px-5 py-4">
         <span className="text-sm font-medium text-slate-600">
-          {lastLogin}
+          {formatLastLogin(user.lastLoginAt)}
         </span>
       </td>
-
-      {/* ACTIONS */}
 
       <td className="px-5 py-4 text-right">
         <button
@@ -304,30 +335,28 @@ function UserRow({
   );
 }
 
-/* ================================================================
-   SUMMARY
-================================================================ */
-
 function UserSummary({
   label,
   value,
   icon: Icon,
   positive,
   negative,
-}: UserSummaryProps) {
+}: {
+  label: string;
+  value: string;
+  icon: typeof UsersIcon;
+  positive?: boolean;
+  negative?: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-400">
-            {label}
-          </p>
-
+          <p className="text-xs font-medium text-slate-400">{label}</p>
           <p className="mt-1 text-2xl font-bold tracking-[-0.03em] text-slate-950">
             {value}
           </p>
         </div>
-
         <div
           className={[
             "flex h-9 w-9 items-center justify-center rounded-lg",
@@ -343,30 +372,4 @@ function UserSummary({
       </div>
     </div>
   );
-}
-
-/* ================================================================
-   HELPERS
-================================================================ */
-
-function getInitials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "U";
-  }
-
-  if (parts.length === 1) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
-  }
-
-  return (
-    parts[0][0] +
-    parts[parts.length - 1][0]
-  ).toUpperCase();
 }
