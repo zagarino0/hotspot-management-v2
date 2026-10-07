@@ -138,7 +138,8 @@ export async function insertSale(
   plan: PlanSnapshot
 ): Promise<SaleRow> {
   const quantity = data.quantity ?? 1;
-  const totalAmount = plan.price * quantity;
+  const unitPrice = data.unitPrice ?? plan.price;
+  const totalAmount = unitPrice * quantity;
 
   const result = await pool.query<{ id: string }>(
     `
@@ -167,7 +168,7 @@ export async function insertSale(
       data.customerName ?? null,
       data.customerPhone ?? null,
       quantity,
-      plan.price,
+      unitPrice,
       totalAmount,
       plan.currency,
       data.createdBy ?? null,
