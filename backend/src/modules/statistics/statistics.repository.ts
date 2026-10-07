@@ -33,47 +33,134 @@ async function countBetween(
   return Number(result.rows[0].count);
 }
 
-async function revenueBetween(from: Date, to: Date): Promise<number> {
-  const result = await pool.query<{ total: string | null }>(
+async function getEngagedVoucherStatsBetween(
+  from: Date,
+  to: Date,
+  engagedVouchers: Array<{
+    code: string;
+    profile: string | null;
+    siteId: string;
+    routerId: string;
+    status: "UNUSED" | "ACTIVE" | "EXPIRED";
+  }>
+): Promise<{ revenue: number; count: number }> {
+  const firstConnections = await pool.query<{
+    siteId: string;
+    routerId: string;
+    username: string;
+    startedAt: Date;
+  }>(
     `
-      SELECT COALESCE(
-        SUM(
-          sa.quantity * COALESCE(
-            sp.price,
-            hp.default_price,
-            sa.unit_price
-          )
-        ),
-        0
-      )::float8 AS total
-      FROM sale sa
-      LEFT JOIN hotspot_profile hp
-        ON hp.code = LOWER(TRIM(COALESCE(
-          sa.profile_code,
-          ''
-        )))
-      LEFT JOIN site_hotspot_profile_price sp
-        ON sp.site_id = sa.site_id
-       AND sp.profile_code = hp.code
-      WHERE sa.status = 'PAID'
-        AND sa.sold_at >= $1
-        AND sa.sold_at < $2
+      SELECT DISTINCT ON (s.site_id, s.router_id, s.username)
+        s.site_id AS "siteId",
+        s.router_id AS "routerId",
+        s.username,
+        s.started_at AS "startedAt"
+      FROM session s
+      WHERE s.started_at >= $1
+        AND s.started_at < $2
+      ORDER BY
+        s.site_id,
+        s.router_id,
+        s.username,
+        s.started_at ASC,
+        s.id ASC
     `,
     [from, to]
   );
 
-  return Number(result.rows[0].total ?? 0);
+  const firstConnectionKeys = new Set(
+    firstConnections.rows.map(
+      (row) =>
+        `${row.siteId}|${row.routerId}|${row.username.trim().toLowerCase()}`
+    )
+  );
+
+  const normalizeProfile = (profile: string | null) =>
+    (profile ?? "").trim().toLowerCase();
+
+  const eligible = engagedVouchers.filter((voucher) =>
+    firstConnectionKeys.has(
+      `${voucher.siteId}|${voucher.routerId}|${voucher.code.trim().toLowerCase()}`
+    )
+  );
+
+  if (eligible.length === 0) {
+    return { revenue: 0, count: 0 };
+  }
+
+  const pricesResult = await pool.query<{
+    siteId: string;
+    profileCode: string;
+    price: number;
+  }>(
+    `
+      SELECT
+        s.id AS "siteId",
+        p.code AS "profileCode",
+        COALESCE(sp.price, p.default_price)::float8 AS price
+      FROM site s
+      JOIN hotspot_profile p
+        ON p.status = 'ACTIVE'
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = s.id
+       AND sp.profile_code = p.code
+    `
+  );
+
+  const prices = new Map(
+    pricesResult.rows.map((row) => [
+      `${row.siteId}|${normalizeProfile(row.profileCode)}`,
+      Number(row.price),
+    ])
+  );
+
+  const revenue = eligible.reduce((sum, voucher) => {
+    const price =
+      prices.get(
+        `${voucher.siteId}|${normalizeProfile(voucher.profile)}`
+      ) ?? 0;
+
+    return sum + price;
+  }, 0);
+
+  return {
+    revenue,
+    count: eligible.length,
+  };
+}
+
+async function getEngagedVoucherStats(
+  from: Date,
+  to: Date
+): Promise<{ revenue: number; count: number }> {
+  const { getMikrotikVouchers } = await import(
+    "../vouchers/voucher.service.js"
+  );
+
+  const vouchers = await getMikrotikVouchers();
+
+  const engagedVouchers = vouchers.filter(
+    (voucher) =>
+      voucher.status === "ACTIVE" ||
+      voucher.status === "EXPIRED"
+  );
+
+  return getEngagedVoucherStatsBetween(
+    from,
+    to,
+    engagedVouchers
+  );
+}
+
+async function revenueBetween(from: Date, to: Date): Promise<number> {
+  const stats = await getEngagedVoucherStats(from, to);
+  return stats.revenue;
 }
 
 async function paidSalesBetween(from: Date, to: Date): Promise<number> {
-  const result = await pool.query<{ count: string }>(
-    `SELECT COUNT(DISTINCT sale_id) AS count
-     FROM payment
-     WHERE status = 'SUCCESS' AND paid_at >= $1 AND paid_at < $2`,
-    [from, to]
-  );
-
-  return Number(result.rows[0].count);
+  const stats = await getEngagedVoucherStats(from, to);
+  return stats.count;
 }
 
 export async function getDashboardOverview(
