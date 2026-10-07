@@ -270,7 +270,7 @@ export default function Roles() {
   async function handleToggleStatus(role: Role) {
     setOpenActionsId(null);
 
-    if (role.isSystem) return;
+    if (role.isSystem && !isSuperAdmin) return;
 
     try {
       const updated = await updateRole(role.id, {
