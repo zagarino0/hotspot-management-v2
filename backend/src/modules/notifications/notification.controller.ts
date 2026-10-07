@@ -39,7 +39,7 @@ export async function putSettings(req: Request, res: Response, next: NextFunctio
       networkProblemEnabled: body.networkProblemEnabled, routerOfflineEnabled: body.routerOfflineEnabled,
       routerOnlineEnabled: body.routerOnlineEnabled, syncErrorEnabled: body.syncErrorEnabled,
       allSites: body.allSites,
-      siteIds: [...new Set(body.siteIds.map((v: string) => v.trim()))]
+      siteIds: Array.from(new Set<string>(body.siteIds.map((v: string) => v.trim())))
     });
     return res.status(200).json({ success: true, message: "Paramètres de notifications enregistrés.", data });
   } catch (error) { return next(error); }
