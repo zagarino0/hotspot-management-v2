@@ -2,6 +2,7 @@ import {
   deleteRole,
   findAllPermissions,
   findRoleById,
+  findUserRoleCodes,
   findRolePermissionIds,
   findRoles,
   insertRole,
