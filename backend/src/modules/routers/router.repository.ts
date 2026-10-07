@@ -192,6 +192,12 @@ export async function updateRouterHealth(
 ): Promise<RouterHealthTransition | null> {
   const result = await pool.query<RouterHealthTransition>(
     `
+      WITH previous AS (
+        SELECT id, status
+        FROM router
+        WHERE id = $1
+        FOR UPDATE
+      )
       UPDATE router r
       SET
         status = CASE
@@ -211,14 +217,11 @@ export async function updateRouterHealth(
         END,
         last_sync_at = NOW(),
         updated_at = NOW()
-      WHERE r.id = $1
+      FROM previous
+      WHERE r.id = previous.id
       RETURNING
-        r.status AS "currentStatus",
-        (
-          SELECT previous.status
-          FROM router previous
-          WHERE previous.id = r.id
-        ) AS "previousStatus"
+        previous.status AS "previousStatus",
+        r.status AS "currentStatus"
     `,
     [
       update.routerId,
@@ -228,8 +231,7 @@ export async function updateRouterHealth(
     ]
   );
 
-  const row = result.rows[0];
-  return row ?? null;
+  return result.rows[0] ?? null;
 }
 
 /* ============================================================
