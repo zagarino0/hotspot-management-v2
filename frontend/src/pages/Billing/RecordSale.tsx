@@ -242,8 +242,8 @@ export default function RecordSale() {
             </h2>
 
             <p className="text-sm text-slate-400">
-              Le prix du site sélectionné est proposé automatiquement.
-              Vous pouvez l'ajuster pour cette vente.
+              Les forfaits et leurs tarifs sont chargés selon le site cible.
+              Le tarif du site peut être modifié explicitement.
             </p>
           </div>
         </div>
@@ -511,12 +511,12 @@ export default function RecordSale() {
           <div className="space-y-4">
             <InfoItem
               title="Site cible"
-              text="Le site détermine les forfaits disponibles et leur prix de référence."
+              text="Le site cible détermine les forfaits disponibles et le tarif appliqué par défaut."
             />
 
             <InfoItem
               title="Prix de vente"
-              text="Le prix du forfait est proposé automatiquement. Vous pouvez l'ajuster uniquement pour cette vente."
+              text="Le tarif du site est proposé automatiquement. Vous pouvez le modifier pour cette vente ou l'enregistrer comme nouveau tarif du site."
             />
 
             <InfoItem
