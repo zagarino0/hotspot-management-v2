@@ -190,48 +190,75 @@ export interface RouterHealthUpdate {
 export async function updateRouterHealth(
   update: RouterHealthUpdate
 ): Promise<RouterHealthTransition | null> {
-  const result = await pool.query<RouterHealthTransition>(
-    `
-      WITH previous AS (
-        SELECT id, status
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Capture l'état réellement observé avant toute modification.
+    // Cette lecture verrouillée évite qu'une transition ONLINE/OFFLINE
+    // soit calculée à partir d'un état intermédiaire ou d'une écriture
+    // concurrente.
+    const previousResult = await client.query<{ status: string | null }>(
+      `
+        SELECT status
         FROM router
         WHERE id = $1
         FOR UPDATE
-      )
-      UPDATE router r
-      SET
-        status = CASE
-          WHEN $2 THEN 'ONLINE'
-          ELSE 'OFFLINE'
-        END,
-        last_check_at = NOW(),
-        last_seen_at = CASE
-          WHEN $2 THEN NOW()
-          ELSE r.last_seen_at
-        END,
-        last_error = $3,
-        sync_status = CASE
-          WHEN $4 THEN 'FAILED'
-          WHEN $2 THEN 'SUCCESS'
-          ELSE 'FAILED'
-        END,
-        last_sync_at = NOW(),
-        updated_at = NOW()
-      FROM previous
-      WHERE r.id = previous.id
-      RETURNING
-        previous.status AS "previousStatus",
-        r.status AS "currentStatus"
-    `,
-    [
-      update.routerId,
-      update.reachable,
-      update.errorMessage ?? null,
-      update.syncError === true,
-    ]
-  );
+      `,
+      [update.routerId]
+    );
 
-  return result.rows[0] ?? null;
+    const previousStatus = previousResult.rows[0]?.status ?? null;
+
+    if (!previousResult.rows[0]) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const currentStatus = update.reachable ? "ONLINE" : "OFFLINE";
+
+    await client.query(
+      `
+        UPDATE router
+        SET
+          status = $2,
+          last_check_at = NOW(),
+          last_seen_at = CASE
+            WHEN $3 THEN NOW()
+            ELSE last_seen_at
+          END,
+          last_error = $4,
+          sync_status = CASE
+            WHEN $5 THEN 'FAILED'
+            WHEN $3 THEN 'SUCCESS'
+            ELSE 'FAILED'
+          END,
+          last_sync_at = NOW(),
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [
+        update.routerId,
+        currentStatus,
+        update.reachable,
+        update.errorMessage ?? null,
+        update.syncError === true,
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      previousStatus,
+      currentStatus,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /* ============================================================
