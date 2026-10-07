@@ -46,9 +46,14 @@ export interface AuthUser {
   organizationId: string;
   username: string;
   email: string | null;
+  phone: string | null;
   firstName: string | null;
   lastName: string | null;
   status: string;
+  emailVerified: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   roles: AuthRole[];
 }
 
@@ -87,6 +92,8 @@ interface AuthContextValue {
   ) => Promise<void>;
 
   logout: () => void;
+
+  refreshUser: () => Promise<AuthUser | null>;
 
   hasRole: (roleCode: string) => boolean;
 
@@ -292,6 +299,47 @@ export function AuthProvider({
   );
 
   /* ==========================================================
+     REFRESH CURRENT USER
+  ========================================================== */
+
+  const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
+    const currentToken = getStoredToken();
+
+    if (!currentToken) {
+      return null;
+    }
+
+    const response = await fetch(
+      `${API_URL}/api/auth/me`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${currentToken}`,
+        },
+      }
+    );
+
+    const result = (await response.json()) as
+      | { success: true; data: AuthUser }
+      | ApiErrorResponse;
+
+    if (!response.ok || result.success !== true) {
+      throw new Error(
+        "Impossible de récupérer le profil utilisateur."
+      );
+    }
+
+    setStoredSession(
+      currentToken,
+      JSON.stringify(result.data)
+    );
+    setToken(currentToken);
+    setUser(result.data);
+
+    return result.data;
+  }, []);
+
+  /* ==========================================================
      LOGOUT
   ========================================================== */
 
@@ -366,6 +414,7 @@ export function AuthProvider({
 
         login,
         logout,
+        refreshUser,
 
         hasRole,
         hasPermission,
@@ -377,6 +426,7 @@ export function AuthProvider({
         isAuthenticated,
         login,
         logout,
+        refreshUser,
         hasRole,
         hasPermission,
       ]
