@@ -23,9 +23,14 @@ export interface AuthUser {
   organizationId: string;
   username: string;
   email: string | null;
+  phone: string | null;
   firstName: string | null;
   lastName: string | null;
   status: string;
+  emailVerified: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   roles: AuthRole[];
 }
 
