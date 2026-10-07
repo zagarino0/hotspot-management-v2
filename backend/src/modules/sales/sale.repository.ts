@@ -221,12 +221,10 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   }>(
     `
       SELECT
-        COALESCE(SUM(pay.amount), 0)::float8 AS "totalRevenue",
-        COUNT(DISTINCT sa.id) AS "salesCount"
+        COALESCE(SUM(sa.total_amount), 0)::float8 AS "totalRevenue",
+        COUNT(*)::int AS "salesCount"
       FROM sale sa
-      LEFT JOIN payment pay
-        ON pay.sale_id = sa.id AND pay.status = 'SUCCESS'
-      WHERE sa.status IN ('PAID', 'PARTIALLY_PAID')
+      WHERE sa.status = 'PAID'
     `
   );
 
@@ -237,26 +235,35 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     totalsResult.rows[0]?.salesCount ?? 0
   );
 
-  const mobileResult = await pool.query<{
+  const paymentShareResult = await pool.query<{
     mobileAmount: string | null;
-    totalAmount: string | null;
+    cashAmount: string | null;
+    paidAmount: string | null;
   }>(
     `
       SELECT
-        COALESCE(SUM(amount) FILTER (
-          WHERE method IN ('MVOLA', 'ORANGE_MONEY', 'AIRTEL_MONEY')
+        COALESCE(SUM(pay.amount) FILTER (
+          WHERE pay.method IN ('MVOLA', 'ORANGE_MONEY', 'AIRTEL_MONEY')
         ), 0)::float8 AS "mobileAmount",
-        COALESCE(SUM(amount), 0)::float8 AS "totalAmount"
-      FROM payment
-      WHERE status = 'SUCCESS'
+        COALESCE(SUM(pay.amount) FILTER (
+          WHERE pay.method = 'CASH'
+        ), 0)::float8 AS "cashAmount",
+        COALESCE(SUM(pay.amount), 0)::float8 AS "paidAmount"
+      FROM payment pay
+      JOIN sale sa ON sa.id = pay.sale_id
+      WHERE pay.status = 'SUCCESS'
+        AND sa.status = 'PAID'
     `
   );
 
   const mobileAmount = Number(
-    mobileResult.rows[0]?.mobileAmount ?? 0
+    paymentShareResult.rows[0]?.mobileAmount ?? 0
   );
-  const paymentsTotal = Number(
-    mobileResult.rows[0]?.totalAmount ?? 0
+  const cashAmount = Number(
+    paymentShareResult.rows[0]?.cashAmount ?? 0
+  );
+  const paidAmount = Number(
+    paymentShareResult.rows[0]?.paidAmount ?? 0
   );
 
   const revenueByDayResult = await pool.query<{
@@ -265,12 +272,12 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   }>(
     `
       SELECT
-        TO_CHAR(pay.paid_at, 'YYYY-MM-DD') AS "date",
-        SUM(pay.amount)::float8 AS "amount"
-      FROM payment pay
-      WHERE pay.status = 'SUCCESS'
-        AND pay.paid_at >= NOW() - INTERVAL '30 days'
-      GROUP BY TO_CHAR(pay.paid_at, 'YYYY-MM-DD')
+        TO_CHAR(sa.sold_at, 'YYYY-MM-DD') AS "date",
+        SUM(sa.total_amount)::float8 AS "amount"
+      FROM sale sa
+      WHERE sa.status = 'PAID'
+        AND sa.sold_at >= NOW() - INTERVAL '30 days'
+      GROUP BY TO_CHAR(sa.sold_at, 'YYYY-MM-DD')
       ORDER BY "date" ASC
     `
   );
@@ -281,8 +288,12 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     averageBasket:
       salesCount > 0 ? totalRevenue / salesCount : 0,
     mobilePaymentShare:
-      paymentsTotal > 0
-        ? (mobileAmount / paymentsTotal) * 100
+      paidAmount > 0
+        ? (mobileAmount / paidAmount) * 100
+        : 0,
+    cashPaymentShare:
+      paidAmount > 0
+        ? (cashAmount / paidAmount) * 100
         : 0,
     revenueByDay: revenueByDayResult.rows.map((row) => ({
       date: row.date,
