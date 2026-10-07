@@ -1,5 +1,12 @@
 import { pool } from "../../database/pool.js";
 import { checkDatabase } from "../../database/health.js";
+import {
+  findRouterCredential,
+  findRoutersForSync,
+} from "../routers/router.repository.js";
+import { connectMikroTik } from "../../mikrotik/connection.js";
+import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
+import { decryptSecret } from "../../lib/crypto.js";
 
 import type {
   DashboardOverview,
@@ -31,6 +38,49 @@ async function countBetween(
   );
 
   return Number(result.rows[0].count);
+}
+
+async function getSingleMikrotikSnapshot() {
+  const routers = await findRoutersForSync();
+
+  if (routers.length !== 1) {
+    throw new Error(
+      routers.length === 0
+        ? "Aucun MikroTik synchronisé n'est configuré pour le tableau de bord."
+        : "Le tableau de bord attend un seul MikroTik comme source de vérité."
+    );
+  }
+
+  const router = routers[0];
+  const credential = await findRouterCredential(router.id);
+
+  if (!credential) {
+    throw new Error(
+      `Aucun identifiant MikroTik enregistré pour le routeur "${router.name}".`
+    );
+  }
+
+  const api = await connectMikroTik({
+    host: router.managementIp.split("/")[0].trim(),
+    port: router.apiPort,
+    user: credential.username,
+    password: decryptSecret(credential.encryptedSecret),
+  });
+
+  try {
+    const [users, activeRows] = await Promise.all([
+      fetchHotspotUsers(api),
+      api.write("/ip/hotspot/active/print"),
+    ]);
+
+    return {
+      router,
+      users,
+      activeSessions: activeRows.length,
+    };
+  } finally {
+    await api.close();
+  }
 }
 
 async function countMikrotikClientsBetween(
@@ -187,16 +237,38 @@ export async function getDashboardOverview(
     trendStart.getTime() - days * 24 * 60 * 60 * 1000
   );
 
-  const { getMikrotikVouchers } = await import(
-    "../vouchers/voucher.service.js"
-  );
+  const mikrotik = await getSingleMikrotikSnapshot();
 
-  const mikrotikVouchers = await getMikrotikVouchers();
-  const engagedVouchers = mikrotikVouchers.filter(
-    (voucher) =>
-      voucher.status === "ACTIVE" ||
-      voucher.status === "EXPIRED"
-  );
+  const engagedVouchers = mikrotik.users
+    .map((user) => {
+      const quotaExhausted =
+        user.limitUptimeSeconds !== null &&
+        user.limitUptimeSeconds > 0 &&
+        user.uptimeSeconds === user.limitUptimeSeconds;
+      const hasMac = Boolean(user.macAddress?.trim());
+      const withinQuota =
+        user.limitUptimeSeconds === null ||
+        user.uptimeSeconds <= user.limitUptimeSeconds;
+
+      const status = quotaExhausted
+        ? "EXPIRED"
+        : hasMac && withinQuota
+          ? "ACTIVE"
+          : "UNUSED";
+
+      return {
+        code: user.username,
+        profile: user.profile,
+        siteId: mikrotik.router.siteId,
+        routerId: mikrotik.router.id,
+        status: status as "UNUSED" | "ACTIVE" | "EXPIRED",
+      };
+    })
+    .filter(
+      (voucher) =>
+        voucher.status === "ACTIVE" ||
+        voucher.status === "EXPIRED"
+    );
 
   const [
     database,
@@ -225,15 +297,29 @@ export async function getDashboardOverview(
       vouchersAvailable: string;
     }>(`
       SELECT
-        (SELECT COUNT(*) FROM client) AS clients,
-        (SELECT COUNT(*) FROM session WHERE status = 'ACTIVE' AND ended_at IS NULL) AS "activeSessions",
-        (SELECT COUNT(*) FROM site) AS sites,
-        (SELECT COUNT(*) FROM router) AS routers,
-        (SELECT COUNT(*) FROM router WHERE status = 'ONLINE') AS "routersOnline",
-        (SELECT COUNT(*) FROM access_point) AS "accessPoints",
-        (SELECT COUNT(*) FROM access_point WHERE status = 'ONLINE') AS "accessPointsOnline",
-        (SELECT COUNT(*) FROM voucher WHERE status = 'UNUSED') AS "vouchersAvailable"
-    `),
+        $1::int AS clients,
+        $2::int AS "activeSessions",
+        1::int AS sites,
+        1::int AS routers,
+        1::int AS "routersOnline",
+        0::int AS "accessPoints",
+        0::int AS "accessPointsOnline",
+        $3::int AS "vouchersAvailable"
+    `, [
+      mikrotik.users.length,
+      mikrotik.activeSessions,
+      mikrotik.users.filter((user) => {
+        const quotaExhausted =
+          user.limitUptimeSeconds !== null &&
+          user.limitUptimeSeconds > 0 &&
+          user.uptimeSeconds === user.limitUptimeSeconds;
+        return (
+          !quotaExhausted &&
+          !user.macAddress?.trim() &&
+          user.uptimeSeconds === 0
+        );
+      }).length,
+    ]),
     countMikrotikClientsBetween(trendStart, now),
     countMikrotikClientsBetween(previousTrendStart, trendStart),
     countBetween("session", "started_at", trendStart, now),
