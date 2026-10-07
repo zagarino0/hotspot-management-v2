@@ -4,7 +4,10 @@ import { ArrowLeft, Loader2, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
-import { createAccessPoint } from "../../services/accessPointService";
+import {
+  createAccessPoint,
+  detectAccessPointMac,
+} from "../../services/accessPointService";
 import { getSites, type Site } from "../../services/siteService";
 import {
   getRouters,
@@ -43,6 +46,7 @@ export default function AddAccessPoint() {
   const [form, setForm] =
     useState<AccessPointForm>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
+  const [detectingMac, setDetectingMac] = useState(false);
   const [error, setError] = useState("");
 
   const [sites, setSites] = useState<Site[]>([]);
@@ -88,6 +92,36 @@ export default function AddAccessPoint() {
   ) {
     setForm((current) => ({ ...current, [field]: value }));
     setError("");
+  }
+
+  async function handleDetectMac() {
+    const routerId = form.routerId.trim();
+    const managementIp = form.managementIp.trim();
+
+    if (!routerId || !managementIp) {
+      return;
+    }
+
+    setDetectingMac(true);
+    setError("");
+
+    try {
+      const result = await detectAccessPointMac(
+        routerId,
+        managementIp
+      );
+
+      if (result.macAddress) {
+        updateField("macAddress", result.macAddress);
+      }
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ??
+          "Impossible de détecter l'adresse MAC depuis cette adresse IP."
+      );
+    } finally {
+      setDetectingMac(false);
+    }
   }
 
   function validateForm(): string | null {
@@ -201,6 +235,7 @@ export default function AddAccessPoint() {
                 onChange={(event) => {
                   updateField("siteId", event.target.value);
                   updateField("routerId", "");
+                  updateField("macAddress", "");
                 }}
                 disabled={refLoading}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
@@ -240,8 +275,9 @@ export default function AddAccessPoint() {
 
             <select
               value={form.routerId}
-              onChange={(event) =>
-                updateField("routerId", event.target.value)
+              onChange={(event) => {
+                updateField("routerId", event.target.value);
+                updateField("macAddress", "");
               }
               disabled={refLoading || !form.siteId}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
@@ -286,23 +322,65 @@ export default function AddAccessPoint() {
             onChange={(value) => updateField("model", value)}
           />
 
-          <Field
-            label="Adresse MAC"
-            value={form.macAddress}
-            placeholder="AA:BB:CC:DD:EE:FF"
-            onChange={(value) =>
-              updateField("macAddress", value)
-            }
-          />
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">
+              Adresse MAC
+            </span>
 
-          <Field
-            label="Adresse IP de gestion"
-            value={form.managementIp}
-            placeholder="192.168.88.2"
-            onChange={(value) =>
-              updateField("managementIp", value)
-            }
-          />
+            <div className="relative">
+              <input
+                type="text"
+                value={form.macAddress}
+                placeholder="AA:BB:CC:DD:EE:FF"
+                onChange={(event) =>
+                  updateField(
+                    "macAddress",
+                    event.target.value.toUpperCase()
+                  )
+                }
+                readOnly={detectingMac}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+              />
+
+              {detectingMac && (
+                <Loader2
+                  size={16}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+                />
+              )}
+            </div>
+
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              Détection automatique depuis le routeur après saisie de l'IP.
+            </p>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">
+              Adresse IP de gestion
+            </span>
+
+            <input
+              type="text"
+              value={form.managementIp}
+              placeholder="192.168.88.2"
+              onChange={(event) => {
+                updateField("managementIp", event.target.value);
+                if (form.macAddress) {
+                  updateField("macAddress", "");
+                }
+              }}
+              onBlur={handleDetectMac}
+              disabled={!form.routerId}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
+            />
+
+            {!form.routerId && (
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                Sélectionnez d'abord le routeur du site.
+              </p>
+            )}
+          </label>
 
           <Field
             label="SSID (facultatif)"
