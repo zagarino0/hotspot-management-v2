@@ -41,10 +41,14 @@ export async function login(
         u.organization_id,
         u.username,
         u.email,
+        u.phone,
         u.first_name,
         u.last_name,
         u.password_hash,
-        u.status
+        u.status,
+        u.email_verified,
+        u.created_at,
+        u.updated_at
       FROM "user" u
       WHERE LOWER(u.username) = LOWER($1)
       LIMIT 1
@@ -182,9 +186,14 @@ export async function login(
       organizationId: dbUser.organization_id,
       username: dbUser.username,
       email: dbUser.email,
+      phone: dbUser.phone,
       firstName: dbUser.first_name,
       lastName: dbUser.last_name,
       status: dbUser.status,
+      emailVerified: dbUser.email_verified,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date(dbUser.created_at).toISOString(),
+      updatedAt: new Date().toISOString(),
       roles,
     };
 
@@ -211,4 +220,97 @@ export async function login(
   } finally {
     client.release();
   }
+}
+
+/* ============================================================
+   CURRENT USER
+============================================================ */
+
+export async function getCurrentUser(userId: string) {
+  const result = await pool.query(
+    `
+      SELECT
+        u.id,
+        u.organization_id AS "organizationId",
+        u.username,
+        u.email,
+        u.phone,
+        u.first_name AS "firstName",
+        u.last_name AS "lastName",
+        u.status,
+        u.email_verified AS "emailVerified",
+        u.last_login_at AS "lastLoginAt",
+        u.created_at AS "createdAt",
+        u.updated_at AS "updatedAt",
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id', r.id,
+              'name', r.name,
+              'code', r.code
+            )
+          ) FILTER (WHERE r.id IS NOT NULL),
+          '[]'::json
+        ) AS roles
+      FROM "user" u
+      LEFT JOIN user_role ur ON ur.user_id = u.id
+      LEFT JOIN role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
+      WHERE u.id = $1
+      GROUP BY u.id
+    `,
+    [userId]
+  );
+
+  if (result.rowCount === 0) {
+    throw unauthorized("Utilisateur introuvable.");
+  }
+
+  return result.rows[0];
+}
+
+/* ============================================================
+   CHANGE OWN PASSWORD
+============================================================ */
+
+export async function changeOwnPassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  if (newPassword.length < 8) {
+    throw badRequest("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+  }
+
+  const result = await pool.query<{ password_hash: string }>(
+    `SELECT password_hash FROM "user" WHERE id = $1`,
+    [userId]
+  );
+
+  if (result.rowCount === 0) {
+    throw unauthorized("Utilisateur introuvable.");
+  }
+
+  const valid = await bcrypt.compare(
+    currentPassword,
+    result.rows[0].password_hash
+  );
+
+  if (!valid) {
+    throw unauthorized("Mot de passe actuel incorrect.");
+  }
+
+  if (currentPassword === newPassword) {
+    throw badRequest("Le nouveau mot de passe doit être différent de l'ancien.");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await pool.query(
+    `
+      UPDATE "user"
+      SET password_hash = $1, updated_at = NOW()
+      WHERE id = $2
+    `,
+    [passwordHash, userId]
+  );
 }
