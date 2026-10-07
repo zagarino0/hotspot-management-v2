@@ -163,6 +163,6 @@ export const env = {
 
   liveSyncIntervalSeconds: getNumberEnv(
     "LIVE_SYNC_INTERVAL_SECONDS",
-    30
+    5
   ),
 };
