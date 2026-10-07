@@ -177,8 +177,6 @@ export async function getDashboardOverview(
     sessionsPrevious,
     salesCurrent,
     salesPrevious,
-    revenueCurrent,
-    revenuePrevious,
     vouchersCurrent,
     vouchersPrevious,
     recentSalesResult,
