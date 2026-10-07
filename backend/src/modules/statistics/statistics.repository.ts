@@ -33,6 +33,36 @@ async function countBetween(
   return Number(result.rows[0].count);
 }
 
+async function countMikrotikClientsBetween(
+  from: Date,
+  to: Date
+): Promise<number> {
+  const result = await pool.query<{ count: string }>(
+    `
+      SELECT COUNT(*) AS count
+      FROM (
+        SELECT DISTINCT s.router_id, LOWER(TRIM(s.username)) AS username
+        FROM session s
+        WHERE s.username IS NOT NULL
+          AND TRIM(s.username) <> ''
+          AND s.started_at >= $1
+          AND s.started_at < $2
+          AND NOT EXISTS (
+            SELECT 1
+            FROM session previous
+            WHERE previous.router_id = s.router_id
+              AND LOWER(TRIM(previous.username)) =
+                  LOWER(TRIM(s.username))
+              AND previous.started_at < s.started_at
+          )
+      ) clients
+    `,
+    [from, to]
+  );
+
+  return Number(result.rows[0].count);
+}
+
 async function getEngagedVoucherStatsBetween(
   from: Date,
   to: Date,
@@ -204,8 +234,8 @@ export async function getDashboardOverview(
         (SELECT COUNT(*) FROM access_point WHERE status = 'ONLINE') AS "accessPointsOnline",
         (SELECT COUNT(*) FROM voucher WHERE status = 'UNUSED') AS "vouchersAvailable"
     `),
-    countBetween("client", "created_at", trendStart, now),
-    countBetween("client", "created_at", previousTrendStart, trendStart),
+    countMikrotikClientsBetween(trendStart, now),
+    countMikrotikClientsBetween(previousTrendStart, trendStart),
     countBetween("session", "started_at", trendStart, now),
     countBetween("session", "started_at", previousTrendStart, trendStart),
     getEngagedVoucherStats(trendStart, now, engagedVouchers),
