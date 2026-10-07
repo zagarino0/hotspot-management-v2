@@ -400,7 +400,7 @@ export async function syncRouterSessions(
         ? error.message
         : "Erreur lors de la lecture des sessions actives.";
 
-    const transition = await updateRouterHealth({
+    await updateRouterHealth({
       routerId: router.id, reachable: true, errorMessage: message, syncError: true,
     });
 
