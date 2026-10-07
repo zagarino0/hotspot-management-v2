@@ -362,8 +362,22 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     `
       SELECT
         TO_CHAR(sa.sold_at, 'YYYY-MM-DD') AS "date",
-        SUM(sa.total_amount)::float8 AS "amount"
+        COALESCE(
+          SUM(
+            sa.quantity * COALESCE(
+              sp.price,
+              hp.default_price,
+              sa.unit_price
+            )
+          ),
+          0
+        )::float8 AS "amount"
       FROM sale sa
+      LEFT JOIN hotspot_profile hp
+        ON hp.code = LOWER(TRIM(COALESCE(sa.profile_code, '')))
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = sa.site_id
+       AND sp.profile_code = hp.code
       WHERE sa.status = 'PAID'
         AND sa.sold_at >= NOW() - INTERVAL '30 days'
       GROUP BY TO_CHAR(sa.sold_at, 'YYYY-MM-DD')
