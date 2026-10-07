@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import PageHeader from "../../components/ui/PageHeader";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   createRole,
   deleteRole,
@@ -64,6 +65,9 @@ function groupPermissions(permissions: Permission[]) {
 }
 
 export default function Roles() {
+  const { hasRole } = useAuth();
+  const isSuperAdmin = hasRole("SUPER_ADMIN");
+
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [search, setSearch] = useState("");
@@ -406,6 +410,7 @@ export default function Roles() {
                         current === role.id ? null : role.id,
                       )
                     }
+                    canManageSystemRole={isSuperAdmin}
                     onView={() => void openRoleModal(role, "view")}
                     onEdit={() => void openRoleModal(role, "edit")}
                     onToggleStatus={() => void handleToggleStatus(role)}
@@ -452,6 +457,7 @@ function RoleRow({
   role,
   actionOpen,
   deleting,
+  canManageSystemRole,
   onToggleActions,
   onView,
   onEdit,
@@ -461,6 +467,7 @@ function RoleRow({
   role: Role;
   actionOpen: boolean;
   deleting: boolean;
+  canManageSystemRole: boolean;
   onToggleActions: () => void;
   onView: () => void;
   onEdit: () => void;
@@ -468,6 +475,8 @@ function RoleRow({
   onDelete: () => void;
 }) {
   const active = role.status === "ACTIVE";
+  const systemEditable = role.isSystem && canManageSystemRole;
+  const protectedSuperAdmin = role.code.toUpperCase() === "SUPER_ADMIN";
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
@@ -546,20 +555,22 @@ function RoleRow({
             className="absolute right-5 top-12 z-30 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
-            <button type="button" onClick={role.isSystem ? onView : onEdit}
+            <button type="button" onClick={role.isSystem && !systemEditable ? onView : onEdit}
               className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-              {role.isSystem ? "Voir les permissions" : "Modifier"}
+              {role.isSystem && !systemEditable ? "Voir les permissions" : "Modifier"}
             </button>
-            {!role.isSystem ? (
+            {!role.isSystem || systemEditable ? (
               <>
                 <button type="button" onClick={onToggleStatus}
                   className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
                   {active ? "Désactiver" : "Activer"}
                 </button>
-                <button type="button" onClick={onDelete}
-                  className="w-full px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50">
-                  Supprimer
-                </button>
+                {!protectedSuperAdmin ? (
+                  <button type="button" onClick={onDelete}
+                    className="w-full px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                    Supprimer
+                  </button>
+                ) : null}
               </>
             ) : null}
           </div>
@@ -575,6 +586,7 @@ function RoleModal({
   form,
   permissions,
   permissionGroups,
+  canManageSystemRole,
   error,
   saving,
   onClose,
@@ -589,6 +601,7 @@ function RoleModal({
   form: RoleFormState;
   permissions: Permission[];
   permissionGroups: Record<string, Permission[]>;
+  canManageSystemRole: boolean;
   error: string | null;
   saving: boolean;
   onClose: () => void;
@@ -599,6 +612,7 @@ function RoleModal({
   onClearAll: () => void;
 }) {
   const viewOnly = mode === "view";
+  const canEditSystemRole = Boolean(role?.isSystem && canManageSystemRole);
   const title = mode === "create"
     ? "Créer un rôle"
     : viewOnly
@@ -649,7 +663,7 @@ function RoleModal({
                   if (mode === "create") onChange("code", slugToCode(value));
                 }}
                 placeholder="Ex. Responsable commercial"
-                disabled={viewOnly || role?.isSystem === true}
+                disabled={viewOnly || (role?.isSystem === true && !canEditSystemRole)}
                 required
               />
               <FormField
@@ -694,7 +708,7 @@ function RoleModal({
                     {form.permissionIds.length} sélectionnée{form.permissionIds.length > 1 ? "s" : ""} sur {permissions.length}
                   </p>
                 </div>
-                {!viewOnly && !role?.isSystem ? (
+                {!viewOnly && (!role?.isSystem || canEditSystemRole) ? (
                   <div className="flex gap-2">
                     <button type="button" onClick={onSelectAll}
                       className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
@@ -748,7 +762,7 @@ function RoleModal({
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => onTogglePermission(permission.id)}
-                                disabled={viewOnly || role?.isSystem === true}
+                                disabled={viewOnly || (role?.isSystem === true && !canEditSystemRole)}
                                 className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-slate-950"
                               />
                               <span className="min-w-0">
