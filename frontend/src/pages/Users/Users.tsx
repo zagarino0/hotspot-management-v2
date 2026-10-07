@@ -370,8 +370,13 @@ export default function Users() {
         actions={
           <button
             type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openCreateModal();
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
           >
             <Plus size={16} strokeWidth={2} />
             Ajouter un utilisateur
@@ -607,9 +612,11 @@ function UserRow({
           aria-label={`Actions pour ${name}`}
           aria-expanded={actionOpen}
           onClick={(event) => {
+            event.preventDefault();
             event.stopPropagation();
             onToggleActions();
           }}
+          onMouseDown={(event) => event.stopPropagation()}}
           disabled={deleting}
           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
