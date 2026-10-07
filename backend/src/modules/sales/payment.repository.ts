@@ -69,7 +69,7 @@ export async function insertPayment(
       )
       VALUES (
         $1, $2, $3, $4, $5, $6,
-        CASE WHEN $6 = 'SUCCESS' THEN NOW() ELSE NULL END,
+        CASE WHEN $6::varchar = 'SUCCESS' THEN NOW() ELSE NULL END,
         $7, $8, $9
       )
       RETURNING id
