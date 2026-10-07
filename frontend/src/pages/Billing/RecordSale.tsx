@@ -1,6 +1,12 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Loader2, ShoppingCart } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Info,
+  Loader2,
+  ShoppingCart,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
@@ -169,10 +175,11 @@ export default function RecordSale() {
         }
       />
 
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-      >
+      <div className="grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.85fr)]">
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        >
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
             <ShoppingCart size={20} />
@@ -376,7 +383,78 @@ export default function RecordSale() {
             {saving ? "Enregistrement..." : "Enregistrer la vente"}
           </button>
         </div>
-      </form>
+        </form>
+
+        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+              <Info size={20} />
+            </div>
+
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">
+                À propos de la vente
+              </h2>
+              <p className="mt-1 text-sm leading-5 text-slate-500">
+                Quelques règles à connaître avant d'enregistrer la vente.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <InfoItem
+              title="Site cible"
+              text="Le site détermine les forfaits disponibles et leur prix de référence."
+            />
+
+            <InfoItem
+              title="Prix de vente"
+              text="Le prix du forfait est proposé automatiquement. Vous pouvez l'ajuster uniquement pour cette vente."
+            />
+
+            <InfoItem
+              title="Voucher"
+              text="Vous pouvez associer un voucher précis ou enregistrer une vente générique."
+            />
+
+            <InfoItem
+              title="Montant total"
+              text="Le total est calculé automatiquement selon le prix unitaire et la quantité."
+            />
+          </div>
+
+          <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2
+                size={17}
+                className="mt-0.5 shrink-0 text-emerald-600"
+              />
+              <p className="text-xs leading-5 text-slate-600">
+                Une modification du prix ici ne change pas le prix permanent
+                du forfait. Elle concerne uniquement cette vente.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+interface InfoItemProps {
+  title: string;
+  text: string;
+}
+
+function InfoItem({ title, text }: InfoItemProps) {
+  return (
+    <div className="border-b border-slate-100 pb-4 last:border-b-0 last:pb-0">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-1.5 text-sm leading-5 text-slate-600">
+        {text}
+      </p>
     </div>
   );
 }
