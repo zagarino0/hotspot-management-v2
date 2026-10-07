@@ -155,14 +155,20 @@ export async function findUsersEligibleForNotification(
   if (!column) throw new Error(`Type de notification inconnu: ${type}`);
 
   const result = await pool.query<{ user_id: string }>(
-    `SELECT ns.user_id FROM notification_setting ns
-     JOIN "user" u ON u.id = ns.user_id
+    `SELECT u.id AS user_id
+     FROM "user" u
+     LEFT JOIN notification_setting ns ON ns.user_id = u.id
      WHERE u.organization_id = $1 AND u.status = 'ACTIVE'
-       AND ns.enabled = TRUE AND ns.${column} = TRUE
-       AND ($2::uuid IS NULL OR ns.all_sites = TRUE OR EXISTS (
-         SELECT 1 FROM notification_setting_site nss
-         WHERE nss.setting_id = ns.id AND nss.site_id = $2
-       ))`,
+       AND COALESCE(ns.enabled, TRUE) = TRUE
+       AND COALESCE(ns.${column}, TRUE) = TRUE
+       AND (
+         $2::uuid IS NULL
+         OR COALESCE(ns.all_sites, TRUE) = TRUE
+         OR EXISTS (
+           SELECT 1 FROM notification_setting_site nss
+           WHERE nss.setting_id = ns.id AND nss.site_id = $2
+         )
+       )`,
     [organizationId, siteId]
   );
   return result.rows.map(row => row.user_id);
