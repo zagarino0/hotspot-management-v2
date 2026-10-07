@@ -31,8 +31,9 @@ export interface Sale {
   voucherId: string | null;
   voucherCode: string | null;
 
-  planId: string;
+  planId: string | null;
   planName: string;
+  profileCode: string | null;
 
   customerName: string | null;
   customerPhone: string | null;
@@ -83,7 +84,8 @@ export interface SalesSummary {
 
 export interface CreateSalePayload {
   siteId: string;
-  planId: string;
+  planId?: string;
+  profileCode: string;
   voucherId?: string;
   customerName?: string;
   customerPhone?: string;
