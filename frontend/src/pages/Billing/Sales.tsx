@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   CreditCard,
+  CalendarDays,
   Plus,
   Search,
   ShoppingCart,
@@ -316,7 +317,7 @@ export default function Sales() {
           KPI (calculés depuis les vraies données, pas simulés)
       ============================================================ */}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <SalesStat
           label="Chiffre d'affaires"
           value={
@@ -332,6 +333,17 @@ export default function Sales() {
           label="Ventes payées"
           value={summary ? String(summary.salesCount) : "—"}
           icon={ShoppingCart}
+        />
+
+        <SalesStat
+          label="Ventes aujourd'hui"
+          value={
+            summary
+              ? formatAmount(summary.todayRevenue, "MGA")
+              : "—"
+          }
+          icon={CalendarDays}
+          positive
         />
 
         <SalesStat
