@@ -6,7 +6,7 @@ import {
   ShieldCheck,
   UserCircle,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import PageHeader from "../../components/ui/PageHeader";
 import { useAuth } from "../../contexts/AuthContext";
@@ -412,7 +412,7 @@ function InfoRow({
   value,
   positive = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   positive?: boolean;
