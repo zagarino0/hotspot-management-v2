@@ -226,8 +226,14 @@ export async function login(
    CURRENT USER
 ============================================================ */
 
-export async function getCurrentUser(userId: string) {
-  const result = await pool.query(
+export async function getCurrentUser(userId: string): Promise<AuthUser & {
+  phone: string | null;
+  emailVerified: boolean;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}> {
+  const userResult = await pool.query(
     `
       SELECT
         u.id,
@@ -241,31 +247,83 @@ export async function getCurrentUser(userId: string) {
         u.email_verified AS "emailVerified",
         u.last_login_at AS "lastLoginAt",
         u.created_at AS "createdAt",
-        u.updated_at AS "updatedAt",
-        COALESCE(
-          json_agg(
-            DISTINCT jsonb_build_object(
-              'id', r.id,
-              'name', r.name,
-              'code', r.code
-            )
-          ) FILTER (WHERE r.id IS NOT NULL),
-          '[]'::json
-        ) AS roles
+        u.updated_at AS "updatedAt"
       FROM "user" u
-      LEFT JOIN user_role ur ON ur.user_id = u.id
-      LEFT JOIN role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
       WHERE u.id = $1
-      GROUP BY u.id
+      LIMIT 1
     `,
     [userId]
   );
 
-  if (result.rowCount === 0) {
+  if (userResult.rowCount === 0) {
     throw unauthorized("Utilisateur introuvable.");
   }
 
-  return result.rows[0];
+  const dbUser = userResult.rows[0];
+
+  const rolesResult = await pool.query(
+    `
+      SELECT
+        r.id AS role_id,
+        r.name AS role_name,
+        r.code AS role_code,
+        p.id AS permission_id,
+        p.name AS permission_name,
+        p.code AS permission_code,
+        p.resource AS permission_resource,
+        p.action AS permission_action
+      FROM user_role ur
+      INNER JOIN role r
+        ON r.id = ur.role_id
+      LEFT JOIN role_permission rp
+        ON rp.role_id = r.id
+      LEFT JOIN permission p
+        ON p.id = rp.permission_id
+      WHERE ur.user_id = $1
+        AND r.status = 'ACTIVE'
+      ORDER BY r.name, p.name
+    `,
+    [userId]
+  );
+
+  const roleMap = new Map<string, AuthRole>();
+
+  for (const row of rolesResult.rows) {
+    if (!roleMap.has(row.role_id)) {
+      roleMap.set(row.role_id, {
+        id: row.role_id,
+        name: row.role_name,
+        code: row.role_code,
+        permissions: [],
+      });
+    }
+
+    if (row.permission_id) {
+      roleMap.get(row.role_id)!.permissions.push({
+        id: row.permission_id,
+        name: row.permission_name,
+        code: row.permission_code,
+        resource: row.permission_resource,
+        action: row.permission_action,
+      });
+    }
+  }
+
+  return {
+    id: dbUser.id,
+    organizationId: dbUser.organizationId,
+    username: dbUser.username,
+    email: dbUser.email,
+    phone: dbUser.phone,
+    firstName: dbUser.firstName,
+    lastName: dbUser.lastName,
+    status: dbUser.status,
+    emailVerified: dbUser.emailVerified,
+    lastLoginAt: dbUser.lastLoginAt,
+    createdAt: dbUser.createdAt,
+    updatedAt: dbUser.updatedAt,
+    roles: Array.from(roleMap.values()),
+  };
 }
 
 /* ============================================================
@@ -278,7 +336,9 @@ export async function changeOwnPassword(
   newPassword: string
 ): Promise<void> {
   if (newPassword.length < 8) {
-    throw badRequest("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+    throw badRequest(
+      "Le nouveau mot de passe doit contenir au moins 8 caractères."
+    );
   }
 
   const result = await pool.query<{ password_hash: string }>(
@@ -300,10 +360,15 @@ export async function changeOwnPassword(
   }
 
   if (currentPassword === newPassword) {
-    throw badRequest("Le nouveau mot de passe doit être différent de l'ancien.");
+    throw badRequest(
+      "Le nouveau mot de passe doit être différent de l'ancien."
+    );
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash(
+    newPassword,
+    SALT_ROUNDS
+  );
 
   await pool.query(
     `
