@@ -281,9 +281,14 @@ export async function getDashboardOverview(
       SELECT d AS bucket, (
         SELECT COUNT(*)
         FROM session s
-        WHERE s.started_at::date = d::date
+        WHERE s.started_at >= d
+          AND s.started_at < d + INTERVAL '1 day'
       ) AS value
-      FROM generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, '1 day'::interval) d
+      FROM generate_series(
+        CURRENT_DATE - ($1::int - 1),
+        CURRENT_DATE,
+        '1 day'::interval
+      ) d
       ORDER BY d
     `, [days]),
   ]);
