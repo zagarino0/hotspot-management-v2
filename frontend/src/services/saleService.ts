@@ -88,6 +88,7 @@ export interface CreateSalePayload {
   customerName?: string;
   customerPhone?: string;
   quantity?: number;
+  unitPrice?: number;
 }
 
 export interface RecordPaymentPayload {
