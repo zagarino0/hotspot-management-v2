@@ -740,11 +740,21 @@ function SaleRow({
       </td>
 
       <td className="px-5 py-4">
-        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+        <div className="text-sm text-slate-600">
           {sale.lastPaymentMethod
             ? getMethodLabel(sale.lastPaymentMethod)
             : "—"}
-        </span>
+        </div>
+
+        <p className="mt-0.5 text-[11px] text-slate-400">
+          {sale.status === "PAID"
+            ? "Payé"
+            : sale.status === "PARTIALLY_PAID"
+              ? "Partiellement payé"
+              : sale.status === "PENDING"
+                ? "En attente"
+                : STATUS_CONFIG[sale.status].label}
+        </p>
       </td>
 
       <td className="px-5 py-4 text-sm text-slate-600">
