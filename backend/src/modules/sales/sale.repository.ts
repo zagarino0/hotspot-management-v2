@@ -215,25 +215,41 @@ export async function deleteSale(id: string): Promise<void> {
 ============================================================ */
 
 export async function getSalesSummary(): Promise<SalesSummary> {
-  const totalsResult = await pool.query<{
-    totalRevenue: string | null;
-    salesCount: string;
-  }>(
-    `
-      SELECT
-        COALESCE(SUM(sa.total_amount), 0)::float8 AS "totalRevenue",
-        COUNT(*)::int AS "salesCount"
-      FROM sale sa
-      WHERE sa.status = 'PAID'
-    `
+  /*
+   * Règle métier Ventes :
+   * - Un ticket est considéré comme engagé lorsqu'il possède une MAC
+   *   ou que son quota est arrivé à expiration.
+   * - Le chiffre d'affaires est calculé à partir du profil MikroTik
+   *   du ticket, jamais à partir d'un montant saisi dans sale.
+   * - Chaque profil possède un tarif fixe.
+   */
+  const profilePrices: Record<string, number> = {
+    profil_1h: 500,
+    profil_3h: 1000,
+    profil_24h: 2500,
+    profil_week: 7000,
+    profil_mothe_1: 35000,
+    profil_month_1: 35000,
+  };
+
+  const normalizeProfile = (profile: string | null) =>
+    (profile ?? "").trim().toLowerCase();
+
+  const mikrotikVouchers = await import("../vouchers/voucher.service.js")
+    .then(({ getMikrotikVouchers }) => getMikrotikVouchers());
+
+  const engagedVouchers = mikrotikVouchers.filter(
+    (voucher) =>
+      voucher.status === "ACTIVE" ||
+      voucher.status === "EXPIRED"
   );
 
-  const totalRevenue = Number(
-    totalsResult.rows[0]?.totalRevenue ?? 0
-  );
-  const salesCount = Number(
-    totalsResult.rows[0]?.salesCount ?? 0
-  );
+  const totalRevenue = engagedVouchers.reduce((sum, voucher) => {
+    const profile = normalizeProfile(voucher.profile);
+    return sum + (profilePrices[profile] ?? 0);
+  }, 0);
+
+  const salesCount = engagedVouchers.length;
 
   const paymentShareResult = await pool.query<{
     mobileAmount: string | null;
@@ -266,6 +282,12 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     paymentShareResult.rows[0]?.paidAmount ?? 0
   );
 
+  /*
+   * La courbe reste basée sur les ventes enregistrées dans le module
+   * afin de conserver la chronologie commerciale existante.
+   * Les KPI principaux ci-dessus suivent, eux, exclusivement la
+   * logique des vouchers MikroTik.
+   */
   const revenueByDayResult = await pool.query<{
     date: string;
     amount: string;
