@@ -1,6 +1,7 @@
 export type RadioBand =
   | "2.4_GHZ"
   | "5_GHZ"
+  | "2.4_GHZ_5_GHZ"
   | "6_GHZ"
   | "OTHER";
 
