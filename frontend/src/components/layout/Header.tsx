@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { getSites, type Site } from "../../services/siteService";
 import { fetchSessions } from "../../services/sessionService";
@@ -44,6 +45,7 @@ export default function Header({
   onMenuClick,
 }: HeaderProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [sites, setSites] = useState<Site[]>([]);
   const [siteMenuOpen, setSiteMenuOpen] = useState(false);
@@ -495,7 +497,16 @@ export default function Header({
                 <p className="mt-1 text-[11px] text-slate-400">{roleName}</p>
               </div>
               <div className="p-2">
-                <button type="button" onClick={() => setUserMenuOpen(false)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50">Mon compte</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    navigate("/account");
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Mon compte
+                </button>
                 <button type="button" onClick={() => setUserMenuOpen(false)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50">Paramètres</button>
                 <button type="button" onClick={() => { setUserMenuOpen(false); logout(); }} className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">Déconnexion</button>
               </div>
