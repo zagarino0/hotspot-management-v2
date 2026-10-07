@@ -25,6 +25,7 @@ import Users from "../pages/Users/Users";
 import Roles from "../pages/Roles/Roles";
 import Infrastructure from "../pages/Infrastructure/InfrastructureLive";
 import Settings from "../pages/Settings/SettingsLive";
+import Account from "../pages/Account/Account";
 
 import DashboardLayout from "../components/layout/DashboardLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
