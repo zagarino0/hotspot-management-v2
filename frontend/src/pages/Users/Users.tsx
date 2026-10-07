@@ -9,7 +9,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import PageHeader from "../../components/ui/PageHeader";
 import {
@@ -124,26 +124,6 @@ export default function Users() {
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function loadUsers() {
-    const result = await getUsers();
-    setUsers(result);
-  }
-
-  async function loadRoles() {
-    try {
-      const result = await getRoles();
-      setRoles(result);
-    } catch (requestError) {
-      setRoles([]);
-      setError(
-        getErrorMessage(
-          requestError,
-          "Impossible de charger les rôles disponibles.",
-        ),
-      );
-    }
-  }
-
   useEffect(() => {
     let active = true;
 
@@ -246,15 +226,13 @@ export default function Users() {
   }
 
   function closeModal() {
-    if (saving) return;
-
     setModalMode(null);
     setEditingUser(null);
     setForm(EMPTY_FORM);
     setFormError(null);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
 
@@ -689,7 +667,7 @@ function UserModal({
   error: string | null;
   saving: boolean;
   onClose: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onChange: (
     field: keyof UserFormState,
     value: string,
