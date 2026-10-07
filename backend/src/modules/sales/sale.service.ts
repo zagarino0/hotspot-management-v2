@@ -28,10 +28,6 @@ import type {
 } from "../../routes/sale.types.js";
 import type { RecordPaymentData } from "../../routes/payment.types.js";
 
-/* ============================================================
-   LIST
-============================================================ */
-
 export async function getSales(filter?: {
   status?: SaleStatus;
   siteId?: string;
@@ -51,18 +47,15 @@ export async function getSaleDetails(id: string) {
   return { sale, payments };
 }
 
-/* ============================================================
-   SUMMARY
-============================================================ */
-
 export async function getSummary() {
   return getSalesSummary();
 }
 
 /* ============================================================
    CREATE
-   Le prix est toujours celui du forfait AU MOMENT DE LA VENTE
-   (snapshot), jamais une valeur fournie par le client de l'API.
+   Le prix proposé est celui du forfait du site sélectionné.
+   Il peut être ajusté pour cette vente uniquement et est ensuite
+   enregistré comme snapshot dans la vente.
 ============================================================ */
 
 export async function createSale(data: CreateSaleData) {
@@ -72,6 +65,15 @@ export async function createSale(data: CreateSaleData) {
   ) {
     throw badRequest(
       "La quantité doit être un entier positif."
+    );
+  }
+
+  if (
+    data.unitPrice !== undefined &&
+    (!Number.isFinite(data.unitPrice) || data.unitPrice < 0)
+  ) {
+    throw badRequest(
+      "Le prix unitaire doit être un nombre positif ou nul."
     );
   }
 
@@ -88,23 +90,10 @@ export async function createSale(data: CreateSaleData) {
   }
 
   return insertSale(data, {
-    price: plan.price,
+    price: data.unitPrice ?? plan.price,
     currency: plan.currency,
   });
 }
-
-/* ============================================================
-   RECORD PAYMENT
-
-   1. Insère le paiement (SUCCESS immédiat si markAsPaid, sinon
-      PENDING — à confirmer plus tard, ex: callback mobile money)
-   2. Recalcule le statut de la vente à partir de la somme réelle
-      des paiements SUCCESS (jamais un simple +1, pour rester
-      correct même en cas de double-paiement ou de remboursement
-      partiel)
-   3. Si la vente devient PAID et qu'un voucher y est rattaché,
-      marque ce voucher comme vendu (sold_at)
-============================================================ */
 
 export async function recordPayment(
   data: RecordPaymentData
@@ -167,10 +156,6 @@ export async function recordPayment(
   return payment;
 }
 
-/* ============================================================
-   CANCEL
-============================================================ */
-
 export async function cancelSale(id: string) {
   const sale = await findSaleById(id);
 
@@ -186,11 +171,6 @@ export async function cancelSale(id: string) {
 
   await updateSaleStatus(id, "CANCELLED");
 }
-
-/* ============================================================
-   DELETE
-   Réservé aux ventes PENDING sans le moindre paiement.
-============================================================ */
 
 export async function deleteSaleById(id: string) {
   const sale = await findSaleById(id);
