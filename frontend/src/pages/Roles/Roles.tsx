@@ -437,6 +437,7 @@ export default function Roles() {
           form={form}
           permissions={permissions}
           permissionGroups={permissionGroups}
+          canManageSystemRole={isSuperAdmin}
           error={formError}
           saving={saving}
           onClose={closeModal}
