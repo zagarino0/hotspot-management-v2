@@ -108,3 +108,27 @@ export async function deleteAccessPoint(
 ): Promise<void> {
   await api.delete(`/api/access-points/${id}`);
 }
+
+
+export interface DetectAccessPointMacResult {
+  found: boolean;
+  macAddress: string | null;
+  source: "arp" | "neighbor" | null;
+  interface: string | null;
+}
+
+export async function detectAccessPointMac(
+  routerId: string,
+  managementIp: string
+): Promise<DetectAccessPointMacResult> {
+  const response = await api.get<
+    ApiEnvelope<DetectAccessPointMacResult>
+  >("/api/access-points/detect-mac", {
+    params: {
+      routerId,
+      ip: managementIp,
+    },
+  });
+
+  return response.data.data;
+}
