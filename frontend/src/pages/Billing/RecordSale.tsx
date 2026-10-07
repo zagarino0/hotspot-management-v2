@@ -26,6 +26,7 @@ export default function RecordSale() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [unitPrice, setUnitPrice] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -87,6 +88,7 @@ export default function RecordSale() {
     setSiteId(nextSiteId);
     setPlanId("");
     setVoucherId("");
+    setUnitPrice("");
   }
 
   async function handleSubmit(
@@ -114,6 +116,16 @@ export default function RecordSale() {
       return;
     }
 
+    const numericUnitPrice = Number(unitPrice);
+
+    if (
+      !Number.isFinite(numericUnitPrice) ||
+      numericUnitPrice < 0
+    ) {
+      setError("Le prix unitaire doit être un nombre positif ou nul.");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -125,6 +137,7 @@ export default function RecordSale() {
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
         quantity: numericQuantity,
+        unitPrice: numericUnitPrice,
       });
 
       navigate(`/billing/sales?highlight=${sale.id}`);
@@ -171,8 +184,8 @@ export default function RecordSale() {
             </h2>
 
             <p className="text-sm text-slate-400">
-              Le montant est calculé automatiquement à partir du
-              prix du forfait.
+              Le prix du site sélectionné est proposé automatiquement.
+              Vous pouvez l'ajuster pour cette vente.
             </p>
           </div>
         </div>
@@ -218,8 +231,17 @@ export default function RecordSale() {
                   <select
                     value={planId}
                     onChange={(event) => {
-                      setPlanId(event.target.value);
+                      const nextPlanId = event.target.value;
+                      setPlanId(nextPlanId);
                       setVoucherId("");
+
+                      const nextPlan = plans.find(
+                        (plan) => plan.id === nextPlanId
+                      );
+
+                      setUnitPrice(
+                        nextPlan ? String(nextPlan.price) : ""
+                      );
                     }}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   >
@@ -302,6 +324,13 @@ export default function RecordSale() {
               />
 
               <Field
+                label="Prix unitaire"
+                value={unitPrice}
+                type="number"
+                onChange={setUnitPrice}
+              />
+
+              <Field
                 label="Quantité"
                 value={quantity}
                 type="number"
@@ -316,7 +345,7 @@ export default function RecordSale() {
                     </span>
                     <span className="font-bold text-slate-800">
                       {(
-                        selectedPlan.price *
+                        (Number(unitPrice) || 0) *
                         (Number(quantity) || 1)
                       ).toLocaleString("fr-FR")}{" "}
                       {selectedPlan.currency}
