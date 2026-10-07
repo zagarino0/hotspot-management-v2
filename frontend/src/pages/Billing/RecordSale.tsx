@@ -48,10 +48,9 @@ export default function RecordSale() {
 
     async function loadRefs() {
       try {
-        const [sitesData, plansData, vouchersData] =
+        const [sitesData, vouchersData] =
           await Promise.all([
             getSites(),
-            getPlans(),
             getVouchers({ status: "UNUSED" }),
           ]);
 
