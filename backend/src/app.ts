@@ -21,6 +21,7 @@ import saleRoutes from "./modules/sales/sale.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import roleRoutes from "./modules/roles/role.routes.js";
 import statisticsRoutes from "./modules/statistics/statistics.routes.js";
+import notificationRoutes from "./modules/notifications/notification.routes.js";
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use("/api/sales", authenticate, saleRoutes);
 app.use("/api/users", authenticate, userRoutes);
 app.use("/api/roles", authenticate, roleRoutes);
 app.use("/api/statistics", authenticate, statisticsRoutes);
+app.use("/api/notifications", authenticate, notificationRoutes);
 /*
  * ============================================================
  * SYSTEM
