@@ -82,9 +82,15 @@ export async function createRole(data: CreateRoleData) {
    fournis par la plateforme.
 ============================================================ */
 
+async function isSuperAdmin(userId: string): Promise<boolean> {
+  const result = await findUserRoleCodes(userId);
+  return result.some((code) => code.toUpperCase() === "SUPER_ADMIN");
+}
+
 export async function updateRoleData(
   id: string,
-  data: UpdateRoleData
+  data: UpdateRoleData,
+  actorUserId?: string
 ) {
   const existing = await findRoleById(id);
 
@@ -92,9 +98,23 @@ export async function updateRoleData(
     throw notFoundError("Rôle introuvable.");
   }
 
-  if (existing.isSystem) {
+  const actorIsSuperAdmin = actorUserId
+    ? await isSuperAdmin(actorUserId)
+    : false;
+
+  if (existing.isSystem && !actorIsSuperAdmin) {
     throw forbidden(
       "Ce rôle est un rôle système protégé et ne peut pas être modifié."
+    );
+  }
+
+  if (
+    existing.code.toUpperCase() === "SUPER_ADMIN" &&
+    data.status !== undefined &&
+    data.status !== "ACTIVE"
+  ) {
+    throw forbidden(
+      "Le rôle SUPER_ADMIN principal ne peut pas être désactivé ou archivé."
     );
   }
 
@@ -115,16 +135,29 @@ export async function updateRoleData(
    explicitement d'abord).
 ============================================================ */
 
-export async function deleteRoleById(id: string) {
+export async function deleteRoleById(
+  id: string,
+  actorUserId?: string
+) {
   const existing = await findRoleById(id);
 
   if (!existing) {
     throw notFoundError("Rôle introuvable.");
   }
 
-  if (existing.isSystem) {
+  const actorIsSuperAdmin = actorUserId
+    ? await isSuperAdmin(actorUserId)
+    : false;
+
+  if (existing.isSystem && !actorIsSuperAdmin) {
     throw forbidden(
       "Ce rôle est un rôle système protégé et ne peut pas être supprimé."
+    );
+  }
+
+  if (existing.code.toUpperCase() === "SUPER_ADMIN") {
+    throw forbidden(
+      "Le rôle SUPER_ADMIN principal ne peut pas être supprimé."
     );
   }
 
