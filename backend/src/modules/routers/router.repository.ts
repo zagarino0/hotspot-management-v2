@@ -105,6 +105,7 @@ export async function findRouterById(
 export interface RouterForSync {
   id: string;
   siteId: string;
+  organizationId: string;
   name: string;
   managementIp: string;
   apiPort: number;
@@ -116,12 +117,14 @@ export async function findRoutersForSync(): Promise<
   const result = await pool.query<RouterForSync>(
     `
       SELECT
-        id,
-        site_id AS "siteId",
-        name,
-        management_ip::text AS "managementIp",
-        api_port AS "apiPort"
-      FROM router
+        r.id,
+        r.site_id AS "siteId",
+        s.organization_id AS "organizationId",
+        r.name,
+        r.management_ip::text AS "managementIp",
+        r.api_port AS "apiPort"
+      FROM router r
+      JOIN site s ON s.id = r.site_id
       WHERE sync_enabled = true
         AND management_ip IS NOT NULL
     `
@@ -172,33 +175,61 @@ export interface RouterHealthUpdate {
   errorMessage?: string | null;
 }
 
+export interface RouterHealthTransition {
+  previousStatus: string | null;
+  currentStatus: string;
+}
+
+export interface RouterHealthUpdate {
+  routerId: string;
+  reachable: boolean;
+  errorMessage?: string | null;
+  syncError?: boolean;
+}
+
 export async function updateRouterHealth(
   update: RouterHealthUpdate
-): Promise<void> {
-  await pool.query(
+): Promise<RouterHealthTransition | null> {
+  const result = await pool.query<RouterHealthTransition>(
     `
-      UPDATE router
+      UPDATE router r
       SET
-        status = $2,
+        status = CASE
+          WHEN $2 THEN 'ONLINE'
+          ELSE 'OFFLINE'
+        END,
         last_check_at = NOW(),
         last_seen_at = CASE
-          WHEN $3 THEN NOW()
-          ELSE last_seen_at
+          WHEN $2 THEN NOW()
+          ELSE r.last_seen_at
         END,
-        last_error = $4,
-        sync_status = $5,
+        last_error = $3,
+        sync_status = CASE
+          WHEN $4 THEN 'FAILED'
+          WHEN $2 THEN 'SUCCESS'
+          ELSE 'FAILED'
+        END,
         last_sync_at = NOW(),
         updated_at = NOW()
-      WHERE id = $1
+      WHERE r.id = $1
+      RETURNING
+        r.status AS "currentStatus",
+        (
+          SELECT previous.status
+          FROM router previous
+          WHERE previous.id = r.id
+        ) AS "previousStatus"
     `,
     [
       update.routerId,
-      update.reachable ? "ONLINE" : "OFFLINE",
       update.reachable,
       update.errorMessage ?? null,
-      update.reachable ? "SUCCESS" : "FAILED",
+      update.syncError === true,
     ]
   );
+
+  const row = result.rows[0];
+  return row ?? null;
 }
 
 /* ============================================================
