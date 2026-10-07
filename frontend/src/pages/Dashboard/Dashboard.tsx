@@ -204,7 +204,7 @@ export default function Dashboard() {
         <div>
           <p className="text-sm font-medium text-indigo-600">Vue d'ensemble</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">Tableau de bord</h1>
-          <p className="mt-1 text-sm text-slate-500">Données synchronisées depuis PostgreSQL.</p>
+          <p className="mt-1 text-sm text-slate-500">Source de vérité : MikroTik HotSpot en direct.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="dashboard-period">Période</label>
@@ -235,12 +235,12 @@ export default function Dashboard() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Users} label="Clients" value={counts.clients.toLocaleString("fr-MG")} trend={trends.clients} />
+        <StatCard icon={Users} label="Clients MikroTik" value={counts.clients.toLocaleString("fr-MG")} trend={trends.clients} />
         <StatCard icon={Activity} label="Sessions actives" value={counts.activeSessions.toLocaleString("fr-MG")} trend={trends.sessions} />
-        <StatCard icon={Router} label="Routeurs en ligne" value={`${counts.routersOnline}/${counts.routers}`} detail="Équipements routeur" />
+        <StatCard icon={Router} label="MikroTik en ligne" value={`${counts.routersOnline}/${counts.routers}`} detail="Source de vérité réseau" />
         <StatCard icon={Wifi} label="Points d'accès en ligne" value={`${counts.accessPointsOnline}/${counts.accessPoints}`} detail="Équipements Wi-Fi" />
         <StatCard icon={Banknote} label="Chiffre d'affaires" value={formatCurrency(trends.revenue.current, "MGA")} trend={trends.revenue} />
-        <StatCard icon={Ticket} label="Vouchers disponibles" value={counts.vouchersAvailable.toLocaleString("fr-MG")} trend={trends.vouchers} />
+        <StatCard icon={Ticket} label="Vouchers disponibles" value={counts.vouchersAvailable.toLocaleString("fr-MG")} detail="Données en direct du MikroTik" />
         <StatCard icon={MapPin} label="Sites" value={counts.sites.toLocaleString("fr-MG")} detail="Sites configurés" />
         <StatCard icon={ShoppingCart} label="Ventes encaissées" value={trends.sales.current.toLocaleString("fr-MG")} trend={trends.sales} />
       </div>
