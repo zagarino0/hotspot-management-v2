@@ -2,7 +2,6 @@ import {
   CheckCircle2,
   KeyRound,
   Mail,
-  Phone,
   ShieldCheck,
   UserCircle,
 } from "lucide-react";
@@ -25,8 +24,11 @@ function formatDate(value: string | null | undefined): string {
   }
 
   return date.toLocaleString("fr-FR", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -86,6 +88,7 @@ export default function Account() {
     user.lastName,
     user.username
   );
+  const userId = user.id;
   const roleName = user.roles[0]?.name ?? "Aucun rôle";
   const statusLabel =
     user.status === "ACTIVE" ? "Actif" : user.status;
@@ -97,7 +100,7 @@ export default function Account() {
     setProfileError(null);
 
     try {
-      await updateUser(user.id, {
+      await updateUser(userId, {
         firstName: firstName.trim() || null,
         lastName: lastName.trim() || null,
         email: email.trim() || null,
