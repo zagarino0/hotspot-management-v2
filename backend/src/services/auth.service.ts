@@ -5,6 +5,8 @@ import { pool } from "../database/pool.js";
 import { env } from "../config/env.js";
 import { badRequest, unauthorized } from "../lib/errors.js";
 
+const SALT_ROUNDS = 12;
+
 import type {
   AuthPermission,
   AuthRole,
