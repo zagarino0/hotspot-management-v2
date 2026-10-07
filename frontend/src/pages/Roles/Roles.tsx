@@ -183,9 +183,10 @@ export default function Roles() {
 
     setForm((current) => ({
       ...current,
-      permissionIds: current.permissionIds.indexOf(permissionId)
-        ? current.permissionIds.filter((id) => id !== permissionId)
-        : [...current.permissionIds, permissionId],
+      permissionIds:
+        current.permissionIds.indexOf(permissionId) !== -1
+          ? current.permissionIds.filter((id) => id !== permissionId)
+          : [...current.permissionIds, permissionId],
     }));
   }
 
@@ -715,19 +716,20 @@ function RoleModal({
                 <div className="grid gap-4 sm:grid-cols-2">
                   {Object.keys(permissionGroups).map((resource) => {
                     const items: Permission[] = permissionGroups[resource];
-                    <div key={resource} className="rounded-xl border border-slate-200 p-4">
+                    return (
+                      <div key={resource} className="rounded-xl border border-slate-200 p-4">
                       <div className="mb-3 flex items-center justify-between">
                         <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
                           {resource}
                         </p>
                         <span className="text-[10px] font-semibold text-slate-400">
-                          {items.filter((item) => form.permissionIds.indexOf(item.id)).length}/{items.length}
+                          {items.filter((item) => form.permissionIds.indexOf(item.id) !== -1).length}/{items.length}
                         </span>
                       </div>
 
                       <div className="space-y-2">
                         {items.map((permission) => {
-                          const checked = form.permissionIds.indexOf(permission.id);
+                          const checked = form.permissionIds.indexOf(permission.id) !== -1;
 
                           return (
                             <label
