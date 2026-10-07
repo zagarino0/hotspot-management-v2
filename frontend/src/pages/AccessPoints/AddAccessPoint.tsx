@@ -404,6 +404,7 @@ export default function AddAccessPoint() {
             >
               <option value="2.4GHZ">2.4 GHz</option>
               <option value="5GHZ">5 GHz</option>
+              <option value="2.4GHZ_5GHZ">2.4 GHz / 5 GHz</option>
               <option value="6GHZ">6 GHz</option>
               <option value="OTHER">Autre</option>
             </select>
