@@ -316,7 +316,7 @@ export default function Sales() {
           KPI (calculés depuis les vraies données, pas simulés)
       ============================================================ */}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SalesStat
           label="Chiffre d'affaires"
           value={
@@ -355,6 +355,16 @@ export default function Sales() {
               : "—"
           }
           icon={Smartphone}
+        />
+
+        <SalesStat
+          label="Paiements espèces"
+          value={
+            summary
+              ? `${Math.round(summary.cashPaymentShare)} %`
+              : "—"
+          }
+          icon={Wallet2}
         />
       </section>
 
