@@ -24,7 +24,8 @@ const SALE_SELECT = `
     v.code AS "voucherCode",
 
     sa.plan_id AS "planId",
-    p.name AS "planName",
+    COALESCE(p.name, sa.profile_name, sa.profile_code, 'Forfait') AS "planName",
+    sa.profile_code AS "profileCode",
 
     sa.customer_name AS "customerName",
     sa.customer_phone AS "customerPhone",
@@ -49,7 +50,7 @@ const SALE_SELECT = `
 
   FROM sale sa
   JOIN site s ON s.id = sa.site_id
-  JOIN plan p ON p.id = sa.plan_id
+  LEFT JOIN plan p ON p.id = sa.plan_id
   LEFT JOIN voucher v ON v.id = sa.voucher_id
   LEFT JOIN LATERAL (
     SELECT SUM(pay.amount) AS amount
@@ -128,14 +129,16 @@ export async function findSaleById(
    INSERT
 ============================================================ */
 
-interface PlanSnapshot {
+interface SaleSnapshot {
   price: number;
   currency: string;
+  profileCode: string;
+  profileName: string;
 }
 
 export async function insertSale(
   data: CreateSaleData,
-  plan: PlanSnapshot
+  plan: SaleSnapshot
 ): Promise<SaleRow> {
   const quantity = data.quantity ?? 1;
   const unitPrice = data.unitPrice ?? plan.price;
@@ -147,6 +150,8 @@ export async function insertSale(
         site_id,
         voucher_id,
         plan_id,
+        profile_code,
+        profile_name,
         customer_name,
         customer_phone,
         quantity,
@@ -157,14 +162,16 @@ export async function insertSale(
         created_by
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12
       )
       RETURNING id
     `,
     [
       data.siteId,
       data.voucherId ?? null,
-      data.planId,
+      data.planId ?? null,
+      plan.profileCode,
+      plan.profileName,
       data.customerName ?? null,
       data.customerPhone ?? null,
       quantity,
