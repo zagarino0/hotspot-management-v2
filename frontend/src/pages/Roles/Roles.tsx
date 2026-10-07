@@ -172,7 +172,6 @@ export default function Roles() {
   }
 
   function closeModal() {
-    if (saving) return;
     setModalMode(null);
     setEditingRole(null);
     setForm(EMPTY_FORM);
