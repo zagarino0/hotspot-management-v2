@@ -278,7 +278,7 @@ export default function AddAccessPoint() {
               onChange={(event) => {
                 updateField("routerId", event.target.value);
                 updateField("macAddress", "");
-              }
+              }}
               disabled={refLoading || !form.siteId}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
             >
