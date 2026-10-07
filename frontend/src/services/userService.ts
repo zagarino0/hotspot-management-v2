@@ -128,3 +128,14 @@ export async function updateUserRoles(
 export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/api/users/${id}`);
 }
+
+
+export async function changeOwnPassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await api.post("/api/auth/change-password", {
+    currentPassword,
+    newPassword,
+  });
+}
