@@ -10,6 +10,7 @@ import {
   getAccessPointById,
   getAccessPoints,
   updateAccessPointData,
+  detectAccessPointMac,
 } from "./accessPoint.service.js";
 
 export async function listAccessPoints(
@@ -217,6 +218,57 @@ export async function deleteAccessPointController(
     return res.status(200).json({
       success: true,
       message: "Point d'accès supprimé avec succès.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+
+/* ============================================================
+   DÉTECTER LA MAC DEPUIS L'IP
+============================================================ */
+
+export async function detectAccessPointMacController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const routerId = String(req.query.routerId ?? "").trim();
+    const managementIp = String(req.query.ip ?? "").trim();
+
+    if (!routerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Le routeur est obligatoire pour détecter l'adresse MAC.",
+      });
+    }
+
+    if (!managementIp) {
+      return res.status(400).json({
+        success: false,
+        message: "L'adresse IP de gestion est obligatoire.",
+      });
+    }
+
+    const result = await detectAccessPointMac(
+      routerId,
+      managementIp
+    );
+
+    if (!result.found) {
+      return res.status(404).json({
+        success: false,
+        message:
+          `Aucune adresse MAC n'a été trouvée pour ${managementIp} sur le routeur sélectionné.`,
+        data: result,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: result,
     });
   } catch (error) {
     return next(error);
