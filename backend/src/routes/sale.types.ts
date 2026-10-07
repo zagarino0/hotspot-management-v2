@@ -52,6 +52,7 @@ export interface CreateSaleData {
   customerName?: string | null;
   customerPhone?: string | null;
   quantity?: number;
+  unitPrice?: number;
   createdBy?: string | null;
 }
 
