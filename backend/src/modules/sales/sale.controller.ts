@@ -134,7 +134,9 @@ export async function createSaleController(
     const {
       siteId,
       planId,
+      profileCode,
       voucherId,
+      unitPrice,
       customerName,
       customerPhone,
       quantity,
@@ -147,16 +149,23 @@ export async function createSaleController(
       });
     }
 
-    if (typeof planId !== "string" || !planId.trim()) {
+    if (
+      typeof profileCode !== "string" ||
+      !profileCode.trim()
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Le forfait est obligatoire.",
+        message: "Le profil forfait est obligatoire.",
       });
     }
 
     const sale = await createSale({
       siteId: siteId.trim(),
-      planId: planId.trim(),
+      planId:
+        typeof planId === "string" && planId.trim()
+          ? planId.trim()
+          : null,
+      profileCode: profileCode.trim(),
       voucherId:
         typeof voucherId === "string" && voucherId.trim()
           ? voucherId.trim()
@@ -173,6 +182,10 @@ export async function createSaleController(
       quantity:
         quantity !== undefined && quantity !== null
           ? Number(quantity)
+          : undefined,
+      unitPrice:
+        unitPrice !== undefined && unitPrice !== null
+          ? Number(unitPrice)
           : undefined,
       createdBy: req.auth?.sub ?? null,
     });
