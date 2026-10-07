@@ -43,10 +43,12 @@ function getSiteStatusLabel(site: Site) {
 export default function Header({
   onMenuClick,
 }: HeaderProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [sites, setSites] = useState<Site[]>([]);
   const [siteMenuOpen, setSiteMenuOpen] = useState(false);
+  const [connectedAccountOpen, setConnectedAccountOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
@@ -214,30 +216,43 @@ export default function Header({
           <Menu size={21} strokeWidth={1.9} />
         </button>
 
-        {/* ORGANIZATION */}
-        <button
-          type="button"
-          className="hidden items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 sm:flex"
-        >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-xs font-bold text-white">
-            NS
-          </div>
-
-          <div className="min-w-0">
-            <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
-              Compte connecté
+        {/* ORGANIZATION / COMPTE CONNECTÉ */}
+        <div className="relative hidden sm:block">
+          <button
+            type="button"
+            onClick={() => {
+              setConnectedAccountOpen((open) => !open);
+              setSiteMenuOpen(false);
+              setUserMenuOpen(false);
+            }}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50"
+            aria-expanded={connectedAccountOpen}
+            aria-haspopup="menu"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-xs font-bold text-white">NS</div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">Compte connecté</div>
+              <div className="flex items-center gap-1">
+                <span className="max-w-40 truncate text-sm font-semibold text-slate-800">{user?.username ?? "—"}</span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${connectedAccountOpen ? "rotate-180" : ""}`} />
+              </div>
             </div>
-
-            <div className="flex items-center gap-1">
-              <span className="max-w-40 truncate text-sm font-semibold text-slate-800">
-                {user?.username ?? "—"}
-              </span>
-
-              <ChevronDown size={14} className="text-slate-400" />
+          </button>
+          {connectedAccountOpen ? (
+            <div role="menu" className="absolute left-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">Compte connecté</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{displayName}</p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">{user?.email ?? "Adresse e-mail non renseignée"}</p>
+              </div>
+              <div className="px-4 py-3 text-xs">
+                <div className="flex items-center justify-between gap-3"><span className="text-slate-500">Identifiant</span><span className="font-medium text-slate-800">{user?.username ?? "—"}</span></div>
+                <div className="mt-2 flex items-center justify-between gap-3"><span className="text-slate-500">Rôle</span><span className="font-medium text-slate-800">{roleName}</span></div>
+                <div className="mt-2 flex items-center justify-between gap-3"><span className="text-slate-500">Statut</span><span className="inline-flex items-center gap-1.5 font-medium text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{user?.status ?? "Inconnu"}</span></div>
+              </div>
             </div>
-          </div>
-        </button>
-
+          ) : null}
+        </div>
         <div className="hidden h-7 w-px bg-slate-200 sm:block" />
 
         {/* SITES CONFIGURÉS */}
@@ -451,32 +466,42 @@ export default function Header({
 
         <div className="mx-1 h-7 w-px bg-slate-200" />
 
-        {/* USER */}
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50"
-        >
-          <UserCircle
-            size={31}
-            strokeWidth={1.6}
-            className="text-slate-400"
-          />
-
-          <div className="hidden text-left md:block">
-            <div className="text-sm font-semibold text-slate-800">
-              {displayName}
+        {/* USER MENU */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setUserMenuOpen((open) => !open);
+              setConnectedAccountOpen(false);
+              setNotificationsOpen(false);
+              setSiteMenuOpen(false);
+            }}
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-50"
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
+          >
+            <UserCircle size={31} strokeWidth={1.6} className="text-slate-400" />
+            <div className="hidden text-left md:block">
+              <div className="text-sm font-semibold text-slate-800">{displayName}</div>
+              <div className="text-[11px] text-slate-400">{roleName}</div>
             </div>
-
-            <div className="text-[11px] text-slate-400">
-              {roleName}
+            <ChevronDown size={15} className={`hidden text-slate-400 transition-transform md:block ${userMenuOpen ? "rotate-180" : ""}`} />
+          </button>
+          {userMenuOpen ? (
+            <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">{user?.email ?? "Adresse e-mail non renseignée"}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{roleName}</p>
+              </div>
+              <div className="p-2">
+                <button type="button" onClick={() => setUserMenuOpen(false)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50">Mon compte</button>
+                <button type="button" onClick={() => setUserMenuOpen(false)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50">Paramètres</button>
+                <button type="button" onClick={() => { setUserMenuOpen(false); logout(); }} className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">Déconnexion</button>
+              </div>
             </div>
-          </div>
-
-          <ChevronDown
-            size={15}
-            className="hidden text-slate-400 md:block"
-          />
-        </button>
+          ) : null}
+        </div>
       </div>
     </header>
   );
