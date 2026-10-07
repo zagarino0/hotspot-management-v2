@@ -132,35 +132,20 @@ async function getEngagedVoucherStatsBetween(
 
 async function getEngagedVoucherStats(
   from: Date,
-  to: Date
+  to: Date,
+  engagedVouchers: Array<{
+    code: string;
+    profile: string | null;
+    siteId: string;
+    routerId: string;
+    status: "UNUSED" | "ACTIVE" | "EXPIRED";
+  }>
 ): Promise<{ revenue: number; count: number }> {
-  const { getMikrotikVouchers } = await import(
-    "../vouchers/voucher.service.js"
-  );
-
-  const vouchers = await getMikrotikVouchers();
-
-  const engagedVouchers = vouchers.filter(
-    (voucher) =>
-      voucher.status === "ACTIVE" ||
-      voucher.status === "EXPIRED"
-  );
-
   return getEngagedVoucherStatsBetween(
     from,
     to,
     engagedVouchers
   );
-}
-
-async function revenueBetween(from: Date, to: Date): Promise<number> {
-  const stats = await getEngagedVoucherStats(from, to);
-  return stats.revenue;
-}
-
-async function paidSalesBetween(from: Date, to: Date): Promise<number> {
-  const stats = await getEngagedVoucherStats(from, to);
-  return stats.count;
 }
 
 export async function getDashboardOverview(
@@ -170,6 +155,17 @@ export async function getDashboardOverview(
   const trendStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   const previousTrendStart = new Date(
     trendStart.getTime() - days * 24 * 60 * 60 * 1000
+  );
+
+  const { getMikrotikVouchers } = await import(
+    "../vouchers/voucher.service.js"
+  );
+
+  const mikrotikVouchers = await getMikrotikVouchers();
+  const engagedVouchers = mikrotikVouchers.filter(
+    (voucher) =>
+      voucher.status === "ACTIVE" ||
+      voucher.status === "EXPIRED"
   );
 
   const [
@@ -214,10 +210,8 @@ export async function getDashboardOverview(
     countBetween("client", "created_at", previousTrendStart, trendStart),
     countBetween("session", "started_at", trendStart, now),
     countBetween("session", "started_at", previousTrendStart, trendStart),
-    paidSalesBetween(trendStart, now),
-    paidSalesBetween(previousTrendStart, trendStart),
-    revenueBetween(trendStart, now),
-    revenueBetween(previousTrendStart, trendStart),
+    getEngagedVoucherStats(trendStart, now, engagedVouchers),
+    getEngagedVoucherStats(previousTrendStart, trendStart, engagedVouchers),
     countBetween("voucher", "created_at", trendStart, now),
     countBetween("voucher", "created_at", previousTrendStart, trendStart),
     pool.query<DashboardOverview["recentSales"][number]>(`
@@ -268,6 +262,11 @@ export async function getDashboardOverview(
 
   const counts = countsResult.rows[0];
 
+  const [salesCurrentStats, salesPreviousStats] = [
+    salesCurrent,
+    salesPrevious,
+  ];
+
   return {
     counts: {
       clients: Number(counts.clients),
@@ -282,8 +281,14 @@ export async function getDashboardOverview(
     trends: {
       clients: toTrend(clientsCurrent, clientsPrevious),
       sessions: toTrend(sessionsCurrent, sessionsPrevious),
-      sales: toTrend(salesCurrent, salesPrevious),
-      revenue: toTrend(revenueCurrent, revenuePrevious),
+      sales: toTrend(
+        salesCurrentStats.count,
+        salesPreviousStats.count
+      ),
+      revenue: toTrend(
+        salesCurrentStats.revenue,
+        salesPreviousStats.revenue
+      ),
       vouchers: toTrend(vouchersCurrent, vouchersPrevious),
     },
     recentSales: recentSalesResult.rows,
