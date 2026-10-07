@@ -175,7 +175,7 @@ export default function RecordSale() {
         }
       />
 
-      <div className="grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.85fr)]">
+      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.85fr)]">
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
@@ -268,7 +268,7 @@ export default function RecordSale() {
 
                 {plansForSite.length === 0 && (
                   <p className="mt-1.5 text-xs text-amber-600">
-                    Aucun forfait pour ce site.{" "}
+                    Aucun forfait n'est configuré pour ce site.{" "}
                     <button
                       type="button"
                       onClick={() => navigate("/vouchers/new")}
