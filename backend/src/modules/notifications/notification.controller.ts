@@ -27,7 +27,7 @@ export async function putSettings(req: Request, res: Response, next: NextFunctio
     ];
     for (const field of fields) {
       if (typeof body[field] !== "boolean") {
-        return res.status(400).json({ success: false, message: \`Le champ "\${field}" doit être booléen.\` });
+        return res.status(400).json({ success: false, message: `Le champ "${field}" doit être booléen.` });
       }
     }
     if (!Array.isArray(body.siteIds) ||
