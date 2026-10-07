@@ -14,8 +14,10 @@ export interface SaleRow {
   voucherId: string | null;
   voucherCode: string | null;
 
-  planId: string;
+  planId: string | null;
   planName: string;
+
+  profileCode: string | null;
 
   customerName: string | null;
   customerPhone: string | null;
@@ -47,7 +49,8 @@ export interface SaleRow {
 
 export interface CreateSaleData {
   siteId: string;
-  planId: string;
+  planId?: string | null;
+  profileCode: string;
   voucherId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
