@@ -231,15 +231,6 @@ export async function getSalesSummary(): Promise<SalesSummary> {
    *   du ticket, jamais à partir d'un montant saisi dans sale.
    * - Chaque profil possède un tarif fixe.
    */
-  const profilePrices: Record<string, number> = {
-    profil_1h: 500,
-    profil_3h: 1000,
-    profil_24h: 2500,
-    profil_week: 7000,
-    profil_mothe_1: 35000,
-    profil_month_1: 35000,
-  };
-
   const normalizeProfile = (profile: string | null) =>
     (profile ?? "").trim().toLowerCase();
 
@@ -252,9 +243,40 @@ export async function getSalesSummary(): Promise<SalesSummary> {
       voucher.status === "EXPIRED"
   );
 
+  const siteProfilePricesResult = await pool.query<{
+    siteId: string;
+    profileCode: string;
+    price: number;
+  }>(
+    `
+      SELECT
+        s.id AS "siteId",
+        p.code AS "profileCode",
+        COALESCE(sp.price, p.default_price)::float8 AS price
+      FROM site s
+      CROSS JOIN hotspot_profile p
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = s.id
+       AND sp.profile_code = p.code
+      WHERE p.status = 'ACTIVE'
+    `
+  );
+
+  const siteProfilePrices = new Map(
+    siteProfilePricesResult.rows.map((row) => [
+      `${row.siteId}|${normalizeProfile(row.profileCode)}`,
+      Number(row.price),
+    ])
+  );
+
   const totalRevenue = engagedVouchers.reduce((sum, voucher) => {
     const profile = normalizeProfile(voucher.profile);
-    return sum + (profilePrices[profile] ?? 0);
+    const price =
+      siteProfilePrices.get(
+        `${voucher.siteId}|${profile}`
+      ) ?? 0;
+
+    return sum + price;
   }, 0);
 
   const salesCount = engagedVouchers.length;
@@ -272,16 +294,13 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     `
       SELECT
         s.mikrotik_profile AS profile,
-        CASE LOWER(TRIM(COALESCE(s.mikrotik_profile, '')))
-          WHEN 'profil_1h' THEN 500
-          WHEN 'profil_3h' THEN 1000
-          WHEN 'profil_24h' THEN 2500
-          WHEN 'profil_week' THEN 7000
-          WHEN 'profil_mothe_1' THEN 35000
-          WHEN 'profil_month_1' THEN 35000
-          ELSE 0
-        END::float8 AS amount
+        COALESCE(sp.price, p.default_price, 0)::float8 AS amount
       FROM session s
+      LEFT JOIN hotspot_profile p
+        ON p.code = LOWER(TRIM(COALESCE(s.mikrotik_profile, '')))
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = s.site_id
+       AND sp.profile_code = p.code
       WHERE s.started_at >= CURRENT_DATE
         AND s.started_at < CURRENT_DATE + INTERVAL '1 day'
         AND NOT EXISTS (
