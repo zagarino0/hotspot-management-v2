@@ -154,7 +154,10 @@ export async function updateRoleController(
     const { name, description, status, permissionIds } =
       req.body;
 
-    const role = await updateRoleData(String(id ?? ""), {
+    const role = await updateRoleData(
+      String(id ?? ""),
+      {
+
       name:
         typeof name === "string" && name.trim()
           ? name.trim()
@@ -167,10 +170,12 @@ export async function updateRoleController(
             : undefined,
       status:
         typeof status === "string" ? (status as any) : undefined,
-      permissionIds: Array.isArray(permissionIds)
-        ? permissionIds
-        : undefined,
-    });
+        permissionIds: Array.isArray(permissionIds)
+          ? permissionIds
+          : undefined,
+      },
+      req.auth?.sub
+    );
 
     return res.status(200).json({
       success: true,
@@ -194,7 +199,10 @@ export async function deleteRoleController(
   try {
     const { id } = req.params;
 
-    await deleteRoleById(String(id ?? ""));
+    await deleteRoleById(
+      String(id ?? ""),
+      req.auth?.sub
+    );
 
     return res.status(200).json({
       success: true,
