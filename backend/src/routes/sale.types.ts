@@ -60,5 +60,6 @@ export interface SalesSummary {
   salesCount: number;
   averageBasket: number;
   mobilePaymentShare: number;
+  cashPaymentShare: number;
   revenueByDay: Array<{ date: string; amount: number }>;
 }
