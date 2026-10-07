@@ -229,9 +229,9 @@ export async function login(
 export async function getCurrentUser(userId: string): Promise<AuthUser & {
   phone: string | null;
   emailVerified: boolean;
-  lastLoginAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }> {
   const userResult = await pool.query(
     `
@@ -319,9 +319,11 @@ export async function getCurrentUser(userId: string): Promise<AuthUser & {
     lastName: dbUser.lastName,
     status: dbUser.status,
     emailVerified: dbUser.emailVerified,
-    lastLoginAt: dbUser.lastLoginAt,
-    createdAt: dbUser.createdAt,
-    updatedAt: dbUser.updatedAt,
+    lastLoginAt: dbUser.lastLoginAt
+      ? new Date(dbUser.lastLoginAt).toISOString()
+      : null,
+    createdAt: new Date(dbUser.createdAt).toISOString(),
+    updatedAt: new Date(dbUser.updatedAt).toISOString(),
     roles: Array.from(roleMap.values()),
   };
 }
