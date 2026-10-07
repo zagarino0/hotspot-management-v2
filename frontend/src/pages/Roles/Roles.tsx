@@ -764,7 +764,8 @@ function RoleModal({
                         })}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
