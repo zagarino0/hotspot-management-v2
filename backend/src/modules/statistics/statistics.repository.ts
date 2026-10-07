@@ -282,7 +282,6 @@ export async function getDashboardOverview(
     vouchersCurrent,
     vouchersPrevious,
     recentSalesResult,
-    networkResult,
     sessionsSeriesResult,
   ] = await Promise.all([
     checkDatabase(),
@@ -353,16 +352,6 @@ export async function getDashboardOverview(
       ORDER BY sa.sold_at DESC
       LIMIT 5
     `),
-    pool.query<DashboardOverview["networkStatus"][number]>(`
-      SELECT id, name, type, status
-      FROM (
-        SELECT id, name, 'ROUTER'::text AS type, status FROM router
-        UNION ALL
-        SELECT id, name, 'ACCESS_POINT'::text AS type, status FROM access_point
-      ) equipment
-      ORDER BY (status = 'OFFLINE') DESC, name ASC
-      LIMIT 8
-    `),
     pool.query<{ bucket: Date; value: string }>(`
       SELECT d AS bucket, (
         SELECT COUNT(*)
@@ -411,7 +400,14 @@ export async function getDashboardOverview(
       vouchers: toTrend(vouchersCurrent, vouchersPrevious),
     },
     recentSales: recentSalesResult.rows,
-    networkStatus: networkResult.rows,
+    networkStatus: [
+      {
+        id: mikrotik.router.id,
+        name: mikrotik.router.name,
+        type: "ROUTER" as const,
+        status: "ONLINE" as const,
+      },
+    ],
     sessionsSeries: sessionsSeriesResult.rows.map((row) => ({
       label: new Date(row.bucket).toLocaleDateString("fr-FR", {
         day: "2-digit",
