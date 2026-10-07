@@ -6,6 +6,7 @@ import {
   getAccessPoint,
   listAccessPoints,
   updateAccessPointController,
+  detectAccessPointMacController,
 } from "./accessPoint.controller.js";
 
 const router = Router();
@@ -13,6 +14,8 @@ const router = Router();
 router.get("/", listAccessPoints);
 
 router.post("/", createAccessPointController);
+
+router.get("/detect-mac", detectAccessPointMacController);
 
 router.get("/:id", getAccessPoint);
 
