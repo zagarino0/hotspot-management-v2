@@ -474,9 +474,14 @@ export async function backfillMikrotikMetadataForUser(
    être réattribué après un redémarrage).
 ============================================================ */
 
+export interface UpsertActiveSessionResult {
+  created: boolean;
+  sessionId: string;
+}
+
 export async function upsertActiveSession(
   data: LiveSessionData
-): Promise<void> {
+): Promise<UpsertActiveSessionResult> {
   const existing = await pool.query<{ id: string }>(
     `
       SELECT id
@@ -491,6 +496,8 @@ export async function upsertActiveSession(
   );
 
   if (existing.rows[0]) {
+    const sessionId = existing.rows[0].id;
+
     await pool.query(
       `
         UPDATE session
@@ -514,7 +521,7 @@ export async function upsertActiveSession(
         WHERE id = $1
       `,
       [
-        existing.rows[0].id,
+        sessionId,
         data.voucherId ?? null,
         data.username,
         data.ipAddress,
@@ -529,10 +536,10 @@ export async function upsertActiveSession(
       ]
     );
 
-    return;
+    return { created: false, sessionId };
   }
 
-  await pool.query(
+  const inserted = await pool.query<{ id: string }>(
     `
       INSERT INTO session (
         site_id,
@@ -570,6 +577,7 @@ export async function upsertActiveSession(
         $14,
         'ACTIVE'
       )
+      RETURNING id
     `,
     [
       data.siteId,
@@ -588,7 +596,15 @@ export async function upsertActiveSession(
       data.cookiePresent,
     ]
   );
+
+  const sessionId = inserted.rows[0]?.id;
+  if (!sessionId) {
+    throw new Error("La session active n'a pas pu être créée.");
+  }
+
+  return { created: true, sessionId };
 }
+
 /* ============================================================
    VOUCHER
 ============================================================ */
