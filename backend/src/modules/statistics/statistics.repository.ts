@@ -35,9 +35,30 @@ async function countBetween(
 
 async function revenueBetween(from: Date, to: Date): Promise<number> {
   const result = await pool.query<{ total: string | null }>(
-    `SELECT SUM(amount)::float8 AS total
-     FROM payment
-     WHERE status = 'SUCCESS' AND paid_at >= $1 AND paid_at < $2`,
+    `
+      SELECT COALESCE(
+        SUM(
+          sa.quantity * COALESCE(
+            sp.price,
+            hp.default_price,
+            sa.unit_price
+          )
+        ),
+        0
+      )::float8 AS total
+      FROM sale sa
+      LEFT JOIN hotspot_profile hp
+        ON hp.code = LOWER(TRIM(COALESCE(
+          sa.profile_code,
+          ''
+        )))
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = sa.site_id
+       AND sp.profile_code = hp.code
+      WHERE sa.status = 'PAID'
+        AND sa.sold_at >= $1
+        AND sa.sold_at < $2
+    `,
     [from, to]
   );
 
@@ -115,7 +136,12 @@ export async function getDashboardOverview(
     pool.query<DashboardOverview["recentSales"][number]>(`
       SELECT
         sa.id,
-        p.name AS "planName",
+        COALESCE(
+          p.name,
+          sa.profile_name,
+          sa.profile_code,
+          'Forfait'
+        ) AS "planName",
         (
           SELECT pay.method
           FROM payment pay
@@ -128,7 +154,7 @@ export async function getDashboardOverview(
         sa.status,
         sa.sold_at AS "soldAt"
       FROM sale sa
-      JOIN plan p ON p.id = sa.plan_id
+      LEFT JOIN plan p ON p.id = sa.plan_id
       ORDER BY sa.sold_at DESC
       LIMIT 5
     `),
