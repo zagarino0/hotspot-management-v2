@@ -34,6 +34,10 @@ import {
 
 import type { SessionStatus } from "../../routes/session.types.js";
 import type { MikrotikHotspotCookie } from "../../mikrotik/hotspotCookies.js";
+import {
+  publishNotification,
+  resolveNotificationEvent,
+} from "../notifications/notification.service.js";
 
 /* ============================================================
    LIST
@@ -72,6 +76,31 @@ export interface RouterSyncResult {
   closedCount: number;
   error?: string;
 }
+async function publishRouterHealthNotifications(
+  router: RouterForSync,
+  transition: { previousStatus: string | null; currentStatus: string }
+): Promise<void> {
+  if (transition.currentStatus === "OFFLINE" && transition.previousStatus !== "OFFLINE") {
+    await publishNotification(router.organizationId, {
+      siteId: router.siteId, routerId: router.id,
+      type: "ROUTER_OFFLINE", severity: "CRITICAL",
+      title: "Routeur hors ligne",
+      message: `Le routeur "${router.name}" est devenu injoignable.`,
+      eventKey: `router:${router.id}:offline`,
+    });
+    return;
+  }
+  if (transition.previousStatus === "OFFLINE" && transition.currentStatus === "ONLINE") {
+    await resolveNotificationEvent(router.organizationId, `router:${router.id}:offline`);
+    await publishNotification(router.organizationId, {
+      siteId: router.siteId, routerId: router.id,
+      type: "ROUTER_ONLINE", severity: "INFO",
+      title: "Routeur en ligne",
+      message: `Le routeur "${router.name}" est de nouveau accessible.`,
+      eventKey: `router:${router.id}:online:${Date.now()}`,
+    });
+  }
+}
 
 export async function syncRouterSessions(
   router: RouterForSync
@@ -79,12 +108,16 @@ export async function syncRouterSessions(
   const credential = await findRouterCredential(router.id);
 
   if (!credential) {
-    await updateRouterHealth({
+    const transition = await updateRouterHealth({
       routerId: router.id,
       reachable: false,
       errorMessage:
         "Aucun identifiant MikroTik enregistré pour ce routeur.",
     });
+
+    if (transition) {
+      await publishRouterHealthNotifications(router, transition);
+    }
 
     return {
       routerId: router.id,
@@ -102,12 +135,16 @@ export async function syncRouterSessions(
   try {
     password = decryptSecret(credential.encryptedSecret);
   } catch {
-    await updateRouterHealth({
+    const transition = await updateRouterHealth({
       routerId: router.id,
       reachable: false,
       errorMessage:
         "Le secret stocké est illisible (clé de chiffrement changée ?).",
     });
+
+    if (transition) {
+      await publishRouterHealthNotifications(router, transition);
+    }
 
     return {
       routerId: router.id,
@@ -137,11 +174,15 @@ export async function syncRouterSessions(
         ? error.message
         : "Connexion au routeur impossible.";
 
-    await updateRouterHealth({
+    const transition = await updateRouterHealth({
       routerId: router.id,
       reachable: false,
       errorMessage: message,
     });
+
+    if (transition) {
+      await publishRouterHealthNotifications(router, transition);
+    }
 
     return {
       routerId: router.id,
@@ -288,23 +329,25 @@ export async function syncRouterSessions(
         );
       }
 
-      await upsertActiveSession({
-        siteId: router.siteId,
-        routerId: router.id,
-        username: user.username,
-        macAddress: user.macAddress as string,
-        ipAddress: user.ipAddress,
-        uploadBytes: user.uploadBytes,
-        downloadBytes: user.downloadBytes,
+      const sessionSync = await upsertActiveSession({
+        siteId: router.siteId, routerId: router.id, username: user.username,
+        macAddress: user.macAddress as string, ipAddress: user.ipAddress,
+        uploadBytes: user.uploadBytes, downloadBytes: user.downloadBytes,
         uptimeSeconds: user.uptimeSeconds,
-        sessionTimeLeftSeconds:
-          user.sessionTimeLeftSeconds,
-        loginMethod: user.loginMethod,
-        mikrotikProfile,
-        mikrotikLimitUptimeSeconds,
-        cookiePresent,
-        voucherId,
+        sessionTimeLeftSeconds: user.sessionTimeLeftSeconds,
+        loginMethod: user.loginMethod, mikrotikProfile,
+        mikrotikLimitUptimeSeconds, cookiePresent, voucherId,
       });
+
+      if (sessionSync.created) {
+        await publishNotification(router.organizationId, {
+          siteId: router.siteId, routerId: router.id,
+          type: "NEW_SESSION", severity: "INFO",
+          title: "Nouvelle session",
+          message: user.username ? `Nouvelle session pour "${user.username}" sur le routeur "${router.name}".` : `Nouvelle session détectée sur le routeur "${router.name}".`,
+          eventKey: `session:${sessionSync.sessionId}`,
+        });
+      }
 
       if (voucherId) {
         voucherIds.add(voucherId);
@@ -331,10 +374,18 @@ export async function syncRouterSessions(
       await syncVoucherUsage(voucherId);
     }
 
-    await updateRouterHealth({
-      routerId: router.id,
-      reachable: true,
+    await resolveNotificationEvent(
+      router.organizationId,
+      `router:${router.id}:sync-error`
+    );
+
+    const transition = await updateRouterHealth({
+      routerId: router.id, reachable: true,
     });
+
+    if (transition) {
+      await publishRouterHealthNotifications(router, transition);
+    }
 
     return {
       routerId: router.id,
@@ -349,10 +400,16 @@ export async function syncRouterSessions(
         ? error.message
         : "Erreur lors de la lecture des sessions actives.";
 
-    await updateRouterHealth({
-      routerId: router.id,
-      reachable: false,
-      errorMessage: message,
+    const transition = await updateRouterHealth({
+      routerId: router.id, reachable: true, errorMessage: message, syncError: true,
+    });
+
+    await publishNotification(router.organizationId, {
+      siteId: router.siteId, routerId: router.id,
+      type: "SYNC_ERROR", severity: "WARNING",
+      title: "Erreur de synchronisation",
+      message: `La synchronisation du routeur "${router.name}" a échoué : ${message}`,
+      eventKey: `router:${router.id}:sync-error`,
     });
 
     return {
