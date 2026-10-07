@@ -251,6 +251,46 @@ export async function getSalesSummary(): Promise<SalesSummary> {
 
   const salesCount = engagedVouchers.length;
 
+  /*
+   * Ventes aujourd'hui = somme des nouveaux tickets dont la toute
+   * première connexion historique a commencé aujourd'hui.
+   * Un même voucher ne peut donc être compté qu'une seule fois,
+   * même s'il s'est reconnecté plusieurs fois dans la journée.
+   */
+  const todayFirstConnectionsResult = await pool.query<{
+    profile: string | null;
+    amount: string;
+  }>(
+    `
+      SELECT
+        s.mikrotik_profile AS profile,
+        CASE LOWER(TRIM(COALESCE(s.mikrotik_profile, '')))
+          WHEN 'profil_1h' THEN 500
+          WHEN 'profil_3h' THEN 1000
+          WHEN 'profil_24h' THEN 2500
+          WHEN 'profil_week' THEN 7000
+          WHEN 'profil_mothe_1' THEN 35000
+          WHEN 'profil_month_1' THEN 35000
+          ELSE 0
+        END::float8 AS amount
+      FROM session s
+      WHERE s.started_at >= CURRENT_DATE
+        AND s.started_at < CURRENT_DATE + INTERVAL '1 day'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM session previous
+          WHERE previous.router_id = s.router_id
+            AND previous.username = s.username
+            AND previous.started_at < s.started_at
+        )
+    `
+  );
+
+  const todayRevenue = todayFirstConnectionsResult.rows.reduce(
+    (sum, row) => sum + Number(row.amount ?? 0),
+    0
+  );
+
   const paymentShareResult = await pool.query<{
     mobileAmount: string | null;
     cashAmount: string | null;
@@ -306,6 +346,7 @@ export async function getSalesSummary(): Promise<SalesSummary> {
 
   return {
     totalRevenue,
+    todayRevenue,
     salesCount,
     averageBasket:
       salesCount > 0 ? totalRevenue / salesCount : 0,
