@@ -13,6 +13,7 @@ import {
 } from "./payment.repository.js";
 
 import { findPlanById } from "../plans/plan.repository.js";
+import { findSiteProfilePrices } from "../plans/sitePricing.repository.js";
 
 import {
   badRequest,
@@ -77,21 +78,76 @@ export async function createSale(data: CreateSaleData) {
     );
   }
 
-  const plan = await findPlanById(data.planId);
+  const profileCode = data.profileCode.trim().toLowerCase();
+  const siteProfiles = await findSiteProfilePrices(data.siteId);
 
-  if (!plan) {
-    throw notFoundError("Forfait introuvable.");
-  }
+  const profile = siteProfiles.find(
+    (item) => item.code === profileCode
+  );
 
-  if (plan.siteId !== data.siteId) {
-    throw badRequest(
-      "Ce forfait n'appartient pas au site sélectionné."
+  if (!profile) {
+    throw notFoundError(
+      "Profil forfait introuvable pour le site sélectionné."
     );
   }
 
+  if (data.planId) {
+    const plan = await findPlanById(data.planId);
+
+    if (!plan) {
+      throw notFoundError("Forfait introuvable.");
+    }
+
+    if (plan.siteId !== data.siteId) {
+      throw badRequest(
+        "Ce forfait n'appartient pas au site sélectionné."
+      );
+    }
+  }
+
+  if (data.voucherId) {
+    const voucherResult = await pool.query<{
+      siteId: string;
+      mikrotikProfile: string | null;
+    }>(
+      `
+        SELECT
+          site_id AS "siteId",
+          mikrotik_profile AS "mikrotikProfile"
+        FROM voucher
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [data.voucherId]
+    );
+
+    const voucher = voucherResult.rows[0];
+
+    if (!voucher) {
+      throw notFoundError("Voucher introuvable.");
+    }
+
+    if (voucher.siteId !== data.siteId) {
+      throw badRequest(
+        "Le voucher n'appartient pas au site sélectionné."
+      );
+    }
+
+    if (
+      voucher.mikrotikProfile &&
+      voucher.mikrotikProfile.trim().toLowerCase() !== profileCode
+    ) {
+      throw badRequest(
+        "Le voucher sélectionné ne correspond pas au profil choisi."
+      );
+    }
+  }
+
   return insertSale(data, {
-    price: data.unitPrice ?? plan.price,
-    currency: plan.currency,
+    price: data.unitPrice ?? profile.price,
+    currency: profile.currency,
+    profileCode: profile.code,
+    profileName: profile.name,
   });
 }
 
