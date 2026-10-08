@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Clock3,
@@ -15,24 +15,30 @@ import SessionHistoryModal from "./SessionHistoryModal";
 import {
   fetchSessions,
   syncSessions,
+  syncSingleRouter,
   terminateSession,
   type RouterSyncResult,
   type Session,
   type SessionStatus,
 } from "../../services/sessionService";
+import {
+  getRouters,
+  type Router,
+} from "../../services/routerService";
 
 /* ============================================================
-   POLLING
-   Le backend synchronise les routeurs en tâche de fond. Cette
-   page relit la base toutes les 2 secondes pour refléter très
-   rapidement les changements détectés côté MikroTik — aucune
-   connexion MikroTik n'est déclenchée par ce polling.
+   LIVE SYNC
+   Le backend global reste à 5 s. Cette page synchronise
+   uniquement le routeur actuellement consulté, toutes les 1 s.
+   Aucun autre routeur n'est interrogé par cette vue.
 ============================================================ */
 
-const POLL_INTERVAL_MS = 2_000;
+const LIVE_SYNC_INTERVAL_MS = 1_000;
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [selectedRouterId, setSelectedRouterId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -43,6 +49,7 @@ export default function Sessions() {
   const [syncResults, setSyncResults] = useState<
     RouterSyncResult[]
   >([]);
+  const liveSyncInFlight = useRef(false);
 
   const [historySession, setHistorySession] =
     useState<Session | null>(null);
@@ -85,14 +92,87 @@ export default function Sessions() {
   );
 
   useEffect(() => {
+    let mounted = true;
+
+    async function loadRouterSelection() {
+      try {
+        const data = await getRouters();
+
+        if (!mounted) return;
+
+        setRouters(data);
+
+        setSelectedRouterId((current) => {
+          if (current && data.some((router) => router.id === current)) {
+            return current;
+          }
+
+          return data[0]?.id ?? "";
+        });
+      } catch (err) {
+        console.error(
+          "Erreur lors du chargement des routeurs :",
+          err
+        );
+      }
+    }
+
     loadSessions();
+    loadRouterSelection();
+
+    return () => {
+      mounted = false;
+    };
+  }, [loadSessions]);
+
+  useEffect(() => {
+    if (!selectedRouterId) {
+      return;
+    }
+
+    let active = true;
+
+    const syncSelectedRouter = async () => {
+      if (!active || liveSyncInFlight.current) {
+        return;
+      }
+
+      liveSyncInFlight.current = true;
+
+      try {
+        const result = await syncSingleRouter(selectedRouterId);
+
+        if (!active) {
+          return;
+        }
+
+        setSyncResults([result]);
+        await loadSessions(true);
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+
+        console.error(
+          "Erreur lors de la synchronisation du routeur sélectionné :",
+          err
+        );
+      } finally {
+        liveSyncInFlight.current = false;
+      }
+    };
+
+    void syncSelectedRouter();
 
     const interval = setInterval(() => {
-      loadSessions(true);
-    }, POLL_INTERVAL_MS);
+      void syncSelectedRouter();
+    }, LIVE_SYNC_INTERVAL_MS);
 
-    return () => clearInterval(interval);
-  }, [loadSessions]);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [selectedRouterId, loadSessions]);
 
   /* ============================================================
      DÉCONNEXION MANUELLE
@@ -125,22 +205,27 @@ export default function Sessions() {
   ============================================================ */
 
   async function handleSync() {
+    if (!selectedRouterId) {
+      setError("Sélectionnez un routeur à synchroniser.");
+      return;
+    }
+
     try {
       setSyncing(true);
       setError(null);
 
-      const result = await syncSessions();
+      const result = await syncSingleRouter(selectedRouterId);
 
-      setSessions(result.data.sessions);
-      setSyncResults(result.data.syncResults);
+      setSyncResults([result]);
+      await loadSessions(true);
     } catch (err) {
       console.error(
-        "Erreur lors de la synchronisation :",
+        "Erreur lors de la synchronisation du routeur sélectionné :",
         err
       );
 
       setError(
-        "La synchronisation a échoué. Vérifiez la connexion aux routeurs."
+        "La synchronisation a échoué. Vérifiez la connexion au routeur sélectionné."
       );
     } finally {
       setSyncing(false);
@@ -256,6 +341,29 @@ export default function Sessions() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <Wifi size={15} strokeWidth={1.8} className="text-slate-400" />
+
+            <select
+              value={selectedRouterId}
+              onChange={(event) =>
+                setSelectedRouterId(event.target.value)
+              }
+              className="max-w-[220px] bg-transparent text-sm font-semibold text-slate-700 outline-none"
+              aria-label="Routeur consulté"
+            >
+              {routers.length === 0 ? (
+                <option value="">Aucun routeur</option>
+              ) : (
+                routers.map((router) => (
+                  <option key={router.id} value={router.id}>
+                    {router.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
@@ -279,7 +387,7 @@ export default function Sessions() {
             />
             {syncing
               ? "Synchronisation..."
-              : "Synchroniser maintenant"}
+              : "Synchroniser le routeur"}
           </button>
         </div>
       </header>
