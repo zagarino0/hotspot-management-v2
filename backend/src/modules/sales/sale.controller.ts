@@ -10,7 +10,7 @@ import {
   deleteSaleById,
   getSaleDetails,
   getSales,
-  getPointOfSales,
+  getPointOfSalesForUser,
   getSummary,
   recordPayment,
 } from "./sale.service.js";
@@ -97,7 +97,16 @@ export async function listPointOfSales(
   next: NextFunction
 ) {
   try {
-    const pointsOfSale = await getPointOfSales();
+    const userId = req.auth?.sub;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié.",
+      });
+    }
+
+    const pointsOfSale = await getPointOfSalesForUser(userId);
 
     return res.status(200).json({
       success: true,
