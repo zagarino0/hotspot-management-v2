@@ -487,7 +487,7 @@ export default function Sales() {
                   Statut
                 </th>
 
-                  <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Actions
                 </th>
               </tr>
@@ -497,7 +497,7 @@ export default function Sales() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des ventes...
