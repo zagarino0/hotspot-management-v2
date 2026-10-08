@@ -20,6 +20,11 @@ const SALE_SELECT = `
     sa.site_id AS "siteId",
     s.name AS "siteName",
 
+    pos.id AS "pointOfSaleId",
+    pos.code AS "pointOfSaleCode",
+    pos.name AS "pointOfSaleName",
+    pos.type AS "pointOfSaleType",
+
     sa.voucher_id AS "voucherId",
     v.code AS "voucherCode",
 
@@ -52,6 +57,7 @@ const SALE_SELECT = `
   JOIN site s ON s.id = sa.site_id
   LEFT JOIN plan p ON p.id = sa.plan_id
   LEFT JOIN voucher v ON v.id = sa.voucher_id
+  JOIN point_of_sale pos ON pos.id = sa.point_of_sale_id
   LEFT JOIN LATERAL (
     SELECT SUM(pay.amount) AS amount
     FROM payment pay
@@ -76,6 +82,7 @@ const SALE_LIST_LIMIT = 500;
 export async function findSales(filter?: {
   status?: SaleStatus;
   siteId?: string;
+  pointOfSaleId?: string;
 }): Promise<SaleRow[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -87,7 +94,12 @@ export async function findSales(filter?: {
 
   if (filter?.siteId) {
     params.push(filter.siteId);
-    conditions.push(`sa.site_id = $${params.length}`);
+    conditions.push(`sa.site_id = ${params.length}`);
+  }
+
+  if (filter?.pointOfSaleId) {
+    params.push(filter.pointOfSaleId);
+    conditions.push(`sa.point_of_sale_id = ${params.length}`);
   }
 
   const whereClause = conditions.length
@@ -144,10 +156,30 @@ export async function insertSale(
   const unitPrice = data.unitPrice ?? plan.price;
   const totalAmount = unitPrice * quantity;
 
+  const pointOfSaleResult = await pool.query<{ id: string }>(
+    `
+      SELECT pos.id
+      FROM point_of_sale pos
+      JOIN site s ON s.organization_id = pos.organization_id
+      WHERE s.id = $1
+        AND pos.code = 'INTERNAL'
+        AND pos.status = 'ACTIVE'
+      LIMIT 1
+    `,
+    [data.siteId]
+  );
+
+  let pointOfSaleId = data.pointOfSaleId ?? pointOfSaleResult.rows[0]?.id;
+
+  if (!pointOfSaleId) {
+    throw new Error("Point de vente introuvable pour ce site.");
+  }
+
   const result = await pool.query<{ id: string }>(
     `
       INSERT INTO sale (
         site_id,
+        point_of_sale_id,
         voucher_id,
         plan_id,
         profile_code,
@@ -168,6 +200,7 @@ export async function insertSale(
     `,
     [
       data.siteId,
+      pointOfSaleId,
       data.voucherId ?? null,
       data.planId ?? null,
       plan.profileCode,
