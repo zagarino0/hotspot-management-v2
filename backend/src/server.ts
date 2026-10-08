@@ -50,8 +50,8 @@ if (env.liveSyncIntervalSeconds > 0) {
     `[live-sync] Synchronisation automatique toutes les ${env.liveSyncIntervalSeconds}s`
   );
 
-  // Premier cycle peu après le démarrage, sans bloquer le boot.
-  setTimeout(runLiveSync, 3000);
+  // Premier cycle immédiatement après le démarrage, sans bloquer le boot.
+  void runLiveSync();
 
   syncInterval = setInterval(
     runLiveSync,
