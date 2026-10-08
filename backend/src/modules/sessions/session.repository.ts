@@ -41,30 +41,7 @@ const SESSION_SELECT = `
     s.login_method AS "loginMethod",
     s.cookie_present AS "cookiePresent",
 
-    (
-      SELECT COALESCE(SUM(COALESCE(s2.duration_seconds, 0)), 0)
-      FROM session s2
-      WHERE (
-        (
-          s.voucher_id IS NOT NULL
-          AND s2.voucher_id = s.voucher_id
-        )
-        OR (
-          s.voucher_id IS NULL
-          AND s2.voucher_id IS NULL
-          AND s2.site_id = s.site_id
-          AND s2.router_id = s.router_id
-          AND s2.username = s.username
-        )
-      )
-      AND (
-        s2.started_at < s.started_at
-        OR (
-          s2.started_at = s.started_at
-          AND s2.id <= s.id
-        )
-      )
-    )::bigint AS "voucherUsedSeconds",
+    COALESCE(voucher_usage.consumed_seconds, 0)::bigint AS "voucherUsedSeconds",
 
     COALESCE(
       v.duration_seconds,
@@ -80,33 +57,7 @@ const SESSION_SELECT = `
         COALESCE(
           v.duration_seconds,
           s.mikrotik_limit_uptime_seconds
-        ) - (
-          SELECT COALESCE(
-            SUM(COALESCE(s2.duration_seconds, 0)),
-            0
-          )
-          FROM session s2
-          WHERE (
-            (
-              s.voucher_id IS NOT NULL
-              AND s2.voucher_id = s.voucher_id
-            )
-            OR (
-              s.voucher_id IS NULL
-              AND s2.voucher_id IS NULL
-              AND s2.site_id = s.site_id
-              AND s2.router_id = s.router_id
-              AND s2.username = s.username
-            )
-          )
-          AND (
-            s2.started_at < s.started_at
-            OR (
-              s2.started_at = s.started_at
-              AND s2.id <= s.id
-            )
-          )
-        ),
+        ) - COALESCE(voucher_usage.consumed_seconds, 0),
         0
       )::bigint
     END AS "voucherRemainingSeconds",
@@ -120,40 +71,7 @@ const SESSION_SELECT = `
         COALESCE(
           v.duration_seconds,
           s.mikrotik_limit_uptime_seconds
-        ) - (
-          SELECT COALESCE(
-            SUM(
-              CASE
-                WHEN s2.id = s.id
-                  AND s.status = 'ACTIVE'
-                  THEN COALESCE(s2.duration_seconds, 0)
-                ELSE COALESCE(s2.duration_seconds, 0)
-              END
-            ),
-            0
-          )
-          FROM session s2
-          WHERE (
-            (
-              s.voucher_id IS NOT NULL
-              AND s2.voucher_id = s.voucher_id
-            )
-            OR (
-              s.voucher_id IS NULL
-              AND s2.voucher_id IS NULL
-              AND s2.site_id = s.site_id
-              AND s2.router_id = s.router_id
-              AND s2.username = s.username
-            )
-          )
-          AND (
-            s2.started_at < s.started_at
-            OR (
-              s2.started_at = s.started_at
-              AND s2.id <= s.id
-            )
-          )
-        ),
+        ) - COALESCE(voucher_usage.consumed_seconds, 0),
         0
       )::bigint
     END AS "voucherRemainingSecondsAtEnd",
@@ -212,6 +130,39 @@ const SESSION_SELECT = `
   FROM session s
   LEFT JOIN router r ON r.id = s.router_id
   LEFT JOIN voucher v ON v.id = s.voucher_id
+  LEFT JOIN LATERAL (
+    SELECT
+      COALESCE(
+        SUM(
+          GREATEST(
+            COALESCE(s2.duration_seconds, 0),
+            0
+          )
+        ),
+        0
+      )::bigint AS consumed_seconds
+    FROM session s2
+    WHERE (
+      (
+        s.voucher_id IS NOT NULL
+        AND s2.voucher_id = s.voucher_id
+      )
+      OR (
+        s.voucher_id IS NULL
+        AND s2.voucher_id IS NULL
+        AND s2.site_id = s.site_id
+        AND s2.router_id = s.router_id
+        AND s2.username = s.username
+      )
+    )
+      AND (
+        s2.started_at < s.started_at
+        OR (
+          s2.started_at = s.started_at
+          AND s2.id <= s.id
+        )
+      )
+  ) voucher_usage ON TRUE
 `;
 
 const SESSION_LIST_LIMIT = 300;
