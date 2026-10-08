@@ -14,6 +14,8 @@ export interface PlanRow {
 
   description: string | null;
 
+  mikrotikProfileCode: string | null;
+
   price: number;
   currency: string;
 
@@ -40,6 +42,8 @@ export interface CreatePlanData {
   code: string;
 
   description?: string | null;
+
+  mikrotikProfileCode?: string | null;
 
   price: number;
   currency?: string;
