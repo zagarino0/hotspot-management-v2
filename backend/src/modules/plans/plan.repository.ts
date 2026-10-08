@@ -16,6 +16,8 @@ const PLAN_SELECT = `
     p.code,
     p.description,
 
+    p.mikrotik_profile_code AS "mikrotikProfileCode",
+
     p.price::float8 AS "price",
     p.currency,
 
@@ -90,6 +92,7 @@ export async function insertPlan(
         name,
         code,
         description,
+        mikrotik_profile_code,
         price,
         currency,
         duration_seconds,
@@ -99,7 +102,7 @@ export async function insertPlan(
         simultaneous_sessions
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
       )
       RETURNING id
     `,
@@ -108,6 +111,7 @@ export async function insertPlan(
       data.name,
       data.code,
       data.description ?? null,
+      data.mikrotikProfileCode ?? null,
       data.price,
       data.currency ?? "MGA",
       data.durationSeconds ?? null,
