@@ -123,7 +123,9 @@ export async function findSales(filter?: {
    POINTS DE VENTE
 ============================================================ */
 
-export async function findPointOfSales(): Promise<
+export async function findPointOfSales(
+  organizationId?: string
+): Promise<
   Array<{
     id: string;
     organizationId: string;
@@ -143,10 +145,12 @@ export async function findPointOfSales(): Promise<
         type,
         status
       FROM point_of_sale
+      organizationId ? "WHERE organization_id = $1" : ""
       ORDER BY
         CASE WHEN type = 'INTERNAL' THEN 0 ELSE 1 END,
         name ASC
-    `
+    `,
+    organizationId ? [organizationId] : []
   );
 
   return result.rows;
