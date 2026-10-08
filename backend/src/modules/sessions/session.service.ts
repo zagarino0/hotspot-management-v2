@@ -102,7 +102,7 @@ async function publishRouterHealthNotifications(
   }
 }
 
-export async function syncRouterSessions(
+async function performRouterSyncSessions(
   router: RouterForSync
 ): Promise<RouterSyncResult> {
   const credential = await findRouterCredential(router.id);
@@ -422,6 +422,40 @@ export async function syncRouterSessions(
     };
   } finally {
     await api.close();
+  }
+}
+
+/* ============================================================
+   SYNCHRONISATION PAR ROUTEUR — VERROU
+   Le sync global (5 s) et le live sync ciblé (1 s) peuvent
+   viser le même routeur. Un seul cycle MikroTik est donc autorisé
+   par routeur à la fois ; le second appel attend le premier.
+============================================================ */
+
+const routerSyncInFlight = new Map<
+  string,
+  Promise<RouterSyncResult>
+>();
+
+export async function syncRouterSessions(
+  router: RouterForSync
+): Promise<RouterSyncResult> {
+  const existing = routerSyncInFlight.get(router.id);
+
+  if (existing) {
+    return existing;
+  }
+
+  const promise = performRouterSyncSessions(router);
+
+  routerSyncInFlight.set(router.id, promise);
+
+  try {
+    return await promise;
+  } finally {
+    if (routerSyncInFlight.get(router.id) === promise) {
+      routerSyncInFlight.delete(router.id);
+    }
   }
 }
 
