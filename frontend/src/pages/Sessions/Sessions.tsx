@@ -636,14 +636,15 @@ function groupSessionsForTable(sessions: Session[]): Session[] {
   }
 
   return Array.from(groups.values()).sort((a, b) => {
-    const aTime = new Date(
-      a.updatedAt ?? a.startedAt
-    ).getTime();
-    const bTime = new Date(
-      b.updatedAt ?? b.startedAt
-    ).getTime();
+    const aTime = new Date(a.startedAt).getTime();
+    const bTime = new Date(b.startedAt).getTime();
 
-    return bTime - aTime;
+    if (bTime !== aTime) {
+      return bTime - aTime;
+    }
+
+    // Stable tie-breaker: never let periodic syncs change row order.
+    return String(b.id).localeCompare(String(a.id));
   });
 }
 
