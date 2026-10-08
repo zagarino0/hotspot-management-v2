@@ -5,6 +5,7 @@ import {
   getSalesSummary,
   insertSale,
   findPointOfSales,
+  insertPointOfSale,
   updateSaleStatus,
 } from "./sale.repository.js";
 
@@ -56,6 +57,51 @@ export async function getPointOfSalesForUser(userId: string) {
   }
 
   return findPointOfSales(organizationId);
+}
+
+export async function createPointOfSale(
+  userId: string,
+  data: {
+    code: string;
+    name: string;
+    type: "INTERNAL" | "EXTERNAL";
+  }
+) {
+  const organizationResult = await pool.query<{
+    organizationId: string;
+  }>(
+    `
+      SELECT organization_id AS "organizationId"
+      FROM "user"
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [userId]
+  );
+
+  const organizationId =
+    organizationResult.rows[0]?.organizationId;
+
+  if (!organizationId) {
+    throw notFoundError("Organisation introuvable.");
+  }
+
+  try {
+    return await insertPointOfSale({
+      organizationId,
+      code: data.code.trim().toUpperCase(),
+      name: data.name.trim(),
+      type: data.type,
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      throw conflict(
+        "Un point de vente avec ce code existe déjà."
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function getSaleDetails(id: string) {
