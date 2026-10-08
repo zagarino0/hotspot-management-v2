@@ -449,6 +449,7 @@ export default function Sales() {
             <option value="CANCELLED">Annulées</option>
             <option value="REFUNDED">Remboursées</option>
           </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
