@@ -120,6 +120,39 @@ export async function findSales(filter?: {
 }
 
 /* ============================================================
+   POINTS DE VENTE
+============================================================ */
+
+export async function findPointOfSales(): Promise<
+  Array<{
+    id: string;
+    organizationId: string;
+    code: string;
+    name: string;
+    type: "INTERNAL" | "EXTERNAL";
+    status: "ACTIVE" | "INACTIVE";
+  }>
+> {
+  const result = await pool.query(
+    `
+      SELECT
+        id,
+        organization_id AS "organizationId",
+        code,
+        name,
+        type,
+        status
+      FROM point_of_sale
+      ORDER BY
+        CASE WHEN type = 'INTERNAL' THEN 0 ELSE 1 END,
+        name ASC
+    `
+  );
+
+  return result.rows;
+}
+
+/* ============================================================
    FIND BY ID
 ============================================================ */
 
