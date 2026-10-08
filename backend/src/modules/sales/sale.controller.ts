@@ -10,6 +10,7 @@ import {
   deleteSaleById,
   getSaleDetails,
   getSales,
+  getPointOfSales,
   getSummary,
   recordPayment,
 } from "./sale.service.js";
@@ -65,12 +66,42 @@ export async function listSales(
         ? req.query.siteId
         : undefined;
 
-    const sales = await getSales({ status, siteId });
+    const pointOfSaleId =
+      typeof req.query.pointOfSaleId === "string"
+        ? req.query.pointOfSaleId
+        : undefined;
+
+    const sales = await getSales({
+      status,
+      siteId,
+      pointOfSaleId,
+    });
 
     return res.status(200).json({
       success: true,
       data: sales,
       count: sales.length,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/* ============================================================
+   POINTS DE VENTE
+============================================================ */
+
+export async function listPointOfSales(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const pointsOfSale = await getPointOfSales();
+
+    return res.status(200).json({
+      success: true,
+      data: pointsOfSale,
     });
   } catch (error) {
     return next(error);
@@ -133,6 +164,7 @@ export async function createSaleController(
   try {
     const {
       siteId,
+      pointOfSaleId,
       planId,
       profileCode,
       voucherId,
