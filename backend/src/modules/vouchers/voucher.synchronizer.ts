@@ -242,7 +242,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: "SYNC_ANOMALY",
-        eventKey: `voucher:\${router.id}:\${username}:sync-anomaly`,
+        eventKey: `voucher:${router.id}:${username}:sync-anomaly`,
         metadata: {
           reason: error instanceof Error ? error.message : "Erreur inconnue.",
           mikrotikProfile: user.profile,
@@ -262,7 +262,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: "DISCOVERED",
-        eventKey: `voucher:\${router.id}:\${username}:discovered`,
+        eventKey: `voucher:${router.id}:${username}:discovered`,
         metadata: { mikrotikProfile: user.profile, disabled: user.disabled },
       });
     } else {
@@ -279,7 +279,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale.id,
         pointOfSaleCode: pointOfSale.code,
         eventType: "POS_IDENTIFIED",
-        eventKey: `voucher:\${router.id}:\${username}:pos:\${pointOfSale.id}`,
+        eventKey: `voucher:${router.id}:${username}:pos:${pointOfSale.id}`,
         metadata: { comment: user.comment },
       });
     }
@@ -294,7 +294,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: user.disabled ? "DISABLED" : "ENABLED",
-        eventKey: `voucher:\${router.id}:\${username}:\${user.disabled ? "disabled" : "enabled"}`,
+        eventKey: `voucher:${router.id}:${username}:${user.disabled ? "disabled" : "enabled"}`,
         metadata: { comment: user.comment },
       });
     }
@@ -327,7 +327,7 @@ export async function syncMikrotikVouchers(
       voucherCode: voucher.code,
       pointOfSaleId: voucher.pointOfSaleId,
       eventType: "DELETED_FROM_MIKROTIK",
-      eventKey: `voucher:\${router.id}:\${voucher.username}:deleted-from-mikrotik`,
+      eventKey: `voucher:${router.id}:${voucher.username}:deleted-from-mikrotik`,
       metadata: { reason: "Absent de /ip/hotspot/user/print." },
     });
 
