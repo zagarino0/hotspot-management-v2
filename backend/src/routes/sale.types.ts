@@ -79,6 +79,8 @@ export interface CreateSaleData {
 export interface SalesSummary {
   totalRevenue: number;
   todayRevenue: number;
+  externalTodayRevenue: number;
+  externalTodaySalesCount: number;
   salesCount: number;
   averageBasket: number;
   mobilePaymentShare: number;
