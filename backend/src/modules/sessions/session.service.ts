@@ -6,6 +6,7 @@ import {
 import { fetchHotspotUsers } from "../../mikrotik/hotspotUsers.js";
 import { fetchHotspotCookies } from "../../mikrotik/hotspotCookies.js";
 import { fetchHotspotLogs } from "../../mikrotik/hotspotLogs.js";
+import { syncMikrotikVouchers } from "../vouchers/voucher.synchronizer.js";
 
 import { decryptSecret } from "../../lib/crypto.js";
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -197,6 +198,7 @@ async function performRouterSyncSessions(
   try {
     const activeUsers = await fetchActiveHotspotUsers(api);
     const hotspotUsers = await fetchHotspotUsers(api);
+    await syncMikrotikVouchers(router, hotspotUsers);
 
     let logoutEvents: Array<{
       username: string;
