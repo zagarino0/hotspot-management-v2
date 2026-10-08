@@ -11,11 +11,11 @@ export interface VoucherRow {
   siteId: string;
   siteName: string;
 
-  planId: string;
-  planName: string;
+  planId: string | null;
+  planName: string | null;
   mikrotikProfile: string | null;
-  planPrice: number;
-  planCurrency: string;
+  planPrice: number | null;
+  planCurrency: string | null;
 
   batchId: string | null;
 
