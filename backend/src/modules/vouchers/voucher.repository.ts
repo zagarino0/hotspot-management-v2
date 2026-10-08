@@ -23,6 +23,11 @@ const VOUCHER_SELECT = `
     v.mikrotik_profile AS "mikrotikProfile",
     p.price::float8 AS "planPrice",
     p.currency AS "planCurrency",
+    v.router_id AS "routerId",
+    v.mikrotik_username AS "mikrotikUsername",
+    v.mikrotik_comment AS "mikrotikComment",
+    v.mikrotik_disabled AS "mikrotikDisabled",
+    v.point_of_sale_id AS "pointOfSaleId",
 
     v.batch_id AS "batchId",
 
@@ -44,7 +49,7 @@ const VOUCHER_SELECT = `
 
   FROM voucher v
   JOIN site s ON s.id = v.site_id
-  JOIN plan p ON p.id = v.plan_id
+  LEFT JOIN plan p ON p.id = v.plan_id
 `;
 
 const VOUCHER_LIST_LIMIT = 500;
