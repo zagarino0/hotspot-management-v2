@@ -7,6 +7,7 @@ export interface MikrotikHotspotUser {
   uptimeSeconds: number;
   macAddress: string | null;
   comment: string | null;
+  disabled: boolean;
   createdAt: string | null;
 }
 
@@ -38,6 +39,9 @@ export async function fetchHotspotUsers(
         typeof row.comment === "string"
           ? row.comment.trim() || null
           : null,
+      disabled:
+        row.disabled === true ||
+        row.disabled === "true",
       createdAt:
         typeof row.comment === "string"
           ? parseCreationDate(row.comment)
