@@ -38,7 +38,23 @@ export async function getSales(filter?: {
   return findSales(filter);
 }
 
-export async function getPointOfSales(organizationId?: string) {
+export async function getPointOfSalesForUser(userId: string) {
+  const result = await pool.query<{ organizationId: string }>(
+    `
+      SELECT organization_id AS "organizationId"
+      FROM "user"
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [userId]
+  );
+
+  const organizationId = result.rows[0]?.organizationId;
+
+  if (!organizationId) {
+    return [];
+  }
+
   return findPointOfSales(organizationId);
 }
 
