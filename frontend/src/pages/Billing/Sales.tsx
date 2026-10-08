@@ -19,6 +19,7 @@ import Modal from "../../components/ui/Modal";
 
 import {
   cancelSale,
+  createPointOfSale,
   deleteSale,
   getSales,
   getPointOfSales,
@@ -101,6 +102,18 @@ export default function Sales() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [pointOfSales, setPointOfSales] = useState<PointOfSale[]>([]);
   const [pointOfSaleFilter, setPointOfSaleFilter] = useState("all");
+  const [pointOfSaleModalOpen, setPointOfSaleModalOpen] =
+    useState(false);
+  const [creatingPointOfSale, setCreatingPointOfSale] =
+    useState(false);
+  const [pointOfSaleError, setPointOfSaleError] = useState<
+    string | null
+  >(null);
+  const [pointOfSaleForm, setPointOfSaleForm] = useState({
+    code: "",
+    name: "",
+    type: "EXTERNAL" as "INTERNAL" | "EXTERNAL",
+  });
   const [summary, setSummary] = useState<SalesSummary | null>(
     null
   );
@@ -211,6 +224,44 @@ export default function Sales() {
     setPayError(null);
   }
 
+  async function handleCreatePointOfSale() {
+    const code = pointOfSaleForm.code.trim();
+    const name = pointOfSaleForm.name.trim();
+
+    if (!code || !name) {
+      setPointOfSaleError(
+        "Le code et le nom du point de vente sont obligatoires."
+      );
+      return;
+    }
+
+    setCreatingPointOfSale(true);
+    setPointOfSaleError(null);
+
+    try {
+      await createPointOfSale({
+        code,
+        name,
+        type: pointOfSaleForm.type,
+      });
+
+      setPointOfSaleForm({
+        code: "",
+        name: "",
+        type: "EXTERNAL",
+      });
+      setPointOfSaleModalOpen(false);
+      await load();
+    } catch (err: any) {
+      setPointOfSaleError(
+        err?.response?.data?.message ??
+          "Impossible de créer le point de vente."
+      );
+    } finally {
+      setCreatingPointOfSale(false);
+    }
+  }
+
   async function handleConfirmPayment() {
     if (!payingSale) return;
 
@@ -308,14 +359,28 @@ export default function Sales() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate("/billing/sales/new")}
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
-        >
-          <Plus size={16} strokeWidth={2} />
-          Nouvelle vente
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPointOfSaleModalOpen(true);
+              setPointOfSaleError(null);
+            }}
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            <Plus size={16} strokeWidth={2} />
+            Nouveau point de vente
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/billing/sales/new")}
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            <Plus size={16} strokeWidth={2} />
+            Nouvelle vente
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -563,6 +628,112 @@ export default function Sales() {
           </div>
         )}
       </section>
+
+      {/* ============================================================
+          CREATE POINT OF SALE MODAL
+      ============================================================ */}
+
+      <Modal
+        open={pointOfSaleModalOpen}
+        title="Nouveau point de vente"
+        description="Ajoutez un point de vente interne ou externe."
+        onClose={() => {
+          if (!creatingPointOfSale) {
+            setPointOfSaleModalOpen(false);
+          }
+        }}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setPointOfSaleModalOpen(false)}
+              disabled={creatingPointOfSale}
+              className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCreatePointOfSale}
+              disabled={creatingPointOfSale}
+              className="rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creatingPointOfSale
+                ? "Création..."
+                : "Créer le point de vente"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">
+              Nom
+            </span>
+            <input
+              type="text"
+              value={pointOfSaleForm.name}
+              onChange={(event) =>
+                setPointOfSaleForm((form) => ({
+                  ...form,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="Ex. CASHPOINTWIFI"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">
+              Identifiant / code
+            </span>
+            <input
+              type="text"
+              value={pointOfSaleForm.code}
+              onChange={(event) =>
+                setPointOfSaleForm((form) => ({
+                  ...form,
+                  code: event.target.value.toUpperCase(),
+                }))
+              }
+              placeholder="Ex. CASHPOINTWIFI"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+            />
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              Ce code sera l'identifiant permanent du point de vente.
+            </p>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">
+              Type
+            </span>
+            <select
+              value={pointOfSaleForm.type}
+              onChange={(event) =>
+                setPointOfSaleForm((form) => ({
+                  ...form,
+                  type: event.target.value as
+                    | "INTERNAL"
+                    | "EXTERNAL",
+                }))
+              }
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+            >
+              <option value="EXTERNAL">Externe</option>
+              <option value="INTERNAL">Interne</option>
+            </select>
+          </label>
+
+          {pointOfSaleError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+              {pointOfSaleError}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* ============================================================
           RECORD PAYMENT MODAL
