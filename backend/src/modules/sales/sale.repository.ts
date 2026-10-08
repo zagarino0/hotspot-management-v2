@@ -388,6 +388,45 @@ export async function getSalesSummary(): Promise<SalesSummary> {
     0
   );
 
+  const externalTodayResult = await pool.query<{
+    revenue: string;
+    count: string;
+  }>(
+    `
+      SELECT
+        COALESCE(
+          SUM(
+            sa.quantity * COALESCE(
+              sp.price,
+              hp.default_price,
+              sa.unit_price
+            )
+          ),
+          0
+        )::float8 AS revenue,
+        COUNT(*)::int AS count
+      FROM sale sa
+      JOIN point_of_sale pos
+        ON pos.id = sa.point_of_sale_id
+      LEFT JOIN hotspot_profile hp
+        ON hp.code = LOWER(TRIM(COALESCE(sa.profile_code, '')))
+      LEFT JOIN site_hotspot_profile_price sp
+        ON sp.site_id = sa.site_id
+       AND sp.profile_code = hp.code
+      WHERE sa.status = 'PAID'
+        AND pos.type = 'EXTERNAL'
+        AND sa.sold_at >= CURRENT_DATE
+        AND sa.sold_at < CURRENT_DATE + INTERVAL '1 day'
+    `
+  );
+
+  const externalTodayRevenue = Number(
+    externalTodayResult.rows[0]?.revenue ?? 0
+  );
+  const externalTodaySalesCount = Number(
+    externalTodayResult.rows[0]?.count ?? 0
+  );
+
   const paymentShareResult = await pool.query<{
     mobileAmount: string | null;
     cashAmount: string | null;
@@ -458,6 +497,8 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   return {
     totalRevenue,
     todayRevenue,
+    externalTodayRevenue,
+    externalTodaySalesCount,
     salesCount,
     averageBasket:
       salesCount > 0 ? totalRevenue / salesCount : 0,
