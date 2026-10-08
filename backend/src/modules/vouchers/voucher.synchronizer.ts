@@ -59,13 +59,13 @@ async function appendVoucherEvent(data: {
   metadata?: Record<string, unknown>;
 }): Promise<void> {
   await pool.query(
-    \`INSERT INTO voucher_event (
+    `INSERT INTO voucher_event (
        voucher_id, site_id, router_id, username, voucher_code,
        point_of_sale_id, point_of_sale_code, event_type, source,
        event_key, metadata
      )
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'SYNCHRONIZER',$9,$10::jsonb)
-     ON CONFLICT (event_key) DO NOTHING\`,
+     ON CONFLICT (event_key) DO NOTHING`,
     [
       data.voucherId ?? null,
       data.siteId,
@@ -88,13 +88,13 @@ async function findPlanIdForProfile(
   if (!profile?.trim()) return null;
 
   const result = await pool.query<{ id: string }>(
-    \`SELECT p.id
+    `SELECT p.id
        FROM plan p
       WHERE p.site_id = $1
         AND p.mikrotik_profile_code = $2
         AND p.status = 'ACTIVE'
       ORDER BY p.created_at ASC
-      LIMIT 2\`,
+      LIMIT 2`,
     [siteId, profile.trim()]
   );
 
@@ -107,27 +107,27 @@ async function findExistingVoucher(
   username: string
 ): Promise<ExistingVoucher | null> {
   const byIdentity = await pool.query<ExistingVoucher>(
-    \`SELECT id,
+    `SELECT id,
             point_of_sale_id AS "pointOfSaleId",
             mikrotik_disabled AS "mikrotikDisabled"
        FROM voucher
       WHERE router_id = $1
         AND mikrotik_username = $2
-      LIMIT 1\`,
+      LIMIT 1`,
     [routerId, username]
   );
 
   if (byIdentity.rows[0]) return byIdentity.rows[0];
 
   const byCode = await pool.query<ExistingVoucher>(
-    \`SELECT id,
+    `SELECT id,
             point_of_sale_id AS "pointOfSaleId",
             mikrotik_disabled AS "mikrotikDisabled"
        FROM voucher
       WHERE site_id = $1
         AND code = $2
         AND router_id IS NULL
-      LIMIT 1\`,
+      LIMIT 1`,
     [siteId, username]
   );
 
@@ -150,7 +150,7 @@ async function upsertVoucher(
 
   if (existing) {
     const result = await pool.query<{ id: string }>(
-      \`UPDATE voucher
+      `UPDATE voucher
           SET plan_id = COALESCE($2, plan_id),
               router_id = $3,
               mikrotik_username = $4,
@@ -163,7 +163,7 @@ async function upsertVoucher(
               status = $10,
               updated_at = NOW()
         WHERE id = $1
-        RETURNING id\`,
+        RETURNING id`,
       [
         existing.id, planId, router.id, user.username, user.profile,
         user.comment, user.disabled, pointOfSale?.id ?? null,
@@ -180,13 +180,13 @@ async function upsertVoucher(
   }
 
   const result = await pool.query<{ id: string }>(
-    \`INSERT INTO voucher (
+    `INSERT INTO voucher (
        site_id, plan_id, code, mikrotik_profile, router_id,
        mikrotik_username, mikrotik_comment, mikrotik_disabled,
        mikrotik_last_seen_at, point_of_sale_id, duration_seconds, status
      )
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9,$10,$11)
-     RETURNING id\`,
+     RETURNING id`,
     [
       router.siteId, planId, user.username, user.profile, router.id,
       user.username, user.comment, user.disabled, pointOfSale?.id ?? null,
@@ -207,10 +207,10 @@ export async function syncMikrotikVouchers(
   hotspotUsers: MikrotikHotspotUser[]
 ): Promise<{ discovered: number; updated: number; deleted: number; anomalies: number }> {
   const posResult = await pool.query<PointOfSaleRef>(
-    \`SELECT id, code
+    `SELECT id, code
        FROM point_of_sale
       WHERE organization_id = $1
-        AND type = 'EXTERNAL'\`,
+        AND type = 'EXTERNAL'`,
     [router.organizationId]
   );
 
@@ -242,7 +242,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: "SYNC_ANOMALY",
-        eventKey: \`voucher:\${router.id}:\${username}:sync-anomaly\`,
+        eventKey: `voucher:\${router.id}:\${username}:sync-anomaly`,
         metadata: {
           reason: error instanceof Error ? error.message : "Erreur inconnue.",
           mikrotikProfile: user.profile,
@@ -262,7 +262,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: "DISCOVERED",
-        eventKey: \`voucher:\${router.id}:\${username}:discovered\`,
+        eventKey: `voucher:\${router.id}:\${username}:discovered`,
         metadata: { mikrotikProfile: user.profile, disabled: user.disabled },
       });
     } else {
@@ -279,7 +279,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale.id,
         pointOfSaleCode: pointOfSale.code,
         eventType: "POS_IDENTIFIED",
-        eventKey: \`voucher:\${router.id}:\${username}:pos:\${pointOfSale.id}\`,
+        eventKey: `voucher:\${router.id}:\${username}:pos:\${pointOfSale.id}`,
         metadata: { comment: user.comment },
       });
     }
@@ -294,7 +294,7 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: user.disabled ? "DISABLED" : "ENABLED",
-        eventKey: \`voucher:\${router.id}:\${username}:\${user.disabled ? "disabled" : "enabled"}\`,
+        eventKey: `voucher:\${router.id}:\${username}:\${user.disabled ? "disabled" : "enabled"}`,
         metadata: { comment: user.comment },
       });
     }
@@ -306,13 +306,13 @@ export async function syncMikrotikVouchers(
     code: string;
     pointOfSaleId: string | null;
   }>(
-    \`SELECT id,
+    `SELECT id,
             mikrotik_username AS username,
             code,
             point_of_sale_id AS "pointOfSaleId"
        FROM voucher
       WHERE router_id = $1
-        AND mikrotik_username IS NOT NULL\`,
+        AND mikrotik_username IS NOT NULL`,
     [router.id]
   );
 
@@ -327,11 +327,11 @@ export async function syncMikrotikVouchers(
       voucherCode: voucher.code,
       pointOfSaleId: voucher.pointOfSaleId,
       eventType: "DELETED_FROM_MIKROTIK",
-      eventKey: \`voucher:\${router.id}:\${voucher.username}:deleted-from-mikrotik\`,
+      eventKey: `voucher:\${router.id}:\${voucher.username}:deleted-from-mikrotik`,
       metadata: { reason: "Absent de /ip/hotspot/user/print." },
     });
 
-    await pool.query(\`DELETE FROM voucher WHERE id = $1\`, [voucher.id]);
+    await pool.query(`DELETE FROM voucher WHERE id = $1`, [voucher.id]);
     deleted += 1;
   }
 
