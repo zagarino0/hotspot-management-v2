@@ -4,6 +4,7 @@ import {
   findSales,
   getSalesSummary,
   insertSale,
+  findPointOfSales,
   updateSaleStatus,
 } from "./sale.repository.js";
 
@@ -32,8 +33,13 @@ import type { RecordPaymentData } from "../../routes/payment.types.js";
 export async function getSales(filter?: {
   status?: SaleStatus;
   siteId?: string;
+  pointOfSaleId?: string;
 }) {
   return findSales(filter);
+}
+
+export async function getPointOfSales() {
+  return findPointOfSales();
 }
 
 export async function getSaleDetails(id: string) {
