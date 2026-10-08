@@ -91,6 +91,8 @@ export interface Payment {
 export interface SalesSummary {
   totalRevenue: number;
   todayRevenue: number;
+  externalTodayRevenue: number;
+  externalTodaySalesCount: number;
   salesCount: number;
   averageBasket: number;
   mobilePaymentShare: number;
