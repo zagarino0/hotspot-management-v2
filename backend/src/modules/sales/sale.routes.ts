@@ -7,6 +7,7 @@ import {
   getSale,
   listSales,
   listPointOfSales,
+  createPointOfSaleController,
   recordPaymentController,
   salesSummary,
 } from "./sale.controller.js";
@@ -16,6 +17,8 @@ const router = Router();
 router.get("/", listSales);
 
 router.get("/point-of-sales", listPointOfSales);
+
+router.post("/point-of-sales", createPointOfSaleController);
 
 router.get("/summary", salesSummary);
 
