@@ -23,13 +23,13 @@ import {
 
 /* ============================================================
    POLLING
-   Le backend synchronise déjà les routeurs en tâche de fond
-   (voir server.ts, LIVE_SYNC_INTERVAL_SECONDS). Cette page se
-   contente de relire régulièrement la base — léger, aucune
-   connexion MikroTik déclenchée par ce polling.
+   Le backend synchronise les routeurs en tâche de fond. Cette
+   page relit la base toutes les 2 secondes pour refléter très
+   rapidement les changements détectés côté MikroTik — aucune
+   connexion MikroTik n'est déclenchée par ce polling.
 ============================================================ */
 
-const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 2_000;
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
