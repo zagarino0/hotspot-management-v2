@@ -156,6 +156,19 @@ export async function getSales(filter?: {
   return response.data.data;
 }
 
+export async function createPointOfSale(data: {
+  code: string;
+  name: string;
+  type: "INTERNAL" | "EXTERNAL";
+}): Promise<PointOfSale> {
+  const response = await api.post<ApiEnvelope<PointOfSale>>(
+    "/api/sales/point-of-sales",
+    data
+  );
+
+  return response.data.data;
+}
+
 export async function getPointOfSales(): Promise<PointOfSale[]> {
   const response = await api.get<ApiEnvelope<PointOfSale[]>>(
     "/api/sales/point-of-sales"
