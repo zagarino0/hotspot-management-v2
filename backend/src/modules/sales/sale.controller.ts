@@ -11,6 +11,7 @@ import {
   getSaleDetails,
   getSales,
   getPointOfSalesForUser,
+  createPointOfSale,
   getSummary,
   recordPayment,
 } from "./sale.service.js";
@@ -111,6 +112,60 @@ export async function listPointOfSales(
     return res.status(200).json({
       success: true,
       data: pointsOfSale,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function createPointOfSaleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.auth?.sub;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié.",
+      });
+    }
+
+    const { code, name, type } = req.body;
+
+    if (typeof code !== "string" || !code.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Le code du point de vente est obligatoire.",
+      });
+    }
+
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Le nom du point de vente est obligatoire.",
+      });
+    }
+
+    if (type !== "INTERNAL" && type !== "EXTERNAL") {
+      return res.status(400).json({
+        success: false,
+        message: "Le type du point de vente est invalide.",
+      });
+    }
+
+    const pointOfSale = await createPointOfSale(userId, {
+      code: code.trim(),
+      name: name.trim(),
+      type,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Point de vente créé avec succès.",
+      data: pointOfSale,
     });
   } catch (error) {
     return next(error);
