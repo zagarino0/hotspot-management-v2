@@ -84,6 +84,30 @@ export async function createSale(data: CreateSaleData) {
     );
   }
 
+  if (data.pointOfSaleId) {
+    const pointOfSaleResult = await pool.query<{
+      id: string;
+    }>(
+      `
+        SELECT pos.id
+        FROM point_of_sale pos
+        JOIN site s
+          ON s.organization_id = pos.organization_id
+        WHERE pos.id = $1
+          AND s.id = $2
+          AND pos.status = 'ACTIVE'
+        LIMIT 1
+      `,
+      [data.pointOfSaleId, data.siteId]
+    );
+
+    if (!pointOfSaleResult.rows[0]) {
+      throw badRequest(
+        "Le point de vente sélectionné n'appartient pas à l'organisation du site ou est inactif."
+      );
+    }
+  }
+
   const profileCode = data.profileCode.trim().toLowerCase();
   const siteProfiles = await findSiteProfilePrices(data.siteId);
 
