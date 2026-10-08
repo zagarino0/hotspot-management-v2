@@ -145,7 +145,7 @@ export async function findPointOfSales(
         type,
         status
       FROM point_of_sale
-      organizationId ? "WHERE organization_id = $1" : ""
+      ${organizationId ? "WHERE organization_id = $1" : ""}
       ORDER BY
         CASE WHEN type = 'INTERNAL' THEN 0 ELSE 1 END,
         name ASC
