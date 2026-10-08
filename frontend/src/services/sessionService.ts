@@ -126,6 +126,21 @@ export async function syncSessions(): Promise<
 }
 
 /* ============================================================
+   SYNC D'UN SEUL ROUTEUR
+   Le backend ne contacte que le routeur actuellement consulté.
+============================================================ */
+
+export async function syncSingleRouter(
+  routerId: string
+): Promise<RouterSyncResult> {
+  const response = await api.post<ApiEnvelope<RouterSyncResult>>(
+    `/api/sessions/sync/${routerId}`
+  );
+
+  return response.data.data;
+}
+
+/* ============================================================
    TERMINATE (déconnexion manuelle d'un utilisateur en direct)
 ============================================================ */
 
