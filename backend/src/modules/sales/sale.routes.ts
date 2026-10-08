@@ -6,6 +6,7 @@ import {
   deleteSaleController,
   getSale,
   listSales,
+  listPointOfSales,
   recordPaymentController,
   salesSummary,
 } from "./sale.controller.js";
@@ -13,6 +14,8 @@ import {
 const router = Router();
 
 router.get("/", listSales);
+
+router.get("/point-of-sales", listPointOfSales);
 
 router.get("/summary", salesSummary);
 
