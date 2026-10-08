@@ -14,7 +14,6 @@ import SessionHistoryModal from "./SessionHistoryModal";
 
 import {
   fetchSessions,
-  syncSessions,
   syncSingleRouter,
   terminateSession,
   type RouterSyncResult,
@@ -238,9 +237,19 @@ export default function Sessions() {
      RECHERCHE / FILTRE
   ============================================================ */
 
+  const visibleSessions = useMemo(
+    () =>
+      selectedRouterId
+        ? sessions.filter(
+            (session) => session.routerId === selectedRouterId
+          )
+        : [],
+    [sessions, selectedRouterId]
+  );
+
   const sessionRows = useMemo(
-    () => groupSessionsForTable(sessions),
-    [sessions]
+    () => groupSessionsForTable(visibleSessions),
+    [visibleSessions]
   );
 
   const filteredSessions = useMemo(() => {
@@ -277,11 +286,11 @@ export default function Sessions() {
      KPI
   ============================================================ */
 
-  const activeSessions = sessions.filter(
+  const activeSessions = visibleSessions.filter(
     (s) => s.status === "ACTIVE"
   );
 
-  const completedToday = sessions.filter((s) => {
+  const completedToday = visibleSessions.filter((s) => {
     if (
       s.status !== "COMPLETED" &&
       s.status !== "TERMINATED"
