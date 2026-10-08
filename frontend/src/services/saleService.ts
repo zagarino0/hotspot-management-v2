@@ -1,5 +1,16 @@
 import api from "./api";
 
+export type PointOfSaleType = "INTERNAL" | "EXTERNAL";
+
+export interface PointOfSale {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  type: PointOfSaleType;
+  status: "ACTIVE" | "INACTIVE";
+}
+
 export type SaleStatus =
   | "PENDING"
   | "PAID"
@@ -27,6 +38,11 @@ export interface Sale {
 
   siteId: string;
   siteName: string;
+
+  pointOfSaleId: string;
+  pointOfSaleCode: string;
+  pointOfSaleName: string;
+  pointOfSaleType: PointOfSaleType;
 
   voucherId: string | null;
   voucherCode: string | null;
@@ -84,6 +100,7 @@ export interface SalesSummary {
 
 export interface CreateSalePayload {
   siteId: string;
+  pointOfSaleId?: string;
   planId?: string;
   profileCode: string;
   voucherId?: string;
@@ -115,14 +132,31 @@ interface ApiEnvelope<T> {
 
 export async function getSales(filter?: {
   status?: SaleStatus;
+  pointOfSaleId?: string;
 }): Promise<Sale[]> {
   const response = await api.get<ApiEnvelope<Sale[]>>(
     "/api/sales",
     {
-      params: filter?.status
-        ? { status: filter.status }
-        : undefined,
+      params:
+        filter?.status || filter?.pointOfSaleId
+          ? {
+              ...(filter?.status
+                ? { status: filter.status }
+                : {}),
+              ...(filter?.pointOfSaleId
+                ? { pointOfSaleId: filter.pointOfSaleId }
+                : {}),
+            }
+          : undefined,
     }
+  );
+
+  return response.data.data;
+}
+
+export async function getPointOfSales(): Promise<PointOfSale[]> {
+  const response = await api.get<ApiEnvelope<PointOfSale[]>>(
+    "/api/sales/point-of-sales"
   );
 
   return response.data.data;
