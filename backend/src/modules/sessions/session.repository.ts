@@ -358,8 +358,10 @@ export async function markSessionTerminated(
       SET
         status = 'TERMINATED',
         ended_at = NOW(),
-        duration_seconds =
-          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+        duration_seconds = GREATEST(
+          COALESCE(s.duration_seconds, 0),
+          0
+        ),
         voucher_remaining_seconds_at_end =
           CASE
             WHEN COALESCE(
@@ -383,7 +385,7 @@ export async function markSessionTerminated(
                   SUM(
                     CASE
                       WHEN s2.id = s.id
-                        THEN EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint
+                        THEN COALESCE(s.duration_seconds, 0)
                       ELSE COALESCE(s2.duration_seconds, 0)
                     END
                   ),
@@ -510,8 +512,10 @@ export async function upsertActiveSession(
           session_time_left_seconds = $9,
           login_method = COALESCE($10, login_method),
           cookie_present = $11,
-          started_at = NOW() - ($12::bigint * INTERVAL '1 second'),
-          duration_seconds = $12,
+          duration_seconds = GREATEST(
+            COALESCE(duration_seconds, 0),
+            $12::bigint
+          ),
           updated_at = NOW()
         WHERE id = $1
       `,
@@ -811,14 +815,7 @@ export async function closeSessionsNotIn(
           ELSE 'COMPLETED'
         END,
           ended_at = matched.ended_at,
-          duration_seconds = GREATEST(
-            EXTRACT(
-              EPOCH FROM (
-                matched.ended_at - s.started_at
-              )
-            )::bigint,
-            0
-          ),
+          duration_seconds = COALESCE(s.duration_seconds, 0),
           voucher_remaining_seconds_at_end =
             CASE
               WHEN COALESCE(
@@ -842,14 +839,7 @@ export async function closeSessionsNotIn(
                     SUM(
                       CASE
                         WHEN s2.id = s.id
-                          THEN GREATEST(
-                            EXTRACT(
-                              EPOCH FROM (
-                                matched.ended_at - s.started_at
-                              )
-                            )::bigint,
-                            0
-                          )
+                          THEN COALESCE(s.duration_seconds, 0)
                         ELSE COALESCE(s2.duration_seconds, 0)
                       END
                     ),
@@ -914,14 +904,7 @@ export async function closeSessionsNotIn(
                     CASE
                       WHEN s2.id = s.id
                         AND s.status = 'ACTIVE'
-                        THEN GREATEST(
-                          EXTRACT(
-                            EPOCH FROM (
-                              NOW() - s.started_at
-                            )
-                          )::bigint,
-                          0
-                        )
+                        THEN COALESCE(s.duration_seconds, 0)
                       WHEN s2.id = s.id
                         THEN COALESCE(s2.duration_seconds, 0)
                       ELSE COALESCE(s2.duration_seconds, 0)
@@ -951,7 +934,7 @@ export async function closeSessionsNotIn(
         END,
         ended_at = NOW(),
         duration_seconds = GREATEST(
-          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+          COALESCE(s.duration_seconds, 0),
           0
         ),
         voucher_remaining_seconds_at_end =
@@ -977,12 +960,7 @@ export async function closeSessionsNotIn(
                   SUM(
                     CASE
                       WHEN s2.id = s.id
-                        THEN GREATEST(
-                          EXTRACT(
-                            EPOCH FROM (NOW() - s.started_at)
-                          )::bigint,
-                          0
-                        )
+                        THEN COALESCE(s.duration_seconds, 0)
                       ELSE COALESCE(s2.duration_seconds, 0)
                     END
                   ),
@@ -1056,8 +1034,10 @@ export async function closeAllActiveForRouter(
       SET
         status = 'TERMINATED',
         ended_at = NOW(),
-        duration_seconds =
-          EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint,
+        duration_seconds = GREATEST(
+          COALESCE(s.duration_seconds, 0),
+          0
+        ),
         voucher_remaining_seconds_at_end =
           CASE
             WHEN COALESCE(
@@ -1081,7 +1061,7 @@ export async function closeAllActiveForRouter(
                   SUM(
                     CASE
                       WHEN s2.id = s.id
-                        THEN EXTRACT(EPOCH FROM (NOW() - s.started_at))::bigint
+                        THEN COALESCE(s.duration_seconds, 0)
                       ELSE COALESCE(s2.duration_seconds, 0)
                     END
                   ),
