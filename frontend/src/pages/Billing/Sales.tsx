@@ -21,9 +21,11 @@ import {
   cancelSale,
   deleteSale,
   getSales,
+  getPointOfSales,
   getSalesSummary,
   recordPayment,
   type PaymentMethod,
+  type PointOfSale,
   type Sale,
   type SaleStatus,
   type SalesSummary,
@@ -97,6 +99,8 @@ export default function Sales() {
   const navigate = useNavigate();
 
   const [sales, setSales] = useState<Sale[]>([]);
+  const [pointOfSales, setPointOfSales] = useState<PointOfSale[]>([]);
+  const [pointOfSaleFilter, setPointOfSaleFilter] = useState("all");
   const [summary, setSummary] = useState<SalesSummary | null>(
     null
   );
@@ -138,12 +142,19 @@ export default function Sales() {
       setLoading(true);
       setError(null);
 
-      const [salesData, summaryData] = await Promise.all([
-        getSales(),
-        getSalesSummary(),
-      ]);
+      const [salesData, pointOfSalesData, summaryData] =
+        await Promise.all([
+          getSales(
+            pointOfSaleFilter !== "all"
+              ? { pointOfSaleId: pointOfSaleFilter }
+              : undefined
+          ),
+          getPointOfSales(),
+          getSalesSummary(),
+        ]);
 
       setSales(salesData);
+      setPointOfSales(pointOfSalesData);
       setSummary(summaryData);
     } catch (err) {
       console.error(
@@ -159,7 +170,7 @@ export default function Sales() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [pointOfSaleFilter]);
 
   const filtered = useMemo(() => {
     let rows = sales;
@@ -404,7 +415,23 @@ export default function Sales() {
             />
           </div>
 
-          <select
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={pointOfSaleFilter}
+              onChange={(event) =>
+                setPointOfSaleFilter(event.target.value)
+              }
+              className="h-10 w-fit rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 outline-none focus:border-slate-400"
+            >
+              <option value="all">Tous les points de vente</option>
+              {pointOfSales.map((pointOfSale) => (
+                <option key={pointOfSale.id} value={pointOfSale.id}>
+                  {pointOfSale.name}
+                </option>
+              ))}
+            </select>
+
+            <select
             value={statusFilter}
             onChange={(event) =>
               setStatusFilter(
@@ -433,6 +460,10 @@ export default function Sales() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Point de vente
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Client
                 </th>
 
@@ -456,7 +487,7 @@ export default function Sales() {
                   Statut
                 </th>
 
-                <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Actions
                 </th>
               </tr>
