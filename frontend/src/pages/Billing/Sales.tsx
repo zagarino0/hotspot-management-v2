@@ -328,7 +328,7 @@ export default function Sales() {
           KPI (calculés depuis les vraies données, pas simulés)
       ============================================================ */}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
         <SalesStat
           label="Chiffre d'affaires"
           value={
@@ -368,6 +368,17 @@ export default function Sales() {
               : "—"
           }
           icon={CreditCard}
+        />
+
+        <SalesStat
+          label="Point de vente externe — aujourd'hui"
+          value={
+            summary
+              ? formatAmount(summary.externalTodayRevenue, "MGA")
+              : "—"
+          }
+          icon={ShoppingCart}
+          positive
         />
 
         <SalesStat
