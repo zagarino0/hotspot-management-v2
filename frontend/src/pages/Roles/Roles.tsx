@@ -293,7 +293,7 @@ export default function Roles() {
   async function handleDelete(role: Role) {
     setOpenActionsId(null);
 
-    if (role.isSystem) return;
+    if (role.isSystem && !isSuperAdmin) return;
 
     const confirmed = window.confirm(
       `Supprimer définitivement le rôle "${role.name}" ? Cette action est irréversible.`,
