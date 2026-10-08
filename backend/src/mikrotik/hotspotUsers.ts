@@ -41,7 +41,10 @@ export async function fetchHotspotUsers(
           : null,
       disabled:
         row.disabled === true ||
-        row.disabled === "true",
+        row.disabled === "true" ||
+        row.disabled === "yes" ||
+        row.disabled === 1 ||
+        row.disabled === "1",
       createdAt:
         typeof row.comment === "string"
           ? parseCreationDate(row.comment)
