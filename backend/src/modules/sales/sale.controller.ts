@@ -193,6 +193,10 @@ export async function createSaleController(
 
     const sale = await createSale({
       siteId: siteId.trim(),
+      pointOfSaleId:
+        typeof pointOfSaleId === "string" && pointOfSaleId.trim()
+          ? pointOfSaleId.trim()
+          : null,
       planId:
         typeof planId === "string" && planId.trim()
           ? planId.trim()
