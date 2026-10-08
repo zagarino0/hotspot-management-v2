@@ -126,12 +126,7 @@ const SESSION_SELECT = `
               CASE
                 WHEN s2.id = s.id
                   AND s.status = 'ACTIVE'
-                  THEN GREATEST(
-                    EXTRACT(
-                      EPOCH FROM (NOW() - s.started_at)
-                    )::bigint,
-                    0
-                  )
+                  THEN COALESCE(s2.duration_seconds, 0)
                 ELSE COALESCE(s2.duration_seconds, 0)
               END
             ),
@@ -787,14 +782,7 @@ export async function closeSessionsNotIn(
                     CASE
                       WHEN s2.id = s.id
                         AND s.status = 'ACTIVE'
-                        THEN GREATEST(
-                          EXTRACT(
-                            EPOCH FROM (
-                              matched.ended_at - s.started_at
-                            )
-                          )::bigint,
-                          0
-                        )
+                        THEN COALESCE(s2.duration_seconds, 0)
                       WHEN s2.id = s.id
                         THEN COALESCE(s2.duration_seconds, 0)
                       ELSE COALESCE(s2.duration_seconds, 0)
