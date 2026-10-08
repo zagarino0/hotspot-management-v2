@@ -1,3 +1,14 @@
+export type PointOfSaleType = "INTERNAL" | "EXTERNAL";
+
+export interface PointOfSale {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  type: PointOfSaleType;
+  status: "ACTIVE" | "INACTIVE";
+}
+
 export type SaleStatus =
   | "PENDING"
   | "PAID"
@@ -10,6 +21,11 @@ export interface SaleRow {
 
   siteId: string;
   siteName: string;
+
+  pointOfSaleId: string;
+  pointOfSaleCode: string;
+  pointOfSaleName: string;
+  pointOfSaleType: PointOfSaleType;
 
   voucherId: string | null;
   voucherCode: string | null;
@@ -49,6 +65,7 @@ export interface SaleRow {
 
 export interface CreateSaleData {
   siteId: string;
+  pointOfSaleId?: string | null;
   planId?: string | null;
   profileCode: string;
   voucherId?: string | null;
