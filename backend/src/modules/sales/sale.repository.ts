@@ -156,6 +156,35 @@ export async function findPointOfSales(
   return result.rows;
 }
 
+export async function insertPointOfSale(data: {
+  organizationId: string;
+  code: string;
+  name: string;
+  type: "INTERNAL" | "EXTERNAL";
+}) {
+  const result = await pool.query(
+    `
+      INSERT INTO point_of_sale (
+        organization_id,
+        code,
+        name,
+        type
+      )
+      VALUES ($1, $2, $3, $4)
+      RETURNING
+        id,
+        organization_id AS "organizationId",
+        code,
+        name,
+        type,
+        status
+    `,
+    [data.organizationId, data.code, data.name, data.type]
+  );
+
+  return result.rows[0];
+}
+
 /* ============================================================
    FIND BY ID
 ============================================================ */
