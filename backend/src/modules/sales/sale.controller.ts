@@ -92,7 +92,7 @@ export async function listSales(
 ============================================================ */
 
 export async function listPointOfSales(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ) {
