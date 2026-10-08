@@ -38,8 +38,8 @@ export async function getSales(filter?: {
   return findSales(filter);
 }
 
-export async function getPointOfSales() {
-  return findPointOfSales();
+export async function getPointOfSales(organizationId?: string) {
+  return findPointOfSales(organizationId);
 }
 
 export async function getSaleDetails(id: string) {
