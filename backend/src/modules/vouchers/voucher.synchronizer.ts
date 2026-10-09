@@ -191,7 +191,7 @@ async function upsertVoucher(
        mikrotik_username, mikrotik_comment, mikrotik_disabled,
        mikrotik_state_changed_at, mikrotik_last_seen_at, point_of_sale_id, duration_seconds, status
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),NOW(),$8,$9,$10,$11)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),NOW(),$9,$10,$11,$12)
      RETURNING id, mikrotik_state_changed_at`,
     [
       router.siteId, planId, user.username, user.profile, router.id,
