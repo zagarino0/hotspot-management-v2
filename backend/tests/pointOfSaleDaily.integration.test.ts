@@ -1,0 +1,147 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { pool } from "../src/database/pool.js";
+import {
+  closeDailySales,
+  createTicketEvent,
+  listDailyClosures,
+  listTicketEvents,
+} from "../src/modules/sales/pointOfSaleDaily.service.js";
+import { AppError } from "../src/lib/errors.js";
+
+const localBusinessDate = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Indian/Antananarivo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure and concurrent writes", async (t) => {
+  const suffix = randomUUID();
+  const orgId = randomUUID();
+  const siteId = randomUUID();
+  const posId = randomUUID();
+  const userId = randomUUID();
+  const roleId = randomUUID();
+  const codes = {
+    sold: `IT-SOLD-${suffix}`,
+    refund: `IT-REFUND-${suffix}`,
+    concurrent: `IT-CONCURRENT-${suffix}`,
+    replacementSource: `IT-REJECT-${suffix}`,
+    replacement: `IT-REPLACEMENT-${suffix}`,
+  };
+  const eventKeys = [];
+  let seeded = false;
+
+  t.after(async () => {
+    if (seeded) {
+      await pool.query("DELETE FROM point_of_sale_daily_closure WHERE point_of_sale_id=$1", [posId]);
+      await pool.query("DELETE FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1", [posId]);
+      await pool.query("DELETE FROM user_role WHERE user_id=$1", [userId]);
+      await pool.query("DELETE FROM role_permission WHERE role_id=$1", [roleId]);
+      await pool.query("DELETE FROM \"user\" WHERE id=$1", [userId]);
+      await pool.query("DELETE FROM role WHERE id=$1", [roleId]);
+      await pool.query("DELETE FROM point_of_sale WHERE id=$1", [posId]);
+      await pool.query("DELETE FROM site WHERE id=$1", [siteId]);
+      await pool.query("DELETE FROM organization WHERE id=$1", [orgId]);
+    }
+    await pool.end();
+  });
+
+  await pool.query("INSERT INTO organization (id,name,code) VALUES ($1,$2,$3)", [orgId, "POS integration test", `IT-${suffix}`]);
+  await pool.query("INSERT INTO site (id,organization_id,name,code) VALUES ($1,$2,$3,$4)", [siteId, orgId, "POS test site", `SITE-${suffix}`]);
+  await pool.query("INSERT INTO point_of_sale (id,organization_id,code,name,type) VALUES ($1,$2,$3,$4,'EXTERNAL')", [posId, orgId, `POS-${suffix}`, "CASHPOINTWIFI integration"]);
+  await pool.query("INSERT INTO \"user\" (id,organization_id,username,password_hash,status) VALUES ($1,$2,$3,'test-only-hash','ACTIVE')", [userId, orgId, `it-${suffix}`]);
+  await pool.query("INSERT INTO role (id,organization_id,name,code,status) VALUES ($1,$2,'POS integration role',$3,'ACTIVE')", [roleId, orgId, `POS_IT_${suffix}`]);
+  const permissionCodes = [
+    "POS_TICKET_EVENTS_READ",
+    "POS_TICKET_EVENTS_CREATE",
+    "POS_DAILY_CLOSURES_READ",
+    "POS_DAILY_CLOSURES_CLOSE",
+  ];
+  const permissions = await pool.query("SELECT id,code FROM permission WHERE code=ANY($1::text[])", [permissionCodes]);
+  assert.equal(permissions.rows.length, permissionCodes.length, "migration 023 must create all POS permissions");
+  for (const permission of permissions.rows) {
+    await pool.query("INSERT INTO role_permission (role_id,permission_id) VALUES ($1,$2)", [roleId, permission.id]);
+  }
+  await pool.query("INSERT INTO user_role (user_id,role_id,scope) VALUES ($1,$2,'ORGANIZATION')", [userId, roleId]);
+  seeded = true;
+
+  const event = (eventType, voucherCode, unitPrice, key, extra = {}) => ({
+    siteId, voucherCode, eventType, unitPrice, currency: "MGA", eventKey: key, ...extra,
+  });
+  const create = (input) => {
+    eventKeys.push(input.eventKey);
+    return createTicketEvent(posId, userId, input);
+  };
+
+  const sold = await create(event("SOLD", codes.sold, 2500, `evt-${suffix}-sold`));
+  assert.equal(sold.event_type, "SOLD");
+  await assert.rejects(
+    create(event("SOLD", codes.sold.toLowerCase(), 2500, `evt-${suffix}-sold-duplicate`)),
+    (error) => error instanceof AppError && error.statusCode === 409,
+    "a ticket cannot be sold twice, even with different casing",
+  );
+
+  await create(event("SOLD", codes.refund, 7000, `evt-${suffix}-refund-sale`));
+  await create(event("REFUNDED", codes.refund, 2500, `evt-${suffix}-refund-1`));
+  await create(event("REFUNDED", codes.refund, 4500, `evt-${suffix}-refund-2`));
+  await assert.rejects(
+    create(event("REFUNDED", codes.refund, 1, `evt-${suffix}-refund-over`)),
+    (error) => error instanceof AppError && error.statusCode === 409,
+    "cumulative refunds cannot exceed the original sale",
+  );
+
+  const concurrentSale = event("SOLD", codes.concurrent, 1000, `evt-${suffix}-concurrent-sale`);
+  await create(concurrentSale);
+  const concurrentRefunds = await Promise.allSettled([
+    create(event("REFUNDED", codes.concurrent, 700, `evt-${suffix}-concurrent-refund-700`)),
+    create(event("REFUNDED", codes.concurrent, 500, `evt-${suffix}-concurrent-refund-500`)),
+  ]);
+  assert.equal(concurrentRefunds.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(concurrentRefunds.filter((result) => result.status === "rejected").length, 1);
+
+  await create(event("REPLACED", codes.replacementSource, 0, `evt-${suffix}-replacement`, {
+    replacementVoucherCode: codes.replacement,
+    reason: "Remplacement gratuit de test",
+  }));
+
+  const events = await listTicketEvents(posId, userId, localBusinessDate());
+  assert.ok(events.length >= 7, "the authorized reader can see recorded events");
+  const date = localBusinessDate();
+  const closure = await closeDailySales(posId, userId, {
+    businessDate: date,
+    currency: "MGA",
+    openingStock: 10,
+    ticketsReceived: 0,
+    unsoldInStock: 3,
+    rejectedPending: 1,
+    unusableOrReplaced: 1,
+    missingTickets: 0,
+    notes: "Automated PostgreSQL integration test",
+  });
+  assert.equal(Number(closure.tickets_sold), 3);
+  assert.equal(Number(closure.gross_revenue), 10500);
+  assert.equal(Number(closure.refunds), 7000 + (concurrentRefunds.find((result) => result.status === "fulfilled").status === "fulfilled"
+    ? Number((concurrentRefunds.find((result) => result.status === "fulfilled")).value.unit_price)
+    : 0));
+  assert.equal(Number(closure.stock_discrepancy), 0);
+  assert.equal(closure.stockBalanced, true);
+
+  await assert.rejects(
+    closeDailySales(posId, userId, {
+      businessDate: date, currency: "MGA", openingStock: 10, ticketsReceived: 0,
+      unsoldInStock: 3, rejectedPending: 1, unusableOrReplaced: 1, missingTickets: 0,
+    }),
+    (error) => error instanceof AppError && error.statusCode === 409,
+    "the same POS/date cannot be closed twice",
+  );
+
+  const closures = await listDailyClosures(posId, userId, date, date);
+  assert.equal(closures.length, 1);
+});
