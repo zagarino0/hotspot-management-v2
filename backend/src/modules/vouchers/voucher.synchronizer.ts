@@ -150,7 +150,7 @@ async function upsertVoucher(
   const status = deriveVoucherStatus(user);
 
   if (existing) {
-    const result = await pool.query<{ id: string }>(
+    const result = await pool.query<{ id: string; mikrotik_state_changed_at: string | null }>(
       `UPDATE voucher
           SET plan_id = COALESCE($2, plan_id),
               router_id = $3,
@@ -185,7 +185,7 @@ async function upsertVoucher(
     };
   }
 
-  const result = await pool.query<{ id: string }>(
+  const result = await pool.query<{ id: string; mikrotik_state_changed_at: string | null }>(
     `INSERT INTO voucher (
        site_id, plan_id, code, mikrotik_profile, router_id,
        mikrotik_username, mikrotik_comment, mikrotik_disabled,
