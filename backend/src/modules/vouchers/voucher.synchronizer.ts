@@ -181,7 +181,8 @@ async function upsertVoucher(
                 ELSE mikrotik_disabled_reason
               END,
               mikrotik_last_seen_at = NOW(),
-              point_of_sale_id = $8,
+              -- A missing/ambiguous comment match must not erase a known POS link.
+              point_of_sale_id = COALESCE($8, point_of_sale_id),
               duration_seconds = COALESCE($9, duration_seconds),
               status = $10,
               updated_at = NOW()
