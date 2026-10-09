@@ -262,6 +262,45 @@ export default function Sales() {
     }
   }
 
+  async function handleTogglePointOfSale(pointOfSale: PointOfSale) {
+    if (pointOfSale.type !== "EXTERNAL") return;
+
+    const action =
+      pointOfSale.status === "ACTIVE"
+        ? "désactiver"
+        : "réactiver";
+
+    const confirmed = window.confirm(
+      `Voulez-vous ${action} "${pointOfSale.name}" sur les routeurs MikroTik ?`
+    );
+
+    if (!confirmed) return;
+
+    setTogglingPointOfSale(pointOfSale.id);
+    setPointOfSaleActionError(null);
+
+    try {
+      const updated =
+        pointOfSale.status === "ACTIVE"
+          ? await deactivatePointOfSale(pointOfSale.id)
+          : await activatePointOfSale(pointOfSale.id);
+
+      setPointOfSales((current) =>
+        current.map((item) =>
+          item.id === updated.id ? updated : item
+        )
+      );
+    } catch (err: any) {
+      setPointOfSaleActionError(
+        err?.response?.data?.message ??
+          `Impossible de ${action} le point de vente.`
+      );
+      await load();
+    } finally {
+      setTogglingPointOfSale(null);
+    }
+  }
+
   async function handleConfirmPayment() {
     if (!payingSale) return;
 
