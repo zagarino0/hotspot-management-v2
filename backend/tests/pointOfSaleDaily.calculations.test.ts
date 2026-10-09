@@ -4,6 +4,7 @@ import {
   calculateDailyFinancials,
   calculateDailyStock,
   validatePosCurrency,
+  validateRefundAmount,
   validateTicketEvent,
 } from "../src/modules/sales/pointOfSaleDaily.calculations.js";
 
@@ -92,4 +93,10 @@ test("journée CASHPOINTWIFI complète : ventes, invendus, rejets, tickets manqu
   assert.deepEqual(stock, {
     expectedStock: 20, accountedStock: 20, discrepancy: 0, stockBalanced: true,
   });
+});
+
+test("un remboursement cumulé ne peut pas dépasser le prix vendu", () => {
+  assert.equal(validateRefundAmount(7000, 2500, 4500), 7000);
+  assert.throws(() => validateRefundAmount(7000, 2500, 4501), /dépasserait/);
+  assert.throws(() => validateRefundAmount(7000, -1, 100), /invalides/);
 });
