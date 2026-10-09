@@ -7,6 +7,7 @@ import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
 interface PointOfSaleRef {
   id: string;
   code: string;
+  status: "ACTIVE" | "INACTIVE";
 }
 
 interface ExistingVoucher {
@@ -227,10 +228,11 @@ async function upsertVoucher(
 
 export async function syncMikrotikVouchers(
   router: RouterForSync,
-  hotspotUsers: MikrotikHotspotUser[]
+  hotspotUsers: MikrotikHotspotUser[],
+  api?: RouterOSAPI
 ): Promise<{ discovered: number; updated: number; deleted: number; anomalies: number }> {
   const posResult = await pool.query<PointOfSaleRef>(
-    `SELECT id, code
+    `SELECT id, code, status
        FROM point_of_sale
       WHERE organization_id = $1
         AND type = 'EXTERNAL'`,
