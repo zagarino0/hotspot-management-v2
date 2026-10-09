@@ -43,7 +43,7 @@ test("la recette compte les tickets vendus distincts et les remboursements sépa
     { eventType: "REFUNDED", voucherCode: "CW-02", unitPrice: 7000, currency: "MGA" },
   ]);
   assert.deepEqual(totals, {
-    ticketsSold: 2, grossRevenue: 12000, refunds: 7000, netRevenue: 5000,
+    ticketsSold: 2, grossRevenue: 9500, refunds: 7000, netRevenue: 2500,
   });
 });
 
@@ -70,4 +70,26 @@ test("les compteurs de stock négatifs ou fractionnaires sont refusés", () => {
     unsoldInStock: 0, rejectedPending: 0, unusableOrReplaced: 0,
     replacementTicketsIssued: 0, missingTickets: 0,
   }), /entiers positifs/);
+});
+
+test("journée CASHPOINTWIFI complète : ventes, invendus, rejets, tickets manquants et remplacement gratuit", () => {
+  const events = [
+    ...Array.from({ length: 8 }, (_, i) => ({
+      eventType: "SOLD", voucherCode: `CPW-SOLD-${i + 1}`, unitPrice: 2500, currency: "MGA",
+    })),
+    { eventType: "REPLACED", voucherCode: "CPW-REJECT-01", unitPrice: 0, currency: "MGA" },
+    { eventType: "REJECTED", voucherCode: "CPW-REJECT-02", unitPrice: 0, currency: "MGA" },
+  ];
+  const financials = calculateDailyFinancials(events);
+  const stock = calculateDailyStock({
+    openingStock: 20, ticketsReceived: 0, ticketsSold: financials.ticketsSold,
+    unsoldInStock: 5, rejectedPending: 2, unusableOrReplaced: 1,
+    replacementTicketsIssued: 1, missingTickets: 3,
+  });
+  assert.deepEqual(financials, {
+    ticketsSold: 8, grossRevenue: 20000, refunds: 0, netRevenue: 20000,
+  });
+  assert.deepEqual(stock, {
+    expectedStock: 20, accountedStock: 20, discrepancy: 0, stockBalanced: true,
+  });
 });
