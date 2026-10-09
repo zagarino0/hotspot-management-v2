@@ -20,6 +20,8 @@ import Modal from "../../components/ui/Modal";
 import {
   cancelSale,
   createPointOfSale,
+  deactivatePointOfSale,
+  activatePointOfSale,
   deleteSale,
   getSales,
   getPointOfSales,
@@ -109,6 +111,10 @@ export default function Sales() {
   const [pointOfSaleError, setPointOfSaleError] = useState<
     string | null
   >(null);
+  const [togglingPointOfSale, setTogglingPointOfSale] =
+    useState<string | null>(null);
+  const [pointOfSaleActionError, setPointOfSaleActionError] =
+    useState<string | null>(null);
   const [pointOfSaleForm, setPointOfSaleForm] = useState({
     code: "",
     name: "",
@@ -504,6 +510,71 @@ export default function Sales() {
           }
           icon={Wallet2}
         />
+      </section>
+
+      {/* ============================================================
+          POINTS DE VENTE
+      ============================================================ */}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-4">
+          <h2 className="text-base font-bold text-slate-900">
+            Points de vente
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Gérez l'accès des points de vente externes au réseau MikroTik.
+          </p>
+        </div>
+
+        {pointOfSaleActionError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {pointOfSaleActionError}
+          </div>
+        )}
+
+        {pointOfSales.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Aucun point de vente enregistré.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {pointOfSales.map((pointOfSale) => (
+              <div
+                key={pointOfSale.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-semibold text-slate-800">
+                    {pointOfSale.name}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-slate-500">
+                    {pointOfSale.code}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {pointOfSale.type === "EXTERNAL" ? "Externe" : "Interne"}
+                    {" · "}
+                    {pointOfSale.status === "ACTIVE" ? "Actif" : "Inactif"}
+                  </p>
+                </div>
+
+                {pointOfSale.type === "EXTERNAL" && (
+                  <button
+                    type="button"
+                    disabled={togglingPointOfSale === pointOfSale.id}
+                    onClick={() => handleTogglePointOfSale(pointOfSale)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {togglingPointOfSale === pointOfSale.id
+                      ? "Traitement..."
+                      : pointOfSale.status === "ACTIVE"
+                        ? "Désactiver"
+                        : "Réactiver"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ============================================================
