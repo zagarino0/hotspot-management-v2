@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS point_of_sale_daily_closure (
     unusable_or_replaced INTEGER NOT NULL DEFAULT 0,
     missing_tickets INTEGER NOT NULL DEFAULT 0,
     free_replacements INTEGER NOT NULL DEFAULT 0,
+    replacement_tickets_issued INTEGER NOT NULL DEFAULT 0,
 
     gross_revenue NUMERIC(14,2) NOT NULL DEFAULT 0,
     refunds NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -103,7 +104,7 @@ CREATE TABLE IF NOT EXISTS point_of_sale_daily_closure (
         opening_stock >= 0 AND tickets_received >= 0 AND tickets_sold >= 0
         AND unsold_in_stock >= 0 AND rejected_pending >= 0
         AND unusable_or_replaced >= 0 AND missing_tickets >= 0
-        AND free_replacements >= 0
+        AND free_replacements >= 0 AND replacement_tickets_issued >= 0
     ),
     CONSTRAINT chk_pos_daily_closure_amounts CHECK (
         gross_revenue >= 0 AND refunds >= 0 AND net_revenue >= 0
