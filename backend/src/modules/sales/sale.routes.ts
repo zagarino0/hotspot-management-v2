@@ -8,6 +8,8 @@ import {
   listSales,
   listPointOfSales,
   createPointOfSaleController,
+  deactivatePointOfSaleController,
+  activatePointOfSaleController,
   recordPaymentController,
   salesSummary,
 } from "./sale.controller.js";
@@ -18,7 +20,9 @@ router.get("/", listSales);
 
 router.get("/point-of-sales", listPointOfSales);
 
-router.post("/point-of-sales", createPointOfSaleController);\nrouter.post("/point-of-sales/:id/deactivate", deactivatePointOfSaleController);\nrouter.post("/point-of-sales/:id/activate", activatePointOfSaleController);
+router.post("/point-of-sales", createPointOfSaleController);
+router.post("/point-of-sales/:id/deactivate", deactivatePointOfSaleController);
+router.post("/point-of-sales/:id/activate", activatePointOfSaleController);
 
 router.get("/summary", salesSummary);
 
