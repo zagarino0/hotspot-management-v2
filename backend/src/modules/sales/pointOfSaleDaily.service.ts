@@ -86,6 +86,17 @@ export async function createTicketEvent(pointOfSaleId: string, userId: string, i
     );
     if (!site.rows[0]) throw badRequest("Le site n'appartient pas à l'organisation du point de vente.");
 
+
+    if (input.eventType === "SOLD") {
+      const alreadySold = await client.query(
+        `SELECT id FROM point_of_sale_ticket_event
+          WHERE point_of_sale_id = $1 AND LOWER(voucher_code) = LOWER($2)
+            AND event_type = 'SOLD' LIMIT 1`,
+        [pointOfSaleId, input.voucherCode.trim()],
+      );
+      if (alreadySold.rows[0]) throw conflict("Ce ticket est déjà enregistré comme vendu pour ce point de vente.");
+    }
+
     const result = await client.query(
       `INSERT INTO point_of_sale_ticket_event (
          point_of_sale_id, site_id, voucher_id, replacement_voucher_id,
@@ -112,36 +123,58 @@ export async function createTicketEvent(pointOfSaleId: string, userId: string, i
 
 export async function closeDailySales(pointOfSaleId: string, userId: string, input: {
   businessDate: string; currency?: string; openingStock: number; ticketsReceived?: number;
-  ticketsSold: number; unsoldInStock: number; rejectedPending: number;
-  unusableOrReplaced: number; replacementTicketsIssued?: number; missingTickets: number;
-  freeReplacements?: number; grossRevenue: number; refunds?: number; notes?: string | null;
+  unsoldInStock: number; rejectedPending: number; unusableOrReplaced: number;
+  missingTickets: number; notes?: string | null;
 }) {
   if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
-  const counts = [
-    input.openingStock, input.ticketsReceived ?? 0, input.ticketsSold, input.unsoldInStock,
-    input.rejectedPending, input.unusableOrReplaced, input.replacementTicketsIssued ?? 0,
-    input.missingTickets, input.freeReplacements ?? 0,
+  const physicalCounts = [
+    input.openingStock, input.ticketsReceived ?? 0, input.unsoldInStock,
+    input.rejectedPending, input.unusableOrReplaced, input.missingTickets,
   ];
-  if (counts.some((value) => !Number.isInteger(value) || value < 0)) {
-    throw badRequest("Les compteurs de tickets doivent être des entiers positifs ou nuls.");
-  }
-  const gross = Number(input.grossRevenue);
-  const refunds = Number(input.refunds ?? 0);
-  if (!Number.isFinite(gross) || !Number.isFinite(refunds) || gross < 0 || refunds < 0 || refunds > gross) {
-    throw badRequest("Recette ou remboursement invalide; les remboursements ne peuvent dépasser la recette brute.");
+  if (physicalCounts.some((value) => !Number.isInteger(value) || value < 0)) {
+    throw badRequest("Les compteurs de stock doivent être des entiers positifs ou nuls.");
   }
   const currency = (input.currency ?? "MGA").toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw badRequest("La devise doit être un code de trois lettres.");
-
-  const expected = input.openingStock + (input.ticketsReceived ?? 0);
-  const accounted = input.ticketsSold + input.unsoldInStock + input.rejectedPending
-    + input.unusableOrReplaced + (input.replacementTicketsIssued ?? 0) + input.missingTickets;
-  const discrepancy = expected - accounted;
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await assertExternalPosAccess(client, pointOfSaleId, userId);
+
+    // Les ventes et remboursements proviennent du registre événementiel,
+    // jamais d'un total financier fourni librement par le client API.
+    const totals = await client.query<{
+      ticketsSold: string;
+      grossRevenue: string;
+      refunds: string;
+      freeReplacements: string;
+      replacementTicketsIssued: string;
+    }>(
+      `SELECT
+         COUNT(DISTINCT LOWER(voucher_code)) FILTER (WHERE event_type = 'SOLD')::text AS "ticketsSold",
+         COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'SOLD' AND currency = $3), 0)::text AS "grossRevenue",
+         COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'REFUNDED' AND currency = $3), 0)::text AS refunds,
+         COUNT(*) FILTER (WHERE event_type = 'REPLACED')::text AS "freeReplacements",
+         COUNT(*) FILTER (WHERE event_type = 'REPLACED')::text AS "replacementTicketsIssued"
+       FROM point_of_sale_ticket_event
+       WHERE point_of_sale_id = $1
+         AND (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date = $2::date`,
+      [pointOfSaleId, input.businessDate, currency],
+    );
+    const aggregate = totals.rows[0];
+    const ticketsSold = Number(aggregate.ticketsSold ?? 0);
+    const gross = Number(aggregate.grossRevenue ?? 0);
+    const refunds = Number(aggregate.refunds ?? 0);
+    const freeReplacements = Number(aggregate.freeReplacements ?? 0);
+    const replacementTicketsIssued = Number(aggregate.replacementTicketsIssued ?? 0);
+    if (refunds > gross) throw conflict("Les remboursements de la journée dépassent la recette brute; vérifiez les événements.");
+
+    const expected = input.openingStock + (input.ticketsReceived ?? 0);
+    const accounted = ticketsSold + input.unsoldInStock + input.rejectedPending
+      + input.unusableOrReplaced + replacementTicketsIssued + input.missingTickets;
+    const discrepancy = expected - accounted;
+
     const result = await client.query(
       `INSERT INTO point_of_sale_daily_closure (
          point_of_sale_id, business_date, currency, opening_stock, tickets_received,
@@ -153,8 +186,8 @@ export async function closeDailySales(pointOfSaleId: string, userId: string, inp
                  'CLOSED',$17,$18,$18,NOW()) RETURNING *`,
       [
         pointOfSaleId, input.businessDate, currency, input.openingStock, input.ticketsReceived ?? 0,
-        input.ticketsSold, input.unsoldInStock, input.rejectedPending, input.unusableOrReplaced,
-        input.replacementTicketsIssued ?? 0, input.missingTickets, input.freeReplacements ?? 0,
+        ticketsSold, input.unsoldInStock, input.rejectedPending, input.unusableOrReplaced,
+        replacementTicketsIssued, input.missingTickets, freeReplacements,
         gross, refunds, gross - refunds, discrepancy, input.notes ?? null, userId,
       ],
     );
