@@ -27,6 +27,7 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   const siteId = randomUUID();
   const posId = randomUUID();
   const userId = randomUUID();
+  const noPermissionUserId = randomUUID();
   const roleId = randomUUID();
   const codes = {
     sold: `IT-SOLD-${suffix}`,
@@ -35,7 +36,6 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     replacementSource: `IT-REJECT-${suffix}`,
     replacement: `IT-REPLACEMENT-${suffix}`,
   };
-  const eventKeys = [];
   let seeded = false;
 
   t.after(async () => {
@@ -44,7 +44,7 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
       await pool.query("DELETE FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1", [posId]);
       await pool.query("DELETE FROM user_role WHERE user_id=$1", [userId]);
       await pool.query("DELETE FROM role_permission WHERE role_id=$1", [roleId]);
-      await pool.query("DELETE FROM \"user\" WHERE id=$1", [userId]);
+      await pool.query("DELETE FROM \"user\" WHERE id=ANY($1::uuid[])", [[userId, noPermissionUserId]]);
       await pool.query("DELETE FROM role WHERE id=$1", [roleId]);
       await pool.query("DELETE FROM point_of_sale WHERE id=$1", [posId]);
       await pool.query("DELETE FROM site WHERE id=$1", [siteId]);
@@ -54,10 +54,12 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   });
 
   await pool.query("INSERT INTO organization (id,name,code) VALUES ($1,$2,$3)", [orgId, "POS integration test", `IT-${suffix}`]);
+  seeded = true;
   await pool.query("INSERT INTO site (id,organization_id,name,code) VALUES ($1,$2,$3,$4)", [siteId, orgId, "POS test site", `SITE-${suffix}`]);
   await pool.query("INSERT INTO point_of_sale (id,organization_id,code,name,type) VALUES ($1,$2,$3,$4,'EXTERNAL')", [posId, orgId, `POS-${suffix}`, "CASHPOINTWIFI integration"]);
   await pool.query("INSERT INTO \"user\" (id,organization_id,username,password_hash,status) VALUES ($1,$2,$3,'test-only-hash','ACTIVE')", [userId, orgId, `it-${suffix}`]);
   await pool.query("INSERT INTO role (id,organization_id,name,code,status) VALUES ($1,$2,'POS integration role',$3,'ACTIVE')", [roleId, orgId, `POS_IT_${suffix}`]);
+  await pool.query("INSERT INTO \"user\" (id,organization_id,username,password_hash,status) VALUES ($1,$2,$3,'test-only-hash','ACTIVE')", [noPermissionUserId, orgId, `it-no-perm-${suffix}`]);
   const permissionCodes = [
     "POS_TICKET_EVENTS_READ",
     "POS_TICKET_EVENTS_CREATE",
@@ -70,15 +72,14 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     await pool.query("INSERT INTO role_permission (role_id,permission_id) VALUES ($1,$2)", [roleId, permission.id]);
   }
   await pool.query("INSERT INTO user_role (user_id,role_id,scope) VALUES ($1,$2,'ORGANIZATION')", [userId, roleId]);
-  seeded = true;
 
   const event = (eventType, voucherCode, unitPrice, key, extra = {}) => ({
     siteId, voucherCode, eventType, unitPrice, currency: "MGA", eventKey: key, ...extra,
   });
-  const create = (input) => {
-    eventKeys.push(input.eventKey);
-    return createTicketEvent(posId, userId, input);
-  };
+  const create = (input) => createTicketEvent(posId, userId, input);
+
+  await assert.rejects(listTicketEvents(posId, noPermissionUserId), (error) => error instanceof AppError && error.statusCode === 403, "users without read permission must be denied");
+  await assert.rejects(createTicketEvent(posId, noPermissionUserId, event("SOLD", `IT-DENIED-${suffix}`, 1000, `evt-${suffix}-denied`)), (error) => error instanceof AppError && error.statusCode === 403, "users without create permission must be denied");
 
   const sold = await create(event("SOLD", codes.sold, 2500, `evt-${suffix}-sold`));
   assert.equal(sold.event_type, "SOLD");
@@ -121,7 +122,7 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     ticketsReceived: 0,
     unsoldInStock: 3,
     rejectedPending: 1,
-    unusableOrReplaced: 1,
+    unusableOrReplaced: 2,
     missingTickets: 0,
     notes: "Automated PostgreSQL integration test",
   });
@@ -136,7 +137,7 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   await assert.rejects(
     closeDailySales(posId, userId, {
       businessDate: date, currency: "MGA", openingStock: 10, ticketsReceived: 0,
-      unsoldInStock: 3, rejectedPending: 1, unusableOrReplaced: 1, missingTickets: 0,
+      unsoldInStock: 3, rejectedPending: 1, unusableOrReplaced: 2, missingTickets: 0,
     }),
     (error) => error instanceof AppError && error.statusCode === 409,
     "the same POS/date cannot be closed twice",
