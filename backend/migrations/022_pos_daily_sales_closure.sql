@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS point_of_sale_ticket_event (
         'APPLICATION', 'ADMIN_IMPORT', 'SYSTEM'
     )),
     CONSTRAINT chk_pos_ticket_event_key CHECK (LENGTH(TRIM(event_key)) > 0),
+    CONSTRAINT chk_pos_ticket_replacement_free CHECK (event_type <> 'REPLACED' OR unit_price = 0),
     CONSTRAINT chk_pos_ticket_replacement_pair CHECK (
         (event_type = 'REPLACED' AND replacement_voucher_code IS NOT NULL)
         OR (event_type <> 'REPLACED')
@@ -53,6 +54,10 @@ CREATE TABLE IF NOT EXISTS point_of_sale_ticket_event (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pos_ticket_event_key
     ON point_of_sale_ticket_event(event_key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pos_ticket_sold_once
+    ON point_of_sale_ticket_event(point_of_sale_id, LOWER(voucher_code))
+    WHERE event_type = 'SOLD';
 
 CREATE INDEX IF NOT EXISTS idx_pos_ticket_event_pos_date
     ON point_of_sale_ticket_event(point_of_sale_id, occurred_at DESC);
