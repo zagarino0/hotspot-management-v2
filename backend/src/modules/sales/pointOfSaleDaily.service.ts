@@ -126,7 +126,7 @@ export async function closeDailySales(pointOfSaleId: string, userId: string, inp
   unsoldInStock: number; rejectedPending: number; unusableOrReplaced: number;
   missingTickets: number; notes?: string | null;
 }) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
   const physicalCounts = [
     input.openingStock, input.ticketsReceived ?? 0, input.unsoldInStock,
     input.rejectedPending, input.unusableOrReplaced, input.missingTickets,
