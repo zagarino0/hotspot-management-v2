@@ -150,7 +150,7 @@ async function upsertVoucher(
   const status = deriveVoucherStatus(user);
 
   if (existing) {
-    const result = await pool.query<{ id: string; mikrotik_state_changed_at: string | null }>(
+    const result = await pool.query<{ id: string; stateChangedAt: string | null }>(
       `UPDATE voucher
           SET plan_id = COALESCE($2, plan_id),
               router_id = $3,
@@ -168,7 +168,11 @@ async function upsertVoucher(
               status = $10,
               updated_at = NOW()
         WHERE id = $1
-        RETURNING id, mikrotik_state_changed_at`,
+        RETURNING id,
+                  to_char(
+                    mikrotik_state_changed_at AT TIME ZONE 'UTC',
+                    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+                  ) AS "stateChangedAt",
       [
         existing.id, planId, router.id, user.username, user.profile,
         user.comment, user.disabled, pointOfSale?.id ?? null,
@@ -181,11 +185,11 @@ async function upsertVoucher(
       created: false,
       previousDisabled: existing.mikrotikDisabled,
       previousPointOfSaleId: existing.pointOfSaleId,
-      stateChangedAt: result.rows[0].mikrotik_state_changed_at,
+      stateChangedAt: result.rows[0].stateChangedAt,
     };
   }
 
-  const result = await pool.query<{ id: string; mikrotik_state_changed_at: string | null }>(
+  const result = await pool.query<{ id: string; stateChangedAt: string | null }>(
     `INSERT INTO voucher (
        site_id, plan_id, code, mikrotik_profile, router_id,
        mikrotik_username, mikrotik_comment, mikrotik_disabled,
@@ -205,6 +209,7 @@ async function upsertVoucher(
     created: true,
     previousDisabled: null,
     previousPointOfSaleId: null,
+    stateChangedAt: result.rows[0].stateChangedAt,
   };
 }
 
