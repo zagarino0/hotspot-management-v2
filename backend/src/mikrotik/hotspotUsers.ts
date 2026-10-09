@@ -164,3 +164,26 @@ export async function updateHotspotUserComment(
     `=comment=${comment}`,
   ]);
 }
+
+
+export async function setHotspotUserDisabled(
+  api: RouterOSAPI,
+  username: string,
+  disabled: boolean
+): Promise<void> {
+  const rows = await api.write("/ip/hotspot/user/print");
+  const target = rows.find(
+    (row: Record<string, unknown>) =>
+      typeof row.name === "string" &&
+      row.name.trim().toLowerCase() === username.trim().toLowerCase()
+  );
+
+  if (!target || typeof target[".id"] !== "string") {
+    throw new Error(`Utilisateur MikroTik "${username}" introuvable.`);
+  }
+
+  await api.write("/ip/hotspot/user/set", [
+    `=.id=${target[".id"]}`,
+    `=disabled=${disabled ? "yes" : "no"}`,
+  ]);
+}
