@@ -253,11 +253,13 @@ export async function syncMikrotikVouchers(
 
     const pointOfSale = findPointOfSale(user.comment, pointOfSales);
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
-    const posEnforcedDisabled =
-      pointOfSale?.status === "INACTIVE" && !user.disabled && Boolean(api);
-
-    if (posEnforcedDisabled && api) {
-      await setHotspotUserDisabled(api, username, true);
+    // An inactive external POS is authoritative: never trust a possibly stale
+    // enabled state returned by a sync cycle that overlaps POS deactivation.
+    const posInactive = pointOfSale?.status === "INACTIVE";
+    if (posInactive && api) {
+      if (!user.disabled) {
+        await setHotspotUserDisabled(api, username, true);
+      }
       user.disabled = true;
     }
 
@@ -301,10 +303,14 @@ export async function syncMikrotikVouchers(
       updated += 1;
     }
 
-    if (posEnforcedDisabled) {
+    // Persist the POS lock on every sync while the POS is inactive, including
+    // vouchers already disabled on MikroTik whose reason was previously missing.
+    if (posInactive) {
       await pool.query(
         `UPDATE voucher
-            SET mikrotik_disabled_reason = 'POINT_OF_SALE_DISABLED',
+            SET mikrotik_disabled = true,
+                mikrotik_disabled_reason = 'POINT_OF_SALE_DISABLED',
+                status = 'DISABLED',
                 updated_at = NOW()
           WHERE id = $1`,
         [sync.id]
