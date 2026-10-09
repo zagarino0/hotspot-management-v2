@@ -169,6 +169,26 @@ export async function createPointOfSale(data: {
   return response.data.data;
 }
 
+export async function deactivatePointOfSale(
+  id: string
+): Promise<PointOfSale> {
+  const response = await api.post<ApiEnvelope<{
+    pointOfSale: PointOfSale;
+  }>>(`/api/sales/point-of-sales/${id}/deactivate`);
+
+  return response.data.data.pointOfSale;
+}
+
+export async function activatePointOfSale(
+  id: string
+): Promise<PointOfSale> {
+  const response = await api.post<ApiEnvelope<{
+    pointOfSale: PointOfSale;
+  }>>(`/api/sales/point-of-sales/${id}/activate`);
+
+  return response.data.data.pointOfSale;
+}
+
 export async function getPointOfSales(): Promise<PointOfSale[]> {
   const response = await api.get<ApiEnvelope<PointOfSale[]>>(
     "/api/sales/point-of-sales"
