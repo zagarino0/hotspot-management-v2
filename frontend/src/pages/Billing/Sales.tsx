@@ -297,11 +297,39 @@ export default function Sales() {
         )
       );
     } catch (err: any) {
-      setPointOfSaleActionError(
-        err?.response?.data?.message ??
-          `Impossible de ${action} le point de vente.`
-      );
-      await load();
+      // A network/proxy error can happen after the backend has already
+      // applied the change on MikroTik and committed the POS status.
+      // Refresh the authoritative state before showing a failure message.
+      let desiredStateReached = false;
+
+      try {
+        const refreshedPointOfSales = await getPointOfSales();
+        setPointOfSales(refreshedPointOfSales);
+
+        const refreshedPointOfSale = refreshedPointOfSales.find(
+          (item) => item.id === pointOfSale.id
+        );
+        const expectedStatus =
+          action === "désactiver" ? "INACTIVE" : "ACTIVE";
+
+        desiredStateReached =
+          refreshedPointOfSale?.status === expectedStatus;
+      } catch (refreshError) {
+        console.error(
+          "Impossible de vérifier l'état du point de vente après l'erreur :",
+          refreshError
+        );
+      }
+
+      if (desiredStateReached) {
+        setPointOfSaleActionError(null);
+      } else {
+        setPointOfSaleActionError(
+          err?.response?.data?.message ??
+            `Impossible de ${action} le point de vente.`
+        );
+        await load();
+      }
     } finally {
       setTogglingPointOfSale(null);
     }
