@@ -40,7 +40,18 @@ function findPointOfSale(
     normalized.includes(pos.code.trim().toLowerCase())
   );
 
-  return matches.length === 1 ? matches[0] : null;
+  if (matches.length === 0) return null;
+
+  // Prefer the most specific code. For example, "CASH" is contained in
+  // "CASHPOINTWIFI", so the shorter code must not make the match ambiguous.
+  const longestCodeLength = Math.max(
+    ...matches.map((pos) => pos.code.trim().length)
+  );
+  const mostSpecificMatches = matches.filter(
+    (pos) => pos.code.trim().length === longestCodeLength
+  );
+
+  return mostSpecificMatches.length === 1 ? mostSpecificMatches[0] : null;
 }
 
 async function appendVoucherEvent(data: {
