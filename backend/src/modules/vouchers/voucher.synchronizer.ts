@@ -283,6 +283,23 @@ export async function syncMikrotikVouchers(
     }
 
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
+
+    // The POS list is loaded at the start of the router sync and may become
+    // stale while vouchers are being processed. Re-read the current state
+    // immediately before enforcing the POS lock, especially during activation.
+    if (pointOfSale) {
+      const currentPos = await pool.query<PointOfSaleRef>(
+        `SELECT id, code, status
+           FROM point_of_sale
+          WHERE id = $1
+            AND organization_id = $2
+            AND type = 'EXTERNAL'
+          LIMIT 1`,
+        [pointOfSale.id, router.organizationId]
+      );
+      pointOfSale = currentPos.rows[0] ?? pointOfSale;
+    }
+
     // An inactive external POS is authoritative: never trust a possibly stale
     // enabled state returned by a sync cycle that overlaps POS deactivation.
     const posInactive = pointOfSale?.status === "INACTIVE";
