@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed-admin.ts"
+    "seed": "tsx scripts/seed-admin.ts",
+    "test": "tsx --test tests/pointOfSaleDaily.calculations.test.ts"
   },
   "keywords": [
     "mikrotik",
