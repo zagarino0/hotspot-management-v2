@@ -107,3 +107,15 @@ export function calculateDailyFinancials(events: DailyTicketEvent[], currency = 
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
+
+export function validateRefundAmount(originalSaleAmount: number, alreadyRefunded: number, requestedRefund: number): number {
+  if (![originalSaleAmount, alreadyRefunded, requestedRefund].every(Number.isFinite)
+      || originalSaleAmount <= 0 || alreadyRefunded < 0 || requestedRefund <= 0) {
+    throw new Error("Les montants de remboursement sont invalides.");
+  }
+  const total = roundMoney(alreadyRefunded + requestedRefund);
+  if (total > roundMoney(originalSaleAmount)) {
+    throw new Error("Le remboursement cumulé dépasserait le montant de la vente initiale.");
+  }
+  return total;
+}
