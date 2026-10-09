@@ -52,6 +52,9 @@ export async function createTicketEvent(id: string,userId: string,input: {
   try {
     await c.query("BEGIN"); const pos=await assertExternalPosAccess(c,id,userId);
     await assertPermission(c,userId,pos.organizationId,"POS_TICKET_EVENTS_CREATE");
+    // Sérialise les écritures concernant le même ticket pour empêcher les doublons
+    // de vente et les courses entre événements concurrents.
+    await c.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [id, input.voucherCode.trim().toLowerCase()]);
     const site=await c.query("SELECT id FROM site WHERE id=$1 AND organization_id=$2 LIMIT 1",[input.siteId,pos.organizationId]);
     if (!site.rows[0]) throw badRequest("Le site n'appartient pas à l'organisation du point de vente.");
     if (input.eventType==="SOLD") {
@@ -69,6 +72,7 @@ export async function createTicketEvent(id: string,userId: string,input: {
       catch(e) { throw conflict(e instanceof Error?e.message:"Remboursement invalide."); }
     }
     if(input.eventType==="REPLACED") {
+      await c.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [id, input.replacementVoucherCode!.trim().toLowerCase()]);
       const duplicate=await c.query(`SELECT id FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1
         AND (LOWER(voucher_code)=LOWER($2) OR LOWER(COALESCE(replacement_voucher_code,''))=LOWER($2)) LIMIT 1`,[id,input.replacementVoucherCode!.trim()]);
       if(duplicate.rows[0]) throw conflict("Le ticket de remplacement a déjà été utilisé dans un autre événement.");
