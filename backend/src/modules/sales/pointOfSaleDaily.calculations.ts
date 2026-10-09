@@ -86,8 +86,11 @@ export function calculateDailyFinancials(events: DailyTicketEvent[], currency = 
       throw new Error("La clôture contient des événements dans une devise incohérente.");
     }
     if (event.eventType === "SOLD") {
-      soldCodes.add(event.voucherCode.trim().toLowerCase());
-      grossRevenue += event.unitPrice;
+      const code = event.voucherCode.trim().toLowerCase();
+      if (!soldCodes.has(code)) {
+        soldCodes.add(code);
+        grossRevenue += event.unitPrice;
+      }
     } else if (event.eventType === "REFUNDED") {
       refunds += event.unitPrice;
     }
