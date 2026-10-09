@@ -52,3 +52,5 @@ jobs:
       - run: npm run build
       - name: Apply migrations to disposable PostgreSQL
         run: npx tsx scripts/migrate.ts
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration
