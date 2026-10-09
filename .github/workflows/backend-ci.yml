@@ -1,0 +1,54 @@
+name: Backend validation
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hotspot_test
+          POSTGRES_PASSWORD: hotspot_test
+          POSTGRES_DB: hotspot_management_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hotspot_test -d hotspot_management_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+      DATABASE_NAME: hotspot_management_test
+      DATABASE_USER: hotspot_test
+      DATABASE_PASSWORD: hotspot_test
+      JWT_SECRET: ci-only-secret-not-for-production
+      CREDENTIALS_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      LIVE_SYNC_INTERVAL_SECONDS: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Apply migrations to disposable PostgreSQL
+        run: npx tsx scripts/migrate.ts
