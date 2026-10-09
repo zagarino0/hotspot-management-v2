@@ -164,6 +164,10 @@ async function upsertVoucher(
                 ELSE mikrotik_state_changed_at
               END,
               mikrotik_disabled = $7,
+              mikrotik_disabled_reason = CASE
+                WHEN $7 = false THEN NULL
+                ELSE mikrotik_disabled_reason
+              END,
               mikrotik_last_seen_at = NOW(),
               point_of_sale_id = $8,
               duration_seconds = COALESCE($9, duration_seconds),
@@ -247,8 +251,10 @@ export async function syncMikrotikVouchers(
 
     const pointOfSale = findPointOfSale(user.comment, pointOfSales);
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
+    const posEnforcedDisabled =
+      pointOfSale?.status === "INACTIVE" && !user.disabled && Boolean(api);
 
-    if (pointOfSale?.status === "INACTIVE" && !user.disabled && api) {
+    if (posEnforcedDisabled && api) {
       await setHotspotUserDisabled(api, username, true);
       user.disabled = true;
     }
@@ -291,6 +297,16 @@ export async function syncMikrotikVouchers(
       });
     } else {
       updated += 1;
+    }
+
+    if (posEnforcedDisabled) {
+      await pool.query(
+        `UPDATE voucher
+            SET mikrotik_disabled_reason = 'POINT_OF_SALE_DISABLED',
+                updated_at = NOW()
+          WHERE id = $1`,
+        [sync.id]
+      );
     }
 
     if (pointOfSale && pointOfSale.id !== sync.previousPointOfSaleId) {
