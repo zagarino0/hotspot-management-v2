@@ -73,10 +73,17 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   }
   await pool.query("INSERT INTO user_role (user_id,role_id,scope) VALUES ($1,$2,'ORGANIZATION')", [userId, roleId]);
 
-  const event = (eventType, voucherCode, unitPrice, key, extra = {}) => ({
-    siteId, voucherCode, eventType, unitPrice, currency: "MGA", eventKey: key, ...extra,
+  type EventInput = Parameters<typeof createTicketEvent>[2];
+  const event = (
+    eventType: EventInput["eventType"],
+    voucherCode: string,
+    unitPrice: number,
+    key: string,
+    extra: Pick<EventInput, "replacementVoucherCode" | "reason"> = {},
+  ): EventInput => ({
+    ...extra, siteId, voucherCode, eventType, unitPrice, currency: "MGA", eventKey: key,
   });
-  const create = (input) => createTicketEvent(posId, userId, input);
+  const create = (input: EventInput) => createTicketEvent(posId, userId, input);
 
   await assert.rejects(listTicketEvents(posId, noPermissionUserId), (error) => error instanceof AppError && error.statusCode === 403, "users without read permission must be denied");
   await assert.rejects(createTicketEvent(posId, noPermissionUserId, event("SOLD", `IT-DENIED-${suffix}`, 1000, `evt-${suffix}-denied`)), (error) => error instanceof AppError && error.statusCode === 403, "users without create permission must be denied");
@@ -112,6 +119,15 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     reason: "Remplacement gratuit de test",
   }));
 
+  await assert.rejects(
+    closeDailySales(posId, noPermissionUserId, {
+      businessDate: localBusinessDate(), currency: "MGA", openingStock: 0,
+      unsoldInStock: 0, rejectedPending: 0, unusableOrReplaced: 0, missingTickets: 0,
+    }),
+    (error) => error instanceof AppError && error.statusCode === 403,
+    "users without close permission must be denied",
+  );
+
   const events = await listTicketEvents(posId, userId, localBusinessDate());
   assert.ok(events.length >= 7, "the authorized reader can see recorded events");
   const date = localBusinessDate();
@@ -128,9 +144,9 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   });
   assert.equal(Number(closure.tickets_sold), 3);
   assert.equal(Number(closure.gross_revenue), 10500);
-  assert.equal(Number(closure.refunds), 7000 + (concurrentRefunds.find((result) => result.status === "fulfilled").status === "fulfilled"
-    ? Number((concurrentRefunds.find((result) => result.status === "fulfilled")).value.unit_price)
-    : 0));
+  const successfulConcurrentRefund = concurrentRefunds.find((result) => result.status === "fulfilled");
+  assert.ok(successfulConcurrentRefund && successfulConcurrentRefund.status === "fulfilled");
+  assert.equal(Number(closure.refunds), 7000 + Number(successfulConcurrentRefund.value.unit_price));
   assert.equal(Number(closure.stock_discrepancy), 0);
   assert.equal(closure.stockBalanced, true);
 
