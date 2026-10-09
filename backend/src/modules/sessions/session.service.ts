@@ -198,7 +198,7 @@ async function performRouterSyncSessions(
   try {
     const activeUsers = await fetchActiveHotspotUsers(api);
     const hotspotUsers = await fetchHotspotUsers(api);
-    await syncMikrotikVouchers(router, hotspotUsers);
+    await syncMikrotikVouchers(router, hotspotUsers, api);
 
     let logoutEvents: Array<{
       username: string;
