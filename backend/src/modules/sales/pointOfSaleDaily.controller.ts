@@ -54,20 +54,21 @@ export async function closePointOfSaleDailySales(req: Request, res: Response, ne
     const userId = authenticatedUser(req, res); if (!userId) return;
     const body = req.body ?? {};
     const required = [
-      "businessDate", "openingStock", "ticketsSold", "unsoldInStock", "rejectedPending",
-      "unusableOrReplaced", "missingTickets", "grossRevenue",
+      "businessDate", "openingStock", "unsoldInStock", "rejectedPending",
+      "unusableOrReplaced", "missingTickets",
     ];
     if (required.some((key) => body[key] === undefined || body[key] === null)) {
       return res.status(400).json({ success: false, message: "Les champs obligatoires de la clôture sont incomplets." });
     }
     const data = await closeDailySales(String(req.params.id), userId, {
-      businessDate: String(body.businessDate), currency: typeof body.currency === "string" ? body.currency : "MGA",
-      openingStock: Number(body.openingStock), ticketsReceived: body.ticketsReceived === undefined ? 0 : Number(body.ticketsReceived),
-      ticketsSold: Number(body.ticketsSold), unsoldInStock: Number(body.unsoldInStock),
-      rejectedPending: Number(body.rejectedPending), unusableOrReplaced: Number(body.unusableOrReplaced),
-      replacementTicketsIssued: body.replacementTicketsIssued === undefined ? 0 : Number(body.replacementTicketsIssued),
-      missingTickets: Number(body.missingTickets), freeReplacements: body.freeReplacements === undefined ? 0 : Number(body.freeReplacements),
-      grossRevenue: Number(body.grossRevenue), refunds: body.refunds === undefined ? 0 : Number(body.refunds),
+      businessDate: String(body.businessDate),
+      currency: typeof body.currency === "string" ? body.currency : "MGA",
+      openingStock: Number(body.openingStock),
+      ticketsReceived: body.ticketsReceived === undefined ? 0 : Number(body.ticketsReceived),
+      unsoldInStock: Number(body.unsoldInStock),
+      rejectedPending: Number(body.rejectedPending),
+      unusableOrReplaced: Number(body.unusableOrReplaced),
+      missingTickets: Number(body.missingTickets),
       notes: typeof body.notes === "string" ? body.notes : null,
     });
     return res.status(201).json({ success: true, data });
