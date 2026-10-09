@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "../../database/pool.js";
 import { badRequest, conflict, forbidden, notFoundError } from "../../lib/errors.js";
-import { calculateDailyFinancials, calculateDailyStock, validateTicketEvent } from "./pointOfSaleDaily.calculations.js";
+import { calculateDailyFinancials, calculateDailyStock, validateRefundAmount, validateTicketEvent } from "./pointOfSaleDaily.calculations.js";
 
 export const POS_TICKET_EVENT_TYPES = ["STOCK_ASSIGNED","SOLD","UNSOLD_CONFIRMED","REJECTED","RETURN_REQUESTED","RETURNED_TO_STOCK","REPLACED","UNUSABLE","MISSING","REFUNDED"] as const;
 export type PosTicketEventType = (typeof POS_TICKET_EVENT_TYPES)[number];
@@ -65,7 +65,8 @@ export async function createTicketEvent(id: string,userId: string,input: {
       if(sale.rows[0].currency!==price.currency) throw badRequest("La devise du remboursement ne correspond pas à celle de la vente initiale.");
       const previous=await c.query<{total:string}>(`SELECT COALESCE(SUM(unit_price),0)::text AS total FROM point_of_sale_ticket_event
         WHERE point_of_sale_id=$1 AND LOWER(voucher_code)=LOWER($2) AND event_type='REFUNDED'`,[id,input.voucherCode.trim()]);
-      if(Number(previous.rows[0]?.total??0)+price.unitPrice>Number(sale.rows[0].unitPrice)) throw conflict("Le remboursement cumulé dépasserait le montant de la vente initiale.");
+      try { validateRefundAmount(Number(sale.rows[0].unitPrice),Number(previous.rows[0]?.total??0),price.unitPrice); }
+      catch(e) { throw conflict(e instanceof Error?e.message:"Remboursement invalide."); }
     }
     if(input.eventType==="REPLACED") {
       const duplicate=await c.query(`SELECT id FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1
