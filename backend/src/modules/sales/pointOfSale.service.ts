@@ -465,18 +465,23 @@ export async function deactivatePointOfSale(
     sessionsDisconnected: 0,
   };
 
+  // Persist the desired state before touching routers. The synchronizer reads
+  // point_of_sale.status on every cycle; updating it afterwards lets a sync
+  // cycle re-enable vouchers while this deactivation is disabling them.
+  const updatedPointOfSale = await updatePointOfSaleStatus(id, "INACTIVE");
+
   for (const router of routers) {
-    const result = await disablePointOfSaleOnRouter(pointOfSale, router);
+    const result = await disablePointOfSaleOnRouter(updatedPointOfSale, router);
     summary.routersProcessed += 1;
     summary.vouchersMatched += result.matched;
     summary.vouchersChanged += result.changed;
     summary.sessionsDisconnected += result.disconnected;
   }
 
-  return updatePointOfSaleStatus(id, "INACTIVE").then((updated) => ({
-    pointOfSale: updated,
+  return {
+    pointOfSale: updatedPointOfSale,
     summary,
-  }));
+  };
 }
 
 export async function activatePointOfSale(
@@ -498,15 +503,20 @@ export async function activatePointOfSale(
     vouchersChanged: 0,
   };
 
+  // Publish the desired state before enabling users on MikroTik. Otherwise
+  // the synchronizer still sees INACTIVE and can disable users immediately
+  // after this service enables them, producing contradictory audit events.
+  const updatedPointOfSale = await updatePointOfSaleStatus(id, "ACTIVE");
+
   for (const router of routers) {
-    const result = await enablePointOfSaleOnRouter(pointOfSale, router);
+    const result = await enablePointOfSaleOnRouter(updatedPointOfSale, router);
     summary.routersProcessed += 1;
     summary.vouchersMatched += result.matched;
     summary.vouchersChanged += result.changed;
   }
 
-  return updatePointOfSaleStatus(id, "ACTIVE").then((updated) => ({
-    pointOfSale: updated,
+  return {
+    pointOfSale: updatedPointOfSale,
     summary,
-  }));
+  };
 }
