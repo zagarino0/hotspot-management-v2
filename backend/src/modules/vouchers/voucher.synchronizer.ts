@@ -144,6 +144,7 @@ async function upsertVoucher(
   created: boolean;
   previousDisabled: boolean | null;
   previousPointOfSaleId: string | null;
+  stateChangedAt: string | null;
 }> {
   const existing = await findExistingVoucher(router.id, router.siteId, user.username);
   const status = deriveVoucherStatus(user);
@@ -156,6 +157,10 @@ async function upsertVoucher(
               mikrotik_username = $4,
               mikrotik_profile = $5,
               mikrotik_comment = $6,
+              mikrotik_state_changed_at = CASE
+                WHEN mikrotik_disabled IS DISTINCT FROM $7 THEN clock_timestamp()
+                ELSE mikrotik_state_changed_at
+              END,
               mikrotik_disabled = $7,
               mikrotik_last_seen_at = NOW(),
               point_of_sale_id = $8,
@@ -163,7 +168,7 @@ async function upsertVoucher(
               status = $10,
               updated_at = NOW()
         WHERE id = $1
-        RETURNING id`,
+        RETURNING id, mikrotik_state_changed_at`,
       [
         existing.id, planId, router.id, user.username, user.profile,
         user.comment, user.disabled, pointOfSale?.id ?? null,
@@ -176,6 +181,7 @@ async function upsertVoucher(
       created: false,
       previousDisabled: existing.mikrotikDisabled,
       previousPointOfSaleId: existing.pointOfSaleId,
+      stateChangedAt: result.rows[0].mikrotik_state_changed_at,
     };
   }
 
@@ -183,10 +189,10 @@ async function upsertVoucher(
     `INSERT INTO voucher (
        site_id, plan_id, code, mikrotik_profile, router_id,
        mikrotik_username, mikrotik_comment, mikrotik_disabled,
-       mikrotik_last_seen_at, point_of_sale_id, duration_seconds, status
+       mikrotik_state_changed_at, mikrotik_last_seen_at, point_of_sale_id, duration_seconds, status
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9,$10,$11)
-     RETURNING id`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),NOW(),$8,$9,$10,$11)
+     RETURNING id, mikrotik_state_changed_at`,
     [
       router.siteId, planId, user.username, user.profile, router.id,
       user.username, user.comment, user.disabled, pointOfSale?.id ?? null,
@@ -294,8 +300,17 @@ export async function syncMikrotikVouchers(
         pointOfSaleId: pointOfSale?.id ?? null,
         pointOfSaleCode: pointOfSale?.code ?? null,
         eventType: user.disabled ? "DISABLED" : "ENABLED",
-        eventKey: `voucher:${router.id}:${username}:${user.disabled ? "disabled" : "enabled"}`,
-        metadata: { comment: user.comment },
+        eventKey: [
+          "voucher",
+          router.id,
+          username,
+          user.disabled ? "disabled" : "enabled",
+          sync.stateChangedAt ?? "unknown",
+        ].join(":"),
+        metadata: {
+          comment: user.comment,
+          stateChangedAt: sync.stateChangedAt,
+        },
       });
     }
   }
