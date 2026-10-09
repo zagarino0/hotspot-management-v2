@@ -408,3 +408,66 @@ export async function deleteSaleController(
     return next(error);
   }
 }
+
+
+export async function deactivatePointOfSaleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.auth?.sub;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié.",
+      });
+    }
+
+    const { deactivatePointOfSale } = await import("./pointOfSale.service.js");
+    const result = await deactivatePointOfSale(
+      userId,
+      String(req.params.id ?? "")
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Point de vente désactivé sur les routeurs MikroTik.",
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function activatePointOfSaleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.auth?.sub;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié.",
+      });
+    }
+
+    const { activatePointOfSale } = await import("./pointOfSale.service.js");
+    const result = await activatePointOfSale(
+      userId,
+      String(req.params.id ?? "")
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Point de vente réactivé sur les routeurs MikroTik.",
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
