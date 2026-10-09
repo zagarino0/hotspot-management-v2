@@ -251,7 +251,25 @@ export async function syncMikrotikVouchers(
     const username = user.username.trim();
     if (!username) continue;
 
-    const pointOfSale = findPointOfSale(user.comment, pointOfSales);
+    let pointOfSale = findPointOfSale(user.comment, pointOfSales);
+
+    // Prefer the existing database association when the comment match is
+    // ambiguous or missing. This keeps already-linked POS vouchers enforceable.
+    if (!pointOfSale) {
+      const linkedPos = await pool.query<PointOfSaleRef>(
+        `SELECT p.id, p.code, p.status
+           FROM voucher v
+           JOIN point_of_sale p ON p.id = v.point_of_sale_id
+          WHERE v.router_id = $1
+            AND v.mikrotik_username = $2
+            AND p.organization_id = $3
+            AND p.type = 'EXTERNAL'
+          LIMIT 1`,
+        [router.id, username, router.organizationId]
+      );
+      pointOfSale = linkedPos.rows[0] ?? null;
+    }
+
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
     // An inactive external POS is authoritative: never trust a possibly stale
     // enabled state returned by a sync cycle that overlaps POS deactivation.
