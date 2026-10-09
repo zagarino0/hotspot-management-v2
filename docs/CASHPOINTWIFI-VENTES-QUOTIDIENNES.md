@@ -51,7 +51,7 @@ Une clôture par point de vente et date locale (Madagascar, fuseau `Indian/Antan
 
 Équation de contrôle des tickets physiques :
 
-`Stock ouverture + tickets reçus = vendus + invendus en stock + rejets en attente + inutilisables/remplacés sortis du stock + manquants`
+`Stock ouverture + tickets reçus = vendus + invendus en stock + rejets en attente + tickets sortis du stock comme inutilisables + tickets de remplacement remis gratuitement + manquants`
 
 Les catégories doivent être mutuellement exclusives pour la clôture. Les tickets remplacés ne sont pas comptés comme vendus une deuxième fois; le nouveau ticket est un mouvement de stock gratuit, pas une vente. Signaler tout écart au lieu de forcer l'équilibre.
 
