@@ -1,6 +1,8 @@
 import { pool } from "../../database/pool.js";
 import type { RouterForSync } from "../routers/router.repository.js";
 import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
+import type { RouterOSAPI } from "node-routeros";
+import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
 
 interface PointOfSaleRef {
   id: string;
@@ -245,6 +247,11 @@ export async function syncMikrotikVouchers(
 
     const pointOfSale = findPointOfSale(user.comment, pointOfSales);
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
+
+    if (pointOfSale?.status === "INACTIVE" && !user.disabled && api) {
+      await setHotspotUserDisabled(api, username, true);
+      user.disabled = true;
+    }
 
     let sync: Awaited<ReturnType<typeof upsertVoucher>>;
     try {
