@@ -269,9 +269,10 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
 async function runSchedulerCycle() {
   if (running) return;
   running = true;
-  const lockClient = await pool.connect();
+  let lockClient: import("pg").PoolClient | null = null;
   let lockAcquired = false;
   try {
+    lockClient = await pool.connect();
     const lock = await lockClient.query<{ locked: boolean }>(
       "SELECT pg_try_advisory_lock(hashtext('pos-operations-scheduler')) AS locked",
     );
@@ -326,11 +327,13 @@ async function runSchedulerCycle() {
   } catch (error) {
     console.error("[pos-operations] Erreur du planificateur:", error);
   } finally {
-    if (lockAcquired) {
-      try { await lockClient.query("SELECT pg_advisory_unlock(hashtext('pos-operations-scheduler'))"); }
-      catch (error) { console.error("[pos-operations] Impossible de libérer le verrou:", error); }
+    if (lockClient) {
+      if (lockAcquired) {
+        try { await lockClient.query("SELECT pg_advisory_unlock(hashtext('pos-operations-scheduler'))"); }
+        catch (error) { console.error("[pos-operations] Impossible de libérer le verrou:", error); }
+      }
+      lockClient.release();
     }
-    lockClient.release();
     running = false;
   }
 }
