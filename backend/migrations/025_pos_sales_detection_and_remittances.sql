@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS point_of_sale_remittance (
     CONSTRAINT chk_pos_remittance_amounts CHECK (expected_amount >= 0 AND remitted_amount >= 0)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pos_remittance_pos_business_date
+    ON point_of_sale_remittance(point_of_sale_id, business_date);
+
 CREATE INDEX IF NOT EXISTS idx_pos_remittance_pos_date
     ON point_of_sale_remittance(point_of_sale_id, business_date DESC);
 
@@ -78,6 +81,8 @@ CREATE TABLE IF NOT EXISTS point_of_sale_closure_audit (
 -- Une clôture automatique n'a pas d'utilisateur humain comme auteur.
 ALTER TABLE point_of_sale_daily_closure
     DROP CONSTRAINT IF EXISTS chk_pos_daily_closure_closed_by;
+ALTER TABLE point_of_sale_daily_closure
+    DROP CONSTRAINT IF EXISTS chk_pos_daily_closure_closed_at;
 ALTER TABLE point_of_sale_daily_closure
     ADD CONSTRAINT chk_pos_daily_closure_closed_by
     CHECK (status <> 'CLOSED' OR closed_at IS NOT NULL);
