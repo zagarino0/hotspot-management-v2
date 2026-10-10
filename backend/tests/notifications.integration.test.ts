@@ -142,6 +142,24 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
 
   const republished = await publishNotification(orgA, { ...notification, siteId: siteA });
   assert.equal(republished.length, 2, "a new occurrence after resolution may create a fresh active event");
+
+  for (const type of ["NEW_SESSION", "ROUTER_OFFLINE", "ROUTER_ONLINE", "NETWORK_PROBLEM"] as const) {
+    const typeEventKey = `integration:${type.toLowerCase()}:${suffix}`;
+    const event = {
+      type,
+      severity: type === "NETWORK_PROBLEM" || type === "ROUTER_OFFLINE" ? "CRITICAL" : "INFO",
+      title: `Integration ${type}`,
+      message: `Integration test for ${type}`,
+      eventKey: typeEventKey,
+      siteId: siteA,
+    } as const;
+    const firstEvent = await publishNotification(orgA, event);
+    assert.equal(firstEvent.length, 2, `${type} is delivered to eligible site recipients`);
+    const duplicateEvent = await publishNotification(orgA, event);
+    assert.equal(duplicateEvent.length, 0, `${type} is not duplicated while its event remains active`);
+    assert.equal(await resolveNotificationEvent(orgA, typeEventKey), 2, `${type} is resolved for every recipient`);
+  }
+
   const failConnection = (routerId: string) => updateRouterHealth({
     routerId, reachable: false, connectionFailure: true, errorMessage: "integration connection failure",
   });
