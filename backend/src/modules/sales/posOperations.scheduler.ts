@@ -1,38 +1,16 @@
 import { pool } from "../../database/pool.js";
 
-const TIME_ZONE = "Indian/Antananarivo";
+import {
+  POS_TIME_ZONE as TIME_ZONE,
+  addDays,
+  isClosureDue,
+  localDate,
+  localTime,
+} from "./posOperations.rules.js";
+
 const POLL_INTERVAL_MS = 30_000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
-
-export function localParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
-}
-
-export function localDate(date = new Date()) {
-  const p = localParts(date);
-  return `${p.year}-${p.month}-${p.day}`;
-}
-
-export function localTime(date = new Date()) {
-  const p = localParts(date);
-  return `${p.hour}:${p.minute}`;
-}
-
-export function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 async function refreshClosedDay(client: import("pg").PoolClient, closureId: string, reason: string) {
   const oldResult = await client.query(
@@ -88,7 +66,6 @@ async function refreshClosedDay(client: import("pg").PoolClient, closureId: stri
             net_revenue = $5,
             status = 'CLOSED',
             closed_at = NOW(),
-            closed_by = NULL,
             updated_at = NOW()
       WHERE id = $1`,
     [closureId, newSnapshot.tickets_sold, newSnapshot.gross_revenue, newSnapshot.refunds, newSnapshot.net_revenue],
@@ -124,6 +101,7 @@ async function detectFirstUse() {
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
            AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
          JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+         LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
          LEFT JOIN site_hotspot_profile_price sp
            ON sp.site_id = v.site_id AND sp.profile_code = v.mikrotik_profile
          JOIN LATERAL (
@@ -132,6 +110,7 @@ async function detectFirstUse() {
             WHERE s.voucher_id = v.id
          ) first_session ON first_session.started_at IS NOT NULL
         WHERE v.first_use_detected_at IS NULL
+          AND COALESCE(setting.detect_sale_on_first_use, TRUE) = TRUE
         ORDER BY first_session.started_at
         LIMIT 50
         FOR UPDATE OF v SKIP LOCKED`,
@@ -199,10 +178,6 @@ async function detectFirstUse() {
   } finally {
     client.release();
   }
-}
-
-export function isClosureDue(currentLocalTime: string, configuredTime: string) {
-  return currentLocalTime >= configuredTime.slice(0, 5);
 }
 
 async function closeFinancialDay(pointOfSaleId: string, businessDate: string, currency = "MGA") {
