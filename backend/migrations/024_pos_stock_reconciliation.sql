@@ -20,13 +20,6 @@ BEGIN
             CHECK (physical_stock_count IS NULL OR physical_stock_count >= 0);
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_pos_daily_closure_theoretical_stock'
-    ) THEN
-        ALTER TABLE point_of_sale_daily_closure
-            ADD CONSTRAINT chk_pos_daily_closure_theoretical_stock
-            CHECK (theoretical_stock IS NULL OR theoretical_stock >= 0);
-    END IF;
 END $$;
 
 COMMIT;
