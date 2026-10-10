@@ -131,7 +131,7 @@ export async function recordPosRemittance(
   userId: string,
   organizationId: string,
   pointOfSaleId: string,
-  input: { businessDate: string; remittedAmount: number; note?: string | null },
+  input: { businessDate: string; remittedAmount: number; remittedBy?: string | null; note?: string | null },
 ) {
   await assertPermission(userId, organizationId, "POS_REMITTANCES_CREATE");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate)) {
@@ -169,12 +169,20 @@ export async function recordPosRemittance(
     if (expectedAmount < 0) {
       throw badRequest("La recette nette est négative; vérifiez les remboursements avant d'enregistrer le versement.");
     }
+    const remittedBy = input.remittedBy?.trim() || null;
+    if (remittedBy) {
+      const remitter = await client.query(
+        `SELECT id FROM "user" WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+        [remittedBy, organizationId],
+      );
+      if (!remitter.rows[0]) throw badRequest("Le remettant doit appartenir à l'organisation du point de vente.");
+    }
     const result = await client.query(
       `INSERT INTO point_of_sale_remittance
         (point_of_sale_id, business_date, currency, expected_amount, remitted_amount, remitted_by, recorded_by, note)
-       VALUES ($1, $2::date, 'MGA', $3, $4, $5, $5, $6)
+       VALUES ($1, $2::date, 'MGA', $3, $4, $5, $6, $7)
        RETURNING *`,
-      [pointOfSaleId, input.businessDate, expectedAmount, input.remittedAmount, userId, input.note?.trim() || null],
+      [pointOfSaleId, input.businessDate, expectedAmount, input.remittedAmount, remittedBy, userId, input.note?.trim() || null],
     );
     await client.query("COMMIT");
     return result.rows[0];
