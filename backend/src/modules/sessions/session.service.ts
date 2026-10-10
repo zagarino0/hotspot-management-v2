@@ -42,6 +42,11 @@ import {
   publishNotification,
   resolveNotificationEvent,
 } from "../notifications/notification.service.js";
+import {
+  NETWORK_PROBLEM_WINDOW_SECONDS,
+  shouldNotifyNetworkProblem,
+  shouldNotifyRouterOffline,
+} from "../notifications/notification.rules.js";
 
 /* ============================================================
    LIST
@@ -97,9 +102,9 @@ async function publishSyncError(
 
 async function publishSiteNetworkProblemIfNeeded(router: RouterForSync): Promise<void> {
   const affectedRouters = await countRecentOfflineRouters(
-    router.organizationId, router.siteId, 30
+    router.organizationId, router.siteId, NETWORK_PROBLEM_WINDOW_SECONDS
   );
-  if (affectedRouters < 2) return;
+  if (!shouldNotifyNetworkProblem(affectedRouters, 0)) return;
 
   await publishNotification(router.organizationId, {
     siteId: router.siteId,
@@ -135,7 +140,7 @@ async function publishRouterHealthNotifications(
   // notification est émise seulement au deuxième échec de connexion consécutif.
   if (
     transition.currentStatus === "OFFLINE" &&
-    transition.consecutiveConnectionFailures >= 2
+    shouldNotifyRouterOffline(transition.consecutiveConnectionFailures)
   ) {
     await publishNotification(router.organizationId, {
       siteId: router.siteId,
