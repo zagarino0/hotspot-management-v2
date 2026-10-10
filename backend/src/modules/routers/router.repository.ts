@@ -313,6 +313,7 @@ export async function hasOfflineRoutersForSite(
        AND r.sync_enabled = TRUE
        AND r.management_ip IS NOT NULL
        AND r.status = 'OFFLINE'
+       AND r.offline_since IS NOT NULL
      LIMIT 1`,
     [organizationId, siteId]
   );
