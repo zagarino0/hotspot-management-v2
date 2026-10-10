@@ -110,7 +110,7 @@ async function detectFirstUse() {
          JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
          LEFT JOIN site_hotspot_profile_price sp
-           ON sp.site_id = v.site_id AND sp.profile_code = v.mikrotik_profile
+           ON sp.site_id = v.site_id AND LOWER(sp.profile_code) = LOWER(v.mikrotik_profile)
          JOIN LATERAL (
            SELECT MIN(s.started_at) AS started_at
              FROM session s
