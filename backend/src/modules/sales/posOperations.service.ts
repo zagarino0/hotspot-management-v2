@@ -100,6 +100,33 @@ export async function listPosRemittances(
   return result.rows;
 }
 
+export async function listPosClosureAudit(
+  userId: string,
+  organizationId: string,
+  pointOfSaleId: string,
+  from?: string,
+  to?: string,
+) {
+  await assertPermission(userId, organizationId, "POS_DAILY_CLOSURES_READ");
+  const pos = await pool.query(
+    `SELECT id FROM point_of_sale
+      WHERE id = $1 AND organization_id = $2 AND type = 'EXTERNAL'`,
+    [pointOfSaleId, organizationId],
+  );
+  if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
+  const result = await pool.query(
+    `SELECT a.*, c.business_date AS "businessDate", c.point_of_sale_id AS "pointOfSaleId"
+       FROM point_of_sale_closure_audit a
+       JOIN point_of_sale_daily_closure c ON c.id = a.closure_id
+      WHERE c.point_of_sale_id = $1
+        AND ($2::date IS NULL OR c.business_date >= $2::date)
+        AND ($3::date IS NULL OR c.business_date <= $3::date)
+      ORDER BY a.created_at DESC LIMIT 200`,
+    [pointOfSaleId, from ?? null, to ?? null],
+  );
+  return result.rows;
+}
+
 export async function recordPosRemittance(
   userId: string,
   organizationId: string,
