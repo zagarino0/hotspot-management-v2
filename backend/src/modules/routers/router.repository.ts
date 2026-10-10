@@ -173,20 +173,24 @@ export interface RouterHealthUpdate {
   routerId: string;
   reachable: boolean;
   errorMessage?: string | null;
+  syncError?: boolean;
+  /** true uniquement si la tentative de connexion au MikroTik a échoué. */
+  connectionFailure?: boolean;
 }
 
 export interface RouterHealthTransition {
   previousStatus: string | null;
   currentStatus: string;
+  previousConnectionFailures: number;
+  consecutiveConnectionFailures: number;
+  offlineSince: string | null;
 }
 
-export interface RouterHealthUpdate {
-  routerId: string;
-  reachable: boolean;
-  errorMessage?: string | null;
-  syncError?: boolean;
-}
-
+/**
+ * Met à jour l'état observé et conserve le compteur de connexions échouées.
+ * Les erreurs de configuration/traitement doivent utiliser
+ * updateRouterSyncFailure afin de ne pas déclarer à tort le routeur hors ligne.
+ */
 export async function updateRouterHealth(
   update: RouterHealthUpdate
 ): Promise<RouterHealthTransition | null> {
@@ -194,64 +198,62 @@ export async function updateRouterHealth(
 
   try {
     await client.query("BEGIN");
-
-    // Capture l'état réellement observé avant toute modification.
-    // Cette lecture verrouillée évite qu'une transition ONLINE/OFFLINE
-    // soit calculée à partir d'un état intermédiaire ou d'une écriture
-    // concurrente.
-    const previousResult = await client.query<{ status: string | null }>(
-      `
-        SELECT status
-        FROM router
-        WHERE id = $1
-        FOR UPDATE
-      `,
+    const previousResult = await client.query<{
+      status: string | null;
+      consecutiveConnectionFailures: number;
+      offlineSince: string | null;
+    }>(
+      `SELECT status,
+              consecutive_connection_failures AS "consecutiveConnectionFailures",
+              offline_since AS "offlineSince"
+       FROM router WHERE id = $1 FOR UPDATE`,
       [update.routerId]
     );
 
-    const previousStatus = previousResult.rows[0]?.status ?? null;
-
-    if (!previousResult.rows[0]) {
+    const previous = previousResult.rows[0];
+    if (!previous) {
       await client.query("ROLLBACK");
       return null;
     }
 
     const currentStatus = update.reachable ? "ONLINE" : "OFFLINE";
+    const previousFailures = Number(previous.consecutiveConnectionFailures ?? 0);
+    const nextFailures = update.reachable
+      ? 0
+      : update.connectionFailure
+        ? previousFailures + 1
+        : previousFailures;
+    const offlineSince = update.reachable
+      ? null
+      : previous.offlineSince ?? new Date().toISOString();
 
     await client.query(
-      `
-        UPDATE router
-        SET
-          status = $2,
-          last_check_at = NOW(),
-          last_seen_at = CASE
-            WHEN $3 THEN NOW()
-            ELSE last_seen_at
-          END,
-          last_error = $4,
-          sync_status = CASE
-            WHEN $5 THEN 'FAILED'
-            WHEN $3 THEN 'SUCCESS'
-            ELSE 'FAILED'
-          END,
-          last_sync_at = NOW(),
-          updated_at = NOW()
-        WHERE id = $1
-      `,
+      `UPDATE router
+       SET status = $2,
+           consecutive_connection_failures = $3,
+           offline_since = $4,
+           last_check_at = NOW(),
+           last_seen_at = CASE WHEN $5 THEN NOW() ELSE last_seen_at END,
+           last_error = $6,
+           sync_status = CASE WHEN $7 THEN 'FAILED'
+                              WHEN $5 THEN 'SUCCESS'
+                              ELSE 'FAILED' END,
+           last_sync_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
       [
-        update.routerId,
-        currentStatus,
-        update.reachable,
-        update.errorMessage ?? null,
-        update.syncError === true,
+        update.routerId, currentStatus, nextFailures, offlineSince,
+        update.reachable, update.errorMessage ?? null, update.syncError === true,
       ]
     );
 
     await client.query("COMMIT");
-
     return {
-      previousStatus,
+      previousStatus: previous.status,
       currentStatus,
+      previousConnectionFailures: previousFailures,
+      consecutiveConnectionFailures: nextFailures,
+      offlineSince,
     };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -259,6 +261,61 @@ export async function updateRouterHealth(
   } finally {
     client.release();
   }
+}
+
+/** Enregistre un échec de synchronisation sans conclure à une panne réseau. */
+export async function updateRouterSyncFailure(
+  routerId: string,
+  errorMessage: string
+): Promise<void> {
+  await pool.query(
+    `UPDATE router
+     SET last_check_at = NOW(),
+         last_error = $2,
+         sync_status = 'FAILED',
+         last_sync_at = NOW(),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [routerId, errorMessage]
+  );
+}
+
+/** Compte les routeurs distincts du site dont la panne a débuté dans la fenêtre. */
+export async function countRecentOfflineRouters(
+  organizationId: string,
+  siteId: string,
+  windowSeconds = 30
+): Promise<number> {
+  const result = await pool.query<{ count: string }>(
+    `SELECT COUNT(DISTINCT r.id)::text AS count
+     FROM router r
+     JOIN site s ON s.id = r.site_id
+     WHERE s.organization_id = $1
+       AND s.id = $2
+       AND r.status = 'OFFLINE'
+       AND r.offline_since >= NOW() - ($3::text || ' seconds')::interval`,
+    [organizationId, siteId, windowSeconds]
+  );
+  return Number(result.rows[0]?.count ?? 0);
+}
+
+/** Vrai lorsque tous les routeurs synchronisés du site sont revenus en ligne. */
+export async function hasOfflineRoutersForSite(
+  organizationId: string,
+  siteId: string
+): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT 1
+     FROM router r
+     JOIN site s ON s.id = r.site_id
+     WHERE s.organization_id = $1 AND s.id = $2
+       AND r.sync_enabled = TRUE
+       AND r.management_ip IS NOT NULL
+       AND r.status = 'OFFLINE'
+     LIMIT 1`,
+    [organizationId, siteId]
+  );
+  return result.rows.length > 0;
 }
 
 /* ============================================================
