@@ -90,6 +90,17 @@ test("PostgreSQL sales integration: filters, payment lifecycle, pending payments
     "successful plus pending payments must not reserve more than the sale total",
   );
 
+  // Simuler le retour d'échec du prestataire : le paiement échoué ne réserve
+  // plus de solde et ne fait pas passer la vente à PAID.
+  await pool.query("UPDATE payment SET status = 'FAILED', updated_at = NOW() WHERE id = $1", [pending.id]);
+  details = await getSaleDetails(pendingSale.id);
+  assert.equal(details.sale.status, "PENDING");
+  assert.equal(details.sale.paidAmount, 0);
+  await recordPayment({ saleId: pendingSale.id, amount: 1000, method: "CASH", markAsPaid: true });
+  details = await getSaleDetails(pendingSale.id);
+  assert.equal(details.sale.status, "PAID");
+  assert.equal(details.sale.paidAmount, 1000);
+
   const overpaymentSale = await makeSale(siteA, posA, 1000);
   await assert.rejects(
     recordPayment({ saleId: overpaymentSale.id, amount: 1001, method: "CASH", markAsPaid: true }),
