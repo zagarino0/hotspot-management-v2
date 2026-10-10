@@ -1,5 +1,6 @@
 import { pool } from "../../database/pool.js";
 import { encryptSecret } from "../../lib/crypto.js";
+import { NETWORK_PROBLEM_WINDOW_SECONDS } from "../notifications/notification.rules.js";
 
 import type {
   CreateRouterData,
@@ -284,7 +285,7 @@ export async function updateRouterSyncFailure(
 export async function countRecentOfflineRouters(
   organizationId: string,
   siteId: string,
-  windowSeconds = 30
+  windowSeconds = NETWORK_PROBLEM_WINDOW_SECONDS
 ): Promise<number> {
   const result = await pool.query<{ count: string }>(
     `SELECT COUNT(DISTINCT r.id)::text AS count
