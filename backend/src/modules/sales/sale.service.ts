@@ -31,11 +31,30 @@ import type {
 } from "../../routes/sale.types.js";
 import type { RecordPaymentData } from "../../routes/payment.types.js";
 
-export async function getSales(filter?: {
+async function assertSuperAdmin(userId: string) {
+  const result = await pool.query(
+    `SELECT 1
+       FROM user_role ur
+       JOIN role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
+      WHERE ur.user_id = $1 AND UPPER(r.code) = 'SUPER_ADMIN'
+        AND (r.organization_id IS NULL OR r.organization_id = (
+          SELECT organization_id FROM "user" WHERE id = $1
+        ))
+      LIMIT 1`,
+    [userId],
+  );
+  if (!result.rows[0]) {
+    const { forbidden } = await import("../../lib/errors.js");
+    throw forbidden("Seul l'administrateur peut consulter l'historique des ventes.");
+  }
+}
+
+export async function getSales(userId: string, filter?: {
   status?: SaleStatus;
   siteId?: string;
   pointOfSaleId?: string;
 }) {
+  await assertSuperAdmin(userId);
   return findSales(filter);
 }
 
@@ -104,7 +123,8 @@ export async function createPointOfSale(
   }
 }
 
-export async function getSaleDetails(id: string) {
+export async function getSaleDetails(id: string, userId: string) {
+  await assertSuperAdmin(userId);
   const sale = await findSaleById(id);
 
   if (!sale) {
@@ -116,7 +136,8 @@ export async function getSaleDetails(id: string) {
   return { sale, payments };
 }
 
-export async function getSummary() {
+export async function getSummary(userId: string) {
+  await assertSuperAdmin(userId);
   return getSalesSummary();
 }
 
