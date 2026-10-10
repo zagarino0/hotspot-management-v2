@@ -119,6 +119,16 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     reason: "Remplacement gratuit de test",
   }));
 
+  // Le registre d'événements, et non les compteurs envoyés par le client,
+  // détermine les catégories de tickets de la clôture.
+  for (let i = 1; i <= 3; i++) {
+    await create(event("UNSOLD_CONFIRMED", `IT-UNSOLD-${suffix}-${i}`, 0, `evt-${suffix}-unsold-${i}`));
+  }
+  await create(event("REJECTED", `IT-REJECTED-${suffix}`, 0, `evt-${suffix}-rejected`));
+  for (let i = 1; i <= 2; i++) {
+    await create(event("UNUSABLE", `IT-UNUSABLE-${suffix}-${i}`, 0, `evt-${suffix}-unusable-${i}`));
+  }
+
   await assert.rejects(
     closeDailySales(posId, noPermissionUserId, {
       businessDate: localBusinessDate(), currency: "MGA", openingStock: 0,
@@ -136,10 +146,13 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
     currency: "MGA",
     openingStock: 10,
     ticketsReceived: 0,
-    unsoldInStock: 3,
-    rejectedPending: 1,
-    unusableOrReplaced: 2,
-    missingTickets: 0,
+    physicalStockCount: 3,
+    // Valeurs legacy volontairement différentes : les catégories sont calculées
+    // à partir des événements enregistrés en PostgreSQL.
+    unsoldInStock: 99,
+    rejectedPending: 99,
+    unusableOrReplaced: 99,
+    missingTickets: 99,
     notes: "Automated PostgreSQL integration test",
   });
   assert.equal(Number(closure.tickets_sold), 3);
@@ -147,7 +160,15 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   const successfulConcurrentRefund = concurrentRefunds.find((result) => result.status === "fulfilled");
   assert.ok(successfulConcurrentRefund && successfulConcurrentRefund.status === "fulfilled");
   assert.equal(Number(closure.refunds), 7000 + Number(successfulConcurrentRefund.value.unit_price));
+  assert.equal(Number(closure.unsold_in_stock), 3);
+  assert.equal(Number(closure.rejected_pending), 1);
+  assert.equal(Number(closure.unusable_or_replaced), 2);
+  assert.equal(Number(closure.missing_tickets), 0);
+  assert.equal(Number(closure.physical_stock_count), 3);
+  assert.equal(Number(closure.theoretical_stock), 3);
   assert.equal(Number(closure.stock_discrepancy), 0);
+  assert.equal(Number(closure.event_stock_discrepancy), 0);
+  assert.equal(closure.stock_review_required, false);
   assert.equal(closure.stockBalanced, true);
 
   await assert.rejects(
