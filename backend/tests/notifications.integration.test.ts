@@ -74,6 +74,12 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
   assert.equal(savedSettings.allSites, false);
   assert.deepEqual(savedSettings.siteIds, [siteA]);
 
+  const reloadedSettings = await getNotificationSettings(userA);
+  assert.equal(reloadedSettings.enabled, true, "saved preferences must persist after a fresh read");
+  assert.equal(reloadedSettings.allSites, false);
+  assert.deepEqual(reloadedSettings.siteIds, [siteA]);
+  assert.equal(reloadedSettings.newSessionEnabled, true);
+
   const defaultSettings = await getNotificationSettings(userA2);
   assert.equal(defaultSettings.enabled, true);
   assert.equal(defaultSettings.allSites, true);
@@ -106,6 +112,17 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
   });
   assert.equal(otherOrgPublish.length, 1, "notifications must be delivered only within their organization");
   assert.equal(otherOrgPublish[0].userId, userB);
+
+  const crossOrganizationSitePublish = await publishNotification(orgA, {
+    ...notification,
+    siteId: siteB,
+    eventKey: `integration:cross-org-site:${suffix}`,
+  });
+  assert.equal(
+    crossOrganizationSitePublish.length,
+    0,
+    "a site owned by another organization must not receive or fan out notifications for this organization",
+  );
 
   const resolvedCount = await resolveNotificationEvent(orgA, eventKey);
   assert.equal(resolvedCount, 2, "resolving an incident should resolve all eligible users' active copies");
