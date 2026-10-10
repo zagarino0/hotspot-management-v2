@@ -180,7 +180,7 @@ export default function AddRouter() {
 
     try {
       const response = await api.post(
-        "/api/routers/test-connection",
+        "/api/routers/test",
         {
           host: form.host.trim(),
           port: form.port,
