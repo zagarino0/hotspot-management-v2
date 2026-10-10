@@ -48,8 +48,8 @@ test("PostgreSQL: automatic financial closure and audited late correction", asyn
   assert.equal(initialResult.rows[0].stock_review_required, true);
 
   await pool.query(
-    "INSERT INTO point_of_sale_ticket_event (point_of_sale_id,site_id,voucher_code,event_type,unit_price,currency,source,event_key,metadata,occurred_at) VALUES ($1,$2,$3,'SOLD',2500,'MGA','SYSTEM',$4,'{"lateDetection":true}'::jsonb,($5::date + TIME '11:00') AT TIME ZONE 'Indian/Antananarivo')",
-    [posId, siteId, "LATE-" + suffix, "late-sale-" + suffix, autoDate],
+    "INSERT INTO point_of_sale_ticket_event (point_of_sale_id,site_id,voucher_code,event_type,unit_price,currency,source,event_key,metadata,occurred_at) VALUES ($1,$2,$3,'SOLD',2500,'MGA','SYSTEM',$4,$6::jsonb,($5::date + TIME '11:00') AT TIME ZONE 'Indian/Antananarivo')",
+    [posId, siteId, "LATE-" + suffix, "late-sale-" + suffix, autoDate, JSON.stringify({ lateDetection: true })],
   );
 
   const client = await pool.connect();
