@@ -104,7 +104,7 @@ async function publishSiteNetworkProblemIfNeeded(router: RouterForSync): Promise
   const affectedRouters = await countRecentOfflineRouters(
     router.organizationId, router.siteId, NETWORK_PROBLEM_WINDOW_SECONDS
   );
-  if (!shouldNotifyNetworkProblem(affectedRouters, 0)) return;
+  if (!shouldNotifyNetworkProblem(affectedRouters)) return;
 
   await publishNotification(router.organizationId, {
     siteId: router.siteId,
