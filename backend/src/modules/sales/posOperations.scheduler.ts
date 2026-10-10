@@ -125,6 +125,33 @@ async function detectFirstUse() {
     );
 
     for (const item of candidates.rows) {
+      const priorSale = await client.query<{ pointOfSaleId: string }>(
+        `SELECT point_of_sale_id AS "pointOfSaleId"
+           FROM point_of_sale_ticket_event
+          WHERE event_type = 'SOLD'
+            AND (voucher_id = $1 OR LOWER(voucher_code) = LOWER($2))
+          ORDER BY occurred_at ASC
+          LIMIT 1`,
+        [item.voucherId, item.code],
+      );
+      if (priorSale.rows[0]) {
+        const attributionMismatch = priorSale.rows[0].pointOfSaleId !== item.pointOfSaleId;
+        const updated = await client.query(
+          `UPDATE voucher
+              SET first_use_detected_at = COALESCE(first_use_detected_at, NOW()),
+                  first_use_detection_issue = CASE
+                    WHEN $2 THEN COALESCE(first_use_detection_issue, 'Une vente existe déjà sur un autre point de vente; vérification requise.')
+                    ELSE NULL
+                  END
+            WHERE id = $1 AND first_use_detected_at IS NULL`,
+          [item.voucherId, attributionMismatch],
+        );
+        if (attributionMismatch && updated.rowCount) {
+          console.warn(`[pos-sales] Attribution à vérifier pour le voucher ${item.code}: vente déjà enregistrée sur un autre point de vente.`);
+        }
+        continue;
+      }
+
       if (Number(item.unitPrice) <= 0 || item.currency !== "MGA") {
         const issue = await client.query(
           `UPDATE voucher SET first_use_detection_issue = $2
