@@ -120,7 +120,8 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   }));
 
   // Le registre d'événements, et non les compteurs envoyés par le client,
-  // détermine les catégories de tickets de la clôture.
+  // détermine les entrées et les catégories de tickets de la clôture.
+  await create(event("STOCK_ASSIGNED", `IT-RECEIVED-${suffix}`, 0, `evt-${suffix}-received`));
   for (let i = 1; i <= 3; i++) {
     await create(event("UNSOLD_CONFIRMED", `IT-UNSOLD-${suffix}-${i}`, 0, `evt-${suffix}-unsold-${i}`));
   }
@@ -144,8 +145,8 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   const closure = await closeDailySales(posId, userId, {
     businessDate: date,
     currency: "MGA",
-    openingStock: 10,
-    ticketsReceived: 0,
+    openingStock: 9,
+    ticketsReceived: 99,
     physicalStockCount: 3,
     // Valeurs legacy volontairement différentes : les catégories sont calculées
     // à partir des événements enregistrés en PostgreSQL.
@@ -160,6 +161,7 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   const successfulConcurrentRefund = concurrentRefunds.find((result) => result.status === "fulfilled");
   assert.ok(successfulConcurrentRefund && successfulConcurrentRefund.status === "fulfilled");
   assert.equal(Number(closure.refunds), 7000 + Number(successfulConcurrentRefund.value.unit_price));
+  assert.equal(Number(closure.tickets_received), 1);
   assert.equal(Number(closure.unsold_in_stock), 3);
   assert.equal(Number(closure.rejected_pending), 1);
   assert.equal(Number(closure.unusable_or_replaced), 2);
