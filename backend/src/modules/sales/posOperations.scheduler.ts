@@ -107,7 +107,7 @@ async function detectFirstUse() {
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
            AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
-         JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+         LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
          LEFT JOIN site_hotspot_profile_price sp
            ON sp.site_id = v.site_id AND LOWER(sp.profile_code) = LOWER(v.mikrotik_profile)
