@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed-admin.ts",
     "test": "tsx --test tests/pointOfSaleDaily.calculations.test.ts tests/posOperations.scheduler.test.ts tests/notification.rules.test.ts",
-    "test:integration": "tsx --test tests/pointOfSaleDaily.integration.test.ts tests/posOperations.integration.test.ts tests/posOperations.closure.integration.test.ts tests/notifications.integration.test.ts"
+    "test:integration": "tsx --test tests/pointOfSaleDaily.integration.test.ts tests/posOperations.integration.test.ts tests/posOperations.closure.integration.test.ts tests/notifications.integration.test.ts tests/sales.integration.test.ts"
   },
   "keywords": [
     "mikrotik",
