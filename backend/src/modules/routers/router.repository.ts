@@ -231,10 +231,10 @@ export async function updateRouterHealth(
              ELSE offline_since
            END,
            last_check_at = NOW(),
-           last_seen_at = CASE WHEN $5 THEN NOW() ELSE last_seen_at END,
-           last_error = $6,
-           sync_status = CASE WHEN $7 THEN 'FAILED'
-                              WHEN $5 THEN 'SUCCESS'
+           last_seen_at = CASE WHEN $4 THEN NOW() ELSE last_seen_at END,
+           last_error = $5,
+           sync_status = CASE WHEN $6 THEN 'FAILED'
+                              WHEN $4 THEN 'SUCCESS'
                               ELSE 'FAILED' END,
            last_sync_at = NOW(),
            updated_at = NOW()
