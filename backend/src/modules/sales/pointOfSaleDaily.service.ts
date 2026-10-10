@@ -91,7 +91,7 @@ export async function closeDailySales(id:string,userId:string,input:{
   unusableOrReplaced?:number;missingTickets?:number;notes?:string|null;
   stockDiscrepancyReason?:string|null;
 }) {
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
   const d=new Date(input.businessDate+"T00:00:00Z");
   if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==input.businessDate) throw badRequest("La date de clôture est invalide.");
   const currency=(input.currency??"MGA").toUpperCase(); if(currency!=="MGA") throw badRequest("La devise de ce point de vente doit être MGA.");
