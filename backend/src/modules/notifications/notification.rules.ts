@@ -1,4 +1,5 @@
 /** Règles métier fixes des incidents de synchronisation MikroTik. */
+export const SYNC_ERROR_FAILURE_THRESHOLD = 1;
 export const ROUTER_OFFLINE_FAILURE_THRESHOLD = 2;
 export const NETWORK_PROBLEM_ROUTER_THRESHOLD = 2;
 export const NETWORK_PROBLEM_WINDOW_SECONDS = 30;
