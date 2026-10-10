@@ -24,7 +24,8 @@ ON CONFLICT (organization_id) DO NOTHING;
 -- La date de première utilisation est un instant de détection, pas une preuve
 -- de l'instant réel de vente.
 ALTER TABLE voucher
-    ADD COLUMN IF NOT EXISTS first_use_detected_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS first_use_detected_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS first_use_detection_issue TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_voucher_first_use_pending
     ON voucher(point_of_sale_id, id)
