@@ -223,10 +223,10 @@ export async function updateRouterHealth(
         : previousFailures;
     await client.query(
       `UPDATE router
-       SET status = $2,
+       SET status = $2::varchar,
            consecutive_connection_failures = $3,
            offline_since = CASE
-             WHEN $2 = 'ONLINE' THEN NULL
+             WHEN $2::varchar = 'ONLINE' THEN NULL
              WHEN offline_since IS NULL THEN NOW()
              ELSE offline_since
            END,
