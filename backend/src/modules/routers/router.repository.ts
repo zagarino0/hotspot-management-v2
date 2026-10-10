@@ -184,7 +184,6 @@ export interface RouterHealthTransition {
   currentStatus: string;
   previousConnectionFailures: number;
   consecutiveConnectionFailures: number;
-  offlineSince: string | null;
 }
 
 /**
@@ -202,11 +201,9 @@ export async function updateRouterHealth(
     const previousResult = await client.query<{
       status: string | null;
       consecutiveConnectionFailures: number;
-      offlineSince: string | null;
     }>(
       `SELECT status,
-              consecutive_connection_failures AS "consecutiveConnectionFailures",
-              offline_since AS "offlineSince"
+              consecutive_connection_failures AS "consecutiveConnectionFailures"
        FROM router WHERE id = $1 FOR UPDATE`,
       [update.routerId]
     );
@@ -224,15 +221,15 @@ export async function updateRouterHealth(
       : update.connectionFailure
         ? previousFailures + 1
         : previousFailures;
-    const offlineSince = update.reachable
-      ? null
-      : previous.offlineSince ?? new Date().toISOString();
-
     await client.query(
       `UPDATE router
        SET status = $2,
            consecutive_connection_failures = $3,
-           offline_since = $4,
+           offline_since = CASE
+             WHEN $2 = 'ONLINE' THEN NULL
+             WHEN offline_since IS NULL THEN NOW()
+             ELSE offline_since
+           END,
            last_check_at = NOW(),
            last_seen_at = CASE WHEN $5 THEN NOW() ELSE last_seen_at END,
            last_error = $6,
@@ -243,7 +240,7 @@ export async function updateRouterHealth(
            updated_at = NOW()
        WHERE id = $1`,
       [
-        update.routerId, currentStatus, nextFailures, offlineSince,
+        update.routerId, currentStatus, nextFailures,
         update.reachable, update.errorMessage ?? null, update.syncError === true,
       ]
     );
@@ -254,7 +251,6 @@ export async function updateRouterHealth(
       currentStatus,
       previousConnectionFailures: previousFailures,
       consecutiveConnectionFailures: nextFailures,
-      offlineSince,
     };
   } catch (error) {
     await client.query("ROLLBACK");
