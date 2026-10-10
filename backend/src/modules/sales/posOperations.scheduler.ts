@@ -12,7 +12,7 @@ const POLL_INTERVAL_MS = 30_000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
-async function refreshClosedDay(client: import("pg").PoolClient, closureId: string, reason: string) {
+export async function refreshClosedDay(client: import("pg").PoolClient, closureId: string, reason: string) {
   const oldResult = await client.query(
     `SELECT * FROM point_of_sale_daily_closure WHERE id = $1 FOR UPDATE`,
     [closureId],
@@ -188,7 +188,7 @@ async function detectFirstUse() {
   }
 }
 
-async function closeFinancialDay(pointOfSaleId: string, businessDate: string, currency = "MGA") {
+export async function closeFinancialDay(pointOfSaleId: string, businessDate: string, currency = "MGA") {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
