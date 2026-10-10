@@ -72,7 +72,9 @@ export async function listSales(
         ? req.query.pointOfSaleId
         : undefined;
 
-    const sales = await getSales({
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    const sales = await getSales(userId, {
       status,
       siteId,
       pointOfSaleId,
@@ -182,7 +184,9 @@ export async function salesSummary(
   next: NextFunction
 ) {
   try {
-    const summary = await getSummary();
+    const userId = _req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    const summary = await getSummary(userId);
 
     return res.status(200).json({
       success: true,
@@ -205,7 +209,9 @@ export async function getSale(
   try {
     const { id } = req.params;
 
-    const details = await getSaleDetails(String(id ?? ""));
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    const details = await getSaleDetails(String(id ?? ""), userId);
 
     return res.status(200).json({
       success: true,
