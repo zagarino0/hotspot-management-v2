@@ -5,7 +5,8 @@ import {
   isClosureDue,
   localDate,
   localTime,
-} from "../src/modules/sales/posOperations.scheduler.js";
+  isValidClosureTime,
+} from "../src/modules/sales/posOperations.rules.js";
 
 test("la clôture ne devient due qu'à l'heure configurée", () => {
   assert.equal(isClosureDue("19:59", "20:00:00"), false);
@@ -22,4 +23,12 @@ test("la date et l'heure commerciales sont produites dans le fuseau de Madagasca
   const instant = new Date("2026-10-10T17:00:00.000Z");
   assert.equal(localDate(instant), "2026-10-10");
   assert.equal(localTime(instant), "20:00");
+});
+
+test("les heures de clôture configurées sont strictement validées", () => {
+  assert.equal(isValidClosureTime("00:00"), true);
+  assert.equal(isValidClosureTime("23:59"), true);
+  assert.equal(isValidClosureTime("24:00"), false);
+  assert.equal(isValidClosureTime("20:60"), false);
+  assert.equal(isValidClosureTime("8:00"), false);
 });
