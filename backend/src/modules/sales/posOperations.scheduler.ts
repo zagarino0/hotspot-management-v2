@@ -259,10 +259,9 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
                 net_revenue = $12,
                 status = 'CLOSED',
                 notes = COALESCE(notes || E'\\n', '') || 'Clôture financière automatique; comptage physique du stock à effectuer.',
+                closed_by = NULL,
                 closed_at = NOW(),
-                physical_stock_count = NULL,
-                theoretical_stock = NULL,
-                stock_review_required = TRUE,
+                stock_review_required = (physical_stock_count IS NULL),
                 updated_at = NOW()
           WHERE id = $1`,
         [
