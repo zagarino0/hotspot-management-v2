@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, CircleAlert, Plus, RefreshCw, Wallet } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Plus, RefreshCw, Wallet } from "lucide-react";
 import {
   activatePointOfSale,
   createPointOfSale,
@@ -110,7 +110,7 @@ export default function Sales() {
           ? current
           : closureRows[0]?.business_date.slice(0, 10) || "");
       })
-      .catch(() => { if (active) setError("Impossible de charger les ventes détectées, les clôtures ou les versements."); })
+      .catch((e: any) => { if (active) setError(e?.response?.status === 403 ? "Accès refusé : seul l’administrateur peut consulter ces historiques." : e?.response?.status === 401 ? "Session expirée. Reconnectez-vous pour continuer." : "Impossible de charger les ventes détectées, les clôtures ou les versements."); })
       .then(() => { if (active) setLoading(false); }, () => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [selectedId]);
@@ -196,6 +196,14 @@ export default function Sales() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <LockKeyhole size={19} className="mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold">Historique réservé à l’administrateur</p>
+          <p className="mt-1 text-sm text-amber-800">Les ventes détectées, clôtures et versements de tous les points de vente sont consultables uniquement par un compte administrateur autorisé. Les responsables n’ont pas encore d’accès.</p>
+        </div>
+      </div>
+
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Gestion commerciale</p>
