@@ -119,7 +119,14 @@ async function detectFirstUse() {
 
     for (const item of candidates.rows) {
       if (Number(item.unitPrice) <= 0 || item.currency !== "MGA") {
-        console.warn(`[pos-sales] Détection en attente: prix non exploitable pour le voucher ${item.code}.`);
+        const issue = await client.query(
+          `UPDATE voucher SET first_use_detection_issue = $2
+            WHERE id = $1 AND first_use_detection_issue IS NULL`,
+          [item.voucherId, "Prix ou devise du forfait non résolu pour la détection de vente."],
+        );
+        if (issue.rowCount) {
+          console.warn(`[pos-sales] Détection mise en attente: prix non résolu pour le voucher ${item.code}.`);
+        }
         continue;
       }
 
@@ -128,7 +135,7 @@ async function detectFirstUse() {
           (point_of_sale_id, site_id, voucher_id, voucher_code, event_type,
            unit_price, currency, source, actor_user_id, event_key, metadata, occurred_at)
          VALUES ($1,$2,$3,$4,'SOLD',$5,$6,'SYSTEM',NULL,$7,$8::jsonb,$9)
-         ON CONFLICT (event_key) DO NOTHING
+         ON CONFLICT DO NOTHING
          RETURNING id`,
         [
           item.pointOfSaleId,
@@ -149,7 +156,8 @@ async function detectFirstUse() {
       );
 
       await client.query(
-        `UPDATE voucher SET first_use_detected_at = COALESCE(first_use_detected_at, NOW())
+        `UPDATE voucher SET first_use_detected_at = COALESCE(first_use_detected_at, NOW()),
+            first_use_detection_issue = NULL
           WHERE id = $1`,
         [item.voucherId],
       );
