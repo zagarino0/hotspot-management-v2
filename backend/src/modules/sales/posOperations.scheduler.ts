@@ -193,12 +193,12 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [pointOfSaleId, businessDate]);
-    const existing = await client.query(
-      `SELECT id FROM point_of_sale_daily_closure
+    const existing = await client.query<{ id: string; status: string; [key: string]: unknown }>(
+      `SELECT * FROM point_of_sale_daily_closure
         WHERE point_of_sale_id = $1 AND business_date = $2::date FOR UPDATE`,
       [pointOfSaleId, businessDate],
     );
-    if (existing.rows[0]) {
+    if (existing.rows[0]?.status === "CLOSED") {
       await client.query("COMMIT");
       return;
     }
@@ -232,29 +232,67 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
       physicalStockCount: null,
       stockReviewRequired: true,
     };
-    const inserted = await client.query<{ id: string }>(
-      `INSERT INTO point_of_sale_daily_closure
-        (point_of_sale_id, business_date, currency, opening_stock, tickets_received,
-         tickets_sold, unsold_in_stock, rejected_pending, unusable_or_replaced,
-         missing_tickets, free_replacements, replacement_tickets_issued,
-         gross_revenue, refunds, net_revenue, stock_discrepancy, status, notes,
-         closed_by, closed_at, physical_stock_count, theoretical_stock, stock_review_required)
-       VALUES ($1,$2::date,$3,0,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,0,
-         'CLOSED','Clôture financière automatique; comptage physique du stock à effectuer.',NULL,NOW(),NULL,NULL,TRUE)
-       ON CONFLICT (point_of_sale_id, business_date) DO NOTHING
-       RETURNING id`,
-      [
-        pointOfSaleId, businessDate, currency, Number(t.tickets_received), Number(t.tickets_sold),
-        Number(t.unsold_in_stock), Number(t.rejected_pending), Number(t.unusable_or_replaced),
-        Number(t.missing_tickets), Number(t.free_replacements), gross, refunds, gross - refunds,
-      ],
-    );
-    if (inserted.rows[0]) {
+    const previous = existing.rows[0];
+    let closureId = previous?.id;
+    if (previous) {
+      await client.query(
+        `UPDATE point_of_sale_daily_closure
+            SET currency = $2,
+                tickets_received = $3,
+                tickets_sold = $4,
+                unsold_in_stock = $5,
+                rejected_pending = $6,
+                unusable_or_replaced = $7,
+                missing_tickets = $8,
+                free_replacements = $9,
+                replacement_tickets_issued = $9,
+                gross_revenue = $10,
+                refunds = $11,
+                net_revenue = $12,
+                status = 'CLOSED',
+                notes = COALESCE(notes || E'\\n', '') || 'Clôture financière automatique; comptage physique du stock à effectuer.',
+                closed_at = NOW(),
+                physical_stock_count = NULL,
+                theoretical_stock = NULL,
+                stock_review_required = TRUE,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [
+          previous.id, currency, Number(t.tickets_received), Number(t.tickets_sold),
+          Number(t.unsold_in_stock), Number(t.rejected_pending), Number(t.unusable_or_replaced),
+          Number(t.missing_tickets), Number(t.free_replacements), gross, refunds, gross - refunds,
+        ],
+      );
+    } else {
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO point_of_sale_daily_closure
+          (point_of_sale_id, business_date, currency, opening_stock, tickets_received,
+           tickets_sold, unsold_in_stock, rejected_pending, unusable_or_replaced,
+           missing_tickets, free_replacements, replacement_tickets_issued,
+           gross_revenue, refunds, net_revenue, stock_discrepancy, status, notes,
+           closed_by, closed_at, physical_stock_count, theoretical_stock, stock_review_required)
+         VALUES ($1,$2::date,$3,0,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,0,
+           'CLOSED','Clôture financière automatique; comptage physique du stock à effectuer.',NULL,NOW(),NULL,NULL,TRUE)
+         ON CONFLICT (point_of_sale_id, business_date) DO NOTHING
+         RETURNING id`,
+        [
+          pointOfSaleId, businessDate, currency, Number(t.tickets_received), Number(t.tickets_sold),
+          Number(t.unsold_in_stock), Number(t.rejected_pending), Number(t.unusable_or_replaced),
+          Number(t.missing_tickets), Number(t.free_replacements), gross, refunds, gross - refunds,
+        ],
+      );
+      closureId = inserted.rows[0]?.id;
+    }
+    if (closureId) {
       await client.query(
         `INSERT INTO point_of_sale_closure_audit
           (closure_id, action, previous_snapshot, new_snapshot, reason, source)
-         VALUES ($1,'AUTO_CLOSED',NULL,$2::jsonb,'Clôture automatique planifiée','SYSTEM')`,
-        [inserted.rows[0].id, JSON.stringify(snapshot)],
+         VALUES ($1,'AUTO_CLOSED',$2::jsonb,$3::jsonb,'Clôture financière automatique planifiée','SYSTEM')`,
+        [
+          closureId,
+          previous ? JSON.stringify(previous) : null,
+          JSON.stringify(snapshot),
+        ],
       );
     }
     await client.query("COMMIT");
