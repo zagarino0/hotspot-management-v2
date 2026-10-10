@@ -27,8 +27,8 @@ ALTER TABLE voucher
     ADD COLUMN IF NOT EXISTS first_use_detected_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_voucher_first_use_pending
-    ON voucher(first_use_detected_at, point_of_sale_id)
-    WHERE first_use_detected_at IS NOT NULL;
+    ON voucher(point_of_sale_id, id)
+    WHERE first_use_detected_at IS NULL;
 
 -- Un versement est une remise physique d'argent; il ne constitue pas une vente.
 CREATE TABLE IF NOT EXISTS point_of_sale_remittance (
