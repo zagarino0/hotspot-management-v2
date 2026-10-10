@@ -459,7 +459,7 @@ export default function SettingsLive() {
                       <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
                         <input
                           type="checkbox"
-                          checked={notificationSettings.siteIds.includes(site.id)}
+                          checked={notificationSettings.siteIds.some((id) => id === site.id)}
                           onChange={(event) => {
                             const selected = event.currentTarget.checked;
                             const siteIds = selected
