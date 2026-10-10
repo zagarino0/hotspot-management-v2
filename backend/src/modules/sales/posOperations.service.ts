@@ -18,8 +18,7 @@ async function assertPermission(userId: string, organizationId: string, code: st
   if (!result.rows[0]) throw forbidden("Permission insuffisante pour cette opération.");
 }
 
-export async function getPosSalesSettings(userId: string, organizationId: string) {
-  await assertPermission(userId, organizationId, "POS_SALES_SETTINGS_READ");
+async function readSettingsRow(organizationId: string) {
   await pool.query(
     `INSERT INTO pos_sales_settings (organization_id) VALUES ($1)
      ON CONFLICT (organization_id) DO NOTHING`,
@@ -37,6 +36,11 @@ export async function getPosSalesSettings(userId: string, organizationId: string
     [organizationId],
   );
   return result.rows[0];
+}
+
+export async function getPosSalesSettings(userId: string, organizationId: string) {
+  await assertPermission(userId, organizationId, "POS_SALES_SETTINGS_READ");
+  return readSettingsRow(organizationId);
 }
 
 export async function updatePosSalesSettings(
@@ -67,7 +71,7 @@ export async function updatePosSalesSettings(
        updated_at = NOW()`,
     [organizationId, input.autoClosureEnabled ?? null, input.closureTime ?? null, TIME_ZONE, input.detectSaleOnFirstUse ?? null, userId],
   );
-  return getPosSalesSettings(userId, organizationId);
+  return readSettingsRow(organizationId);
 }
 
 export async function listPosRemittances(
