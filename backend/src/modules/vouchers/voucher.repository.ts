@@ -186,6 +186,8 @@ export async function findVouchersByBatchId(
 interface PlanSnapshot {
   id: string;
   siteId: string;
+  price: number;
+  currency: string;
   durationSeconds: number | null;
   dataLimitBytes: number | null;
   downloadSpeedBps: number | null;
@@ -202,6 +204,20 @@ export async function generateVoucherBatch(
 
   try {
     await client.query("BEGIN");
+
+    const profilePriceResult = data.mikrotikProfile?.trim()
+      ? await client.query<{ price: string; currency: string }>(
+          `SELECT price::text, currency
+             FROM site_hotspot_profile_price
+            WHERE site_id = $1 AND LOWER(profile_code) = LOWER($2)
+            LIMIT 1`,
+          [data.siteId, data.mikrotikProfile.trim()],
+        )
+      : { rows: [] as { price: string; currency: string }[] };
+    const priceSnapshot = profilePriceResult.rows[0]
+      ? Number(profilePriceResult.rows[0].price)
+      : plan.price;
+    const currencySnapshot = profilePriceResult.rows[0]?.currency ?? plan.currency;
 
     const batchResult = await client.query<{ id: string }>(
       `
@@ -247,6 +263,8 @@ export async function generateVoucherBatch(
           dataLimitBytes: plan.dataLimitBytes,
           downloadSpeedBps: plan.downloadSpeedBps,
           uploadSpeedBps: plan.uploadSpeedBps,
+          priceSnapshot,
+          currencySnapshot,
         }
       );
 
@@ -281,6 +299,8 @@ async function insertVoucherWithRetry(
     dataLimitBytes: number | null;
     downloadSpeedBps: number | null;
     uploadSpeedBps: number | null;
+    priceSnapshot: number;
+    currencySnapshot: string;
   }
 ): Promise<string> {
   let lastError: unknown;
@@ -301,6 +321,8 @@ async function insertVoucherWithRetry(
             batch_id,
             code,
             mikrotik_profile,
+            price_snapshot,
+            currency_snapshot,
             duration_seconds,
             data_limit_bytes,
             download_speed_bps,
@@ -308,7 +330,7 @@ async function insertVoucherWithRetry(
             status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, 'UNUSED'
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'UNUSED'
           )
           RETURNING id
         `,
@@ -318,6 +340,8 @@ async function insertVoucherWithRetry(
           input.batchId,
           code,
           input.mikrotikProfile ?? null,
+          input.priceSnapshot,
+          input.currencySnapshot,
           input.durationSeconds,
           input.dataLimitBytes,
           input.downloadSpeedBps,

@@ -367,6 +367,8 @@ export async function createVoucherBatch(
     {
       id: plan.id,
       siteId: plan.siteId,
+      price: plan.price,
+      currency: plan.currency,
       durationSeconds: plan.durationSeconds,
       dataLimitBytes: plan.dataLimitBytes,
       downloadSpeedBps: plan.downloadSpeedBps,
