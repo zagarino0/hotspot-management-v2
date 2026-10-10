@@ -8,6 +8,17 @@ export type PosTicketEventType = (typeof POS_TICKET_EVENT_TYPES)[number];
 type PosAccess = { id: string; organizationId: string };
 
 async function assertExternalPosAccess(client: PoolClient, pointOfSaleId: string, userId: string): Promise<PosAccess> {
+  // Tant qu'aucun compte responsable n'est explicitement affecté à un point de vente,
+  // seul le rôle système SUPER_ADMIN peut consulter ou modifier ces données.
+  const admin = await client.query(`SELECT 1
+    FROM user_role ur
+    JOIN role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
+    WHERE ur.user_id = $1 AND UPPER(r.code) = 'SUPER_ADMIN'
+      AND (r.organization_id IS NULL OR r.organization_id = (
+        SELECT organization_id FROM "user" WHERE id = $1
+      ))
+    LIMIT 1`, [userId]);
+  if (!admin.rows[0]) throw forbidden("Seul l'administrateur peut accéder à l'historique des points de vente.");
   const result = await client.query<PosAccess>(`SELECT pos.id, pos.organization_id AS "organizationId"
     FROM point_of_sale pos JOIN "user" u ON u.organization_id = pos.organization_id
     WHERE pos.id = $1 AND u.id = $2 AND pos.type = 'EXTERNAL' LIMIT 1`, [pointOfSaleId,userId]);
