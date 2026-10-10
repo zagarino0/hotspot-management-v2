@@ -53,22 +53,20 @@ export async function closePointOfSaleDailySales(req: Request, res: Response, ne
   try {
     const userId = authenticatedUser(req, res); if (!userId) return;
     const body = req.body ?? {};
-    const required = [
-      "businessDate", "openingStock", "unsoldInStock", "rejectedPending",
-      "unusableOrReplaced", "missingTickets",
-    ];
-    if (required.some((key) => body[key] === undefined || body[key] === null)) {
-      return res.status(400).json({ success: false, message: "Les champs obligatoires de la clôture sont incomplets." });
+    const hasPhysicalStock = body.physicalStockCount !== undefined || body.physicalStock !== undefined || body.unsoldInStock !== undefined;
+    if (body.businessDate === undefined || body.openingStock === undefined || !hasPhysicalStock) {
+      return res.status(400).json({ success: false, message: "La date, le stock initial et le comptage physique sont obligatoires." });
     }
+    const physicalStockCount = body.physicalStockCount ?? body.physicalStock ?? body.unsoldInStock;
     const data = await closeDailySales(String(req.params.id), userId, {
       businessDate: String(body.businessDate),
       currency: typeof body.currency === "string" ? body.currency : "MGA",
       openingStock: Number(body.openingStock),
       ticketsReceived: body.ticketsReceived === undefined ? 0 : Number(body.ticketsReceived),
-      unsoldInStock: Number(body.unsoldInStock),
-      rejectedPending: Number(body.rejectedPending),
-      unusableOrReplaced: Number(body.unusableOrReplaced),
-      missingTickets: Number(body.missingTickets),
+      physicalStockCount: Number(physicalStockCount),
+      // Compatibilité avec les clients existants : cette valeur devient le comptage physique.
+      unsoldInStock: body.unsoldInStock === undefined ? undefined : Number(body.unsoldInStock),
+      stockDiscrepancyReason: typeof body.stockDiscrepancyReason === "string" ? body.stockDiscrepancyReason : null,
       notes: typeof body.notes === "string" ? body.notes : null,
     });
     return res.status(201).json({ success: true, data });
