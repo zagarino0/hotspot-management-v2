@@ -4,9 +4,14 @@ import {
   NETWORK_PROBLEM_ROUTER_THRESHOLD,
   NETWORK_PROBLEM_WINDOW_SECONDS,
   ROUTER_OFFLINE_FAILURE_THRESHOLD,
+  SYNC_ERROR_FAILURE_THRESHOLD,
   shouldNotifyNetworkProblem,
   shouldNotifyRouterOffline,
 } from "../src/modules/notifications/notification.rules.js";
+
+test("SYNC_ERROR is triggered on the first failed synchronization", () => {
+  assert.equal(SYNC_ERROR_FAILURE_THRESHOLD, 1);
+});
 
 test("ROUTER_OFFLINE requires two consecutive connection failures", () => {
   assert.equal(ROUTER_OFFLINE_FAILURE_THRESHOLD, 2);
