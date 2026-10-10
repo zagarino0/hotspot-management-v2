@@ -159,6 +159,13 @@ export async function findUsersEligibleForNotification(
      FROM "user" u
      LEFT JOIN notification_setting ns ON ns.user_id = u.id
      WHERE u.organization_id = $1 AND u.status = 'ACTIVE'
+       AND (
+         $2::uuid IS NULL
+         OR EXISTS (
+           SELECT 1 FROM site target_site
+           WHERE target_site.id = $2 AND target_site.organization_id = $1
+         )
+       )
        AND COALESCE(ns.enabled, TRUE) = TRUE
        AND COALESCE(ns.${column}, TRUE) = TRUE
        AND (
