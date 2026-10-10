@@ -94,12 +94,12 @@ export async function findSales(filter?: {
 
   if (filter?.siteId) {
     params.push(filter.siteId);
-    conditions.push(`sa.site_id = ${params.length}`);
+    conditions.push(`sa.site_id = $${params.length}`);
   }
 
   if (filter?.pointOfSaleId) {
     params.push(filter.pointOfSaleId);
-    conditions.push(`sa.point_of_sale_id = ${params.length}`);
+    conditions.push(`sa.point_of_sale_id = $${params.length}`);
   }
 
   const whereClause = conditions.length
