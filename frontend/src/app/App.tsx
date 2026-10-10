@@ -18,8 +18,7 @@ import AddClient from "../pages/Clients/AddClient";
 import Sessions from "../pages/Sessions/Sessions";
 import Vouchers from "../pages/Vouchers/Vouchers";
 import GenerateVouchers from "../pages/Vouchers/GenerateVouchers";
-import Sales from "../pages/Billing/Sales";
-import RecordSale from "../pages/Billing/RecordSale";
+import Sales from "../pages/Billing/DetectedSales";
 import Statistics from "../pages/Statistics/StatisticsLive";
 import Users from "../pages/Users/Users";
 import Roles from "../pages/Roles/Roles";
@@ -115,11 +114,6 @@ export default function App() {
               <Route
                 path="/billing/sales"
                 element={<Sales />}
-              />
-
-              <Route
-                path="/billing/sales/new"
-                element={<RecordSale />}
               />
 
               <Route
