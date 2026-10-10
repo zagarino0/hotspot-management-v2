@@ -243,65 +243,101 @@ export async function createSale(data: CreateSaleData) {
   });
 }
 
-export async function recordPayment(
-  data: RecordPaymentData
-) {
-  if (!(data.amount > 0)) {
-    throw badRequest(
-      "Le montant du paiement doit être positif."
+export async function recordPayment(data: RecordPaymentData) {
+  if (!Number.isFinite(data.amount) || data.amount <= 0) {
+    throw badRequest("Le montant du paiement doit être positif.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verrouiller la vente sérialise les paiements concurrents d'une même vente.
+    const saleResult = await client.query<{
+      id: string;
+      siteId: string;
+      currency: string;
+      status: SaleStatus;
+      totalAmount: string;
+      voucherId: string | null;
+    }>(
+      `SELECT id, site_id AS "siteId", currency, status,
+              total_amount::text AS "totalAmount",
+              voucher_id AS "voucherId"
+       FROM sale WHERE id = $1 FOR UPDATE`,
+      [data.saleId]
     );
-  }
+    const sale = saleResult.rows[0];
+    if (!sale) throw notFoundError("Vente introuvable.");
 
-  const sale = await findSaleById(data.saleId);
-
-  if (!sale) {
-    throw notFoundError("Vente introuvable.");
-  }
-
-  if (
-    sale.status === "CANCELLED" ||
-    sale.status === "REFUNDED"
-  ) {
-    throw conflict(
-      `Cette vente est "${sale.status}", aucun paiement ne peut plus y être ajouté.`
-    );
-  }
-
-  const payment = await insertPayment(
-    sale.siteId,
-    data,
-    sale.currency
-  );
-
-  if (payment.status === "SUCCESS") {
-    const payments = await findPaymentsBySaleId(sale.id);
-
-    const totalPaid = payments
-      .filter((p) => p.status === "SUCCESS")
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const newStatus: SaleStatus =
-      totalPaid >= sale.totalAmount
-        ? "PAID"
-        : totalPaid > 0
-          ? "PARTIALLY_PAID"
-          : sale.status;
-
-    await updateSaleStatus(sale.id, newStatus);
-
-    if (newStatus === "PAID" && sale.voucherId) {
-      await pool.query(
-        `
-          UPDATE voucher
-          SET sold_at = COALESCE(sold_at, NOW())
-          WHERE id = $1
-        `,
-        [sale.voucherId]
-      );
+    if (sale.status === "CANCELLED" || sale.status === "REFUNDED") {
+      throw conflict(`Cette vente est "${sale.status}", aucun paiement ne peut plus y être ajouté.`);
     }
-  }
 
-  return payment;
+    const reservedResult = await client.query<{ amount: string }>(
+      `SELECT COALESCE(SUM(amount), 0)::text AS amount
+       FROM payment WHERE sale_id = $1 AND status IN ('SUCCESS', 'PENDING')`,
+      [sale.id]
+    );
+    const reserved = Number(reservedResult.rows[0]?.amount ?? 0);
+    const totalAmount = Number(sale.totalAmount);
+    if (reserved + data.amount > totalAmount + 0.000001) {
+      throw conflict("Le montant dépasse le solde restant de cette vente.");
+    }
+
+    const status = data.markAsPaid ? "SUCCESS" : "PENDING";
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO payment (
+         site_id, sale_id, amount, currency, method, status, paid_at,
+         reference, customer_phone, notes
+       )
+       VALUES ($1, $2, $3, $4, $5, $6,
+               CASE WHEN $6::varchar = 'SUCCESS' THEN NOW() ELSE NULL END,
+               $7, $8, $9)
+       RETURNING id`,
+      [sale.siteId, sale.id, data.amount, sale.currency, data.method, status,
+       data.reference ?? null, data.customerPhone ?? null, data.notes ?? null]
+    );
+
+    if (status === "SUCCESS") {
+      const paidResult = await client.query<{ amount: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text AS amount
+         FROM payment WHERE sale_id = $1 AND status = 'SUCCESS'`,
+        [sale.id]
+      );
+      const paid = Number(paidResult.rows[0]?.amount ?? 0);
+      const newStatus: SaleStatus = paid >= totalAmount - 0.000001
+        ? "PAID"
+        : paid > 0 ? "PARTIALLY_PAID" : sale.status;
+      await client.query(
+        "UPDATE sale SET status = $2, updated_at = NOW() WHERE id = $1",
+        [sale.id, newStatus]
+      );
+      if (newStatus === "PAID" && sale.voucherId) {
+        await client.query(
+          "UPDATE voucher SET sold_at = COALESCE(sold_at, NOW()) WHERE id = $1",
+          [sale.voucherId]
+        );
+      }
+    }
+
+    const paymentResult = await client.query(
+      `SELECT id, site_id AS "siteId", sale_id AS "saleId",
+              amount::float8 AS amount, currency, method, status,
+              paid_at AS "paidAt", reference,
+              customer_phone AS "customerPhone", notes,
+              created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM payment WHERE id = $1`,
+      [inserted.rows[0].id]
+    );
+    await client.query("COMMIT");
+    return paymentResult.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function cancelSale(id: string) {
