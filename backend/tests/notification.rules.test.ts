@@ -1,0 +1,32 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  NETWORK_PROBLEM_ROUTER_THRESHOLD,
+  NETWORK_PROBLEM_WINDOW_SECONDS,
+  ROUTER_OFFLINE_FAILURE_THRESHOLD,
+  shouldNotifyNetworkProblem,
+  shouldNotifyRouterOffline,
+} from "../src/modules/notifications/notification.rules.js";
+
+test("ROUTER_OFFLINE requires two consecutive connection failures", () => {
+  assert.equal(ROUTER_OFFLINE_FAILURE_THRESHOLD, 2);
+  assert.equal(shouldNotifyRouterOffline(0), false);
+  assert.equal(shouldNotifyRouterOffline(1), false);
+  assert.equal(shouldNotifyRouterOffline(2), true);
+  assert.equal(shouldNotifyRouterOffline(3), true);
+});
+
+test("NETWORK_PROBLEM requires two distinct offline routers within 30 seconds", () => {
+  assert.equal(NETWORK_PROBLEM_ROUTER_THRESHOLD, 2);
+  assert.equal(NETWORK_PROBLEM_WINDOW_SECONDS, 30);
+  assert.equal(shouldNotifyNetworkProblem(1, 5), false);
+  assert.equal(shouldNotifyNetworkProblem(2, 30), true);
+  assert.equal(shouldNotifyNetworkProblem(3, 12), true);
+  assert.equal(shouldNotifyNetworkProblem(2, 31), false);
+  assert.equal(shouldNotifyNetworkProblem(2, -1), false);
+});
+
+test("invalid counts or timestamps cannot trigger NETWORK_PROBLEM", () => {
+  assert.equal(shouldNotifyNetworkProblem(1.5, 10), false);
+  assert.equal(shouldNotifyNetworkProblem(2, Number.NaN), false);
+});
