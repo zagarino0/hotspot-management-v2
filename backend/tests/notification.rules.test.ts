@@ -16,13 +16,12 @@ test("ROUTER_OFFLINE requires two consecutive connection failures", () => {
   assert.equal(shouldNotifyRouterOffline(3), true);
 });
 
-test("NETWORK_PROBLEM requires two distinct offline routers within 30 seconds", () => {
+test("NETWORK_PROBLEM requires two distinct routers already filtered to the 30-second window", () => {
   assert.equal(NETWORK_PROBLEM_ROUTER_THRESHOLD, 2);
   assert.equal(NETWORK_PROBLEM_WINDOW_SECONDS, 30);
   assert.equal(shouldNotifyNetworkProblem(1), false);
   assert.equal(shouldNotifyNetworkProblem(2), true);
   assert.equal(shouldNotifyNetworkProblem(3), true);
-  assert.equal(shouldNotifyNetworkProblem(1), false);
   assert.equal(shouldNotifyNetworkProblem(0), false);
 });
 
