@@ -90,12 +90,19 @@ async function detectFirstUse() {
       firstSessionAt: string;
       unitPrice: string;
       currency: string;
+      priceSource: string;
       businessDate: string;
     }>(
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              COALESCE(sp.price, p.price)::text AS "unitPrice", COALESCE(sp.currency, p.currency) AS currency,
+              COALESCE(v.price_snapshot, sp.price, p.price)::text AS "unitPrice",
+              COALESCE(v.currency_snapshot, sp.currency, p.currency) AS currency,
+              CASE
+                WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
+                WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
+                ELSE 'CURRENT_PLAN'
+              END AS "priceSource",
               (first_session.started_at AT TIME ZONE $1)::date::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
@@ -149,6 +156,7 @@ async function detectFirstUse() {
             detection: "FIRST_SUCCESSFUL_SESSION",
             detectedAt: new Date().toISOString(),
             firstSessionStartedAt: item.firstSessionAt,
+            priceSource: item.priceSource,
             saleTimeVerified: false,
           }),
           item.firstSessionAt,
