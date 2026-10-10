@@ -298,34 +298,25 @@ async function runSchedulerCycle() {
       if (!setting.enabled) continue;
       const closureTime = setting.closureTime.slice(0, 5);
       const targetDate = isClosureDue(nowTime, closureTime) ? nowDate : addDays(nowDate, -1);
-      const posResult = await pool.query<{ id: string; createdDate: string }>(
-        `SELECT pos.id,
-                (pos.created_at AT TIME ZONE $2)::date::text AS "createdDate"
+      const posResult = await pool.query<{ id: string }>(
+        `SELECT pos.id
            FROM point_of_sale pos
           WHERE pos.organization_id = $1 AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'`,
-        [setting.organizationId, TIME_ZONE],
+        [setting.organizationId],
       );
       for (const pos of posResult.rows) {
-        const startDateResult = await pool.query<{ startDate: string | null }>(
-          `SELECT LEAST(
-             COALESCE((SELECT MIN((e.occurred_at AT TIME ZONE $2)::date)::text
-                         FROM point_of_sale_ticket_event e WHERE e.point_of_sale_id = $1),
-                      $3::text),
-             $3::text
-           ) AS "startDate"`,
-          [pos.id, TIME_ZONE, pos.createdDate],
-        );
-        const startDate = startDateResult.rows[0]?.startDate ?? targetDate;
-        let date = startDate > targetDate ? targetDate : startDate;
-        // Bound catch-up work to one year per cycle; next cycles continue from the last closed date.
         const existing = await pool.query<{ lastDate: string | null }>(
           `SELECT MAX(business_date)::text AS "lastDate"
              FROM point_of_sale_daily_closure WHERE point_of_sale_id = $1`,
           [pos.id],
         );
-        if (existing.rows[0]?.lastDate) {
-          date = addDays(existing.rows[0].lastDate as string, 1);
-        }
+        // Au premier lancement de cette fonctionnalité, ne pas créer rétroactivement
+        // des centaines de clôtures vides: commencer à la date cible. Ensuite, rattraper
+        // chaque journée manquée depuis la dernière clôture persistée.
+        let date = existing.rows[0]?.lastDate
+          ? addDays(existing.rows[0].lastDate as string, 1)
+          : targetDate;
+        // Bound catch-up work to one year per cycle; next cycles continue from the last closed date.
         if (date < addDays(targetDate, -365)) date = addDays(targetDate, -365);
         for (let n = 0; date <= targetDate && n < 366; n++, date = addDays(date, 1)) {
           await closeFinancialDay(pos.id, date);
