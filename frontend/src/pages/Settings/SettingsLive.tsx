@@ -1,9 +1,12 @@
 import {
+  Bell,
+  CheckCircle2,
   CircleAlert,
   Database,
   MapPin,
   RefreshCw,
   Router,
+  Save,
   Settings as SettingsIcon,
   Wifi,
 } from "lucide-react";
@@ -18,6 +21,12 @@ import {
   type Router as RouterData,
 } from "../../services/routerService";
 import { getSites, type Site } from "../../services/siteService";
+import {
+  getNotificationSettings,
+  saveNotificationSettings,
+  type NotificationSettings,
+  type NotificationSettingsPayload,
+} from "../../services/notificationService";
 import { getDashboardOverview } from "../../services/statisticsService";
 
 interface ConfigurationData {
@@ -33,6 +42,11 @@ export default function SettingsLive() {
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings | null>(null);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -42,12 +56,13 @@ export default function SettingsLive() {
       setError(null);
 
       try {
-        const [sites, routers, accessPoints, dashboard] =
+        const [sites, routers, accessPoints, dashboard, savedNotificationSettings] =
           await Promise.all([
             getSites(),
             getRouters(),
             getAccessPoints(),
             getDashboardOverview(7),
+            getNotificationSettings(),
           ]);
 
         if (active) {
@@ -57,6 +72,7 @@ export default function SettingsLive() {
             accessPoints,
             databaseAvailable: dashboard.dbHealthy,
           });
+          setNotificationSettings(savedNotificationSettings);
         }
       } catch (reason) {
         if (active) {
@@ -79,6 +95,47 @@ export default function SettingsLive() {
       active = false;
     };
   }, [retry]);
+
+  function patchNotificationSettings(
+    patch: Partial<NotificationSettingsPayload>,
+  ) {
+    setNotificationSettings((current) =>
+      current ? { ...current, ...patch } : current,
+    );
+    setNotificationMessage(null);
+    setNotificationError(null);
+  }
+
+  async function saveNotifications() {
+    if (!notificationSettings) return;
+
+    setSavingNotifications(true);
+    setNotificationMessage(null);
+    setNotificationError(null);
+
+    try {
+      const saved = await saveNotificationSettings({
+        enabled: notificationSettings.enabled,
+        newSessionEnabled: notificationSettings.newSessionEnabled,
+        networkProblemEnabled: notificationSettings.networkProblemEnabled,
+        routerOfflineEnabled: notificationSettings.routerOfflineEnabled,
+        routerOnlineEnabled: notificationSettings.routerOnlineEnabled,
+        syncErrorEnabled: notificationSettings.syncErrorEnabled,
+        allSites: notificationSettings.allSites,
+        siteIds: notificationSettings.allSites ? [] : notificationSettings.siteIds,
+      });
+      setNotificationSettings(saved);
+      setNotificationMessage("Paramètres de notifications enregistrés dans PostgreSQL.");
+    } catch (reason) {
+      setNotificationError(
+        reason instanceof Error
+          ? reason.message
+          : "Impossible d'enregistrer les paramètres de notifications.",
+      );
+    } finally {
+      setSavingNotifications(false);
+    }
+  }
 
   const timezones = useMemo(() => {
     if (!configuration) return [];
@@ -314,6 +371,125 @@ export default function SettingsLive() {
             dernière vérification enregistrée.
           </p>
         </article>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+            <div>
+              <h2 className="font-semibold text-slate-900">Notifications</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                Configurez les alertes enregistrées côté serveur. Ces préférences s'appliquent à votre compte et aux sites autorisés de votre organisation.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void saveNotifications()}
+            disabled={!notificationSettings || savingNotifications}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            {savingNotifications ? "Enregistrement…" : "Enregistrer"}
+          </button>
+        </div>
+
+        {!notificationSettings ? (
+          <p className="mt-4 text-sm text-slate-500">Chargement des préférences de notifications…</p>
+        ) : (
+          <>
+            <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-slate-200 p-4">
+              <span>
+                <span className="block text-sm font-semibold text-slate-900">Notifications activées</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">Désactive toutes les notifications pour votre compte sans supprimer l'historique.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={notificationSettings.enabled}
+                onChange={(event) => patchNotificationSettings({ enabled: event.currentTarget.checked })}
+                className="h-4 w-4 accent-slate-900"
+              />
+            </label>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {([
+                ["newSessionEnabled", "Nouvelles sessions", "Lorsqu'une nouvelle session MikroTik est détectée."],
+                ["networkProblemEnabled", "Problèmes réseau", "Quand plusieurs routeurs d'un même site deviennent injoignables."],
+                ["routerOfflineEnabled", "Routeur hors ligne", "Après deux échecs de connexion consécutifs."],
+                ["routerOnlineEnabled", "Retour en ligne", "Quand un routeur en panne est de nouveau accessible."],
+                ["syncErrorEnabled", "Erreur de synchronisation", "Quand la synchronisation d'un routeur échoue."],
+              ] as const).map(([key, label, description]) => (
+                <label key={key} className="flex cursor-pointer items-start justify-between gap-4 rounded-lg border border-slate-200 p-4">
+                  <span>
+                    <span className="block text-sm font-medium text-slate-800">{label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings[key]}
+                    disabled={!notificationSettings.enabled}
+                    onChange={(event) => patchNotificationSettings({ [key]: event.currentTarget.checked })}
+                    className="mt-1 h-4 w-4 shrink-0 accent-slate-900 disabled:opacity-40"
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-lg border border-slate-200 p-4">
+              <h3 className="text-sm font-semibold text-slate-900">Sites concernés</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Limitez les notifications aux sites sélectionnés ou appliquez-les à tous les sites de votre organisation.</p>
+              <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={notificationSettings.allSites}
+                  onChange={(event) => patchNotificationSettings({
+                    allSites: event.currentTarget.checked,
+                    siteIds: event.currentTarget.checked ? [] : notificationSettings.siteIds,
+                  })}
+                  className="h-4 w-4 accent-slate-900"
+                />
+                Tous les sites
+              </label>
+
+              {!notificationSettings.allSites ? (
+                configuration.sites.length ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {configuration.sites.map((site) => (
+                      <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.siteIds.includes(site.id)}
+                          onChange={(event) => {
+                            const selected = event.currentTarget.checked;
+                            const siteIds = selected
+                              ? [...notificationSettings.siteIds, site.id]
+                              : notificationSettings.siteIds.filter((id) => id !== site.id);
+                            patchNotificationSettings({ siteIds: [...new Set(siteIds)] });
+                          }}
+                          className="h-4 w-4 accent-slate-900"
+                        />
+                        <span className="truncate">{site.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">Aucun site disponible pour cette organisation.</p>
+                )
+              ) : null}
+            </div>
+          </>
+        )}
+
+        {notificationError ? (
+          <p role="alert" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{notificationError}</p>
+        ) : null}
+        {notificationMessage ? (
+          <p role="status" className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {notificationMessage}
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
