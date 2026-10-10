@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import {
   getPosSalesSettings,
+  listPosClosureAudit,
   listPosRemittances,
   recordPosRemittance,
   updatePosSalesSettings,
@@ -72,5 +73,16 @@ export async function postPosRemittance(req: Request, res: Response, next: NextF
       note: typeof body.note === "string" ? body.note : null,
     });
     return res.status(201).json({ success: true, data });
+  } catch (error) { return next(error); }
+}
+
+export async function readPosClosureAudit(req: Request, res: Response, next: NextFunction) {
+  try {
+    const auth = identity(req, res);
+    if (!auth) return;
+    const from = typeof req.query.from === "string" ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" ? req.query.to : undefined;
+    const data = await listPosClosureAudit(auth.userId, auth.organizationId, String(req.params.id), from, to);
+    return res.status(200).json({ success: true, data });
   } catch (error) { return next(error); }
 }
