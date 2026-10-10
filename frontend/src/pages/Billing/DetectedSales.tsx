@@ -81,7 +81,7 @@ export default function Sales() {
     setLoading(true);
     loadPoints()
       .catch(() => { if (active) setError("Impossible de charger les points de vente."); })
-      .finally(() => { if (active) setLoading(false); });
+      .then(() => { if (active) setLoading(false); }, () => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
 
@@ -111,7 +111,7 @@ export default function Sales() {
           : closureRows[0]?.business_date.slice(0, 10) || "");
       })
       .catch(() => { if (active) setError("Impossible de charger les ventes détectées, les clôtures ou les versements."); })
-      .finally(() => { if (active) setLoading(false); });
+      .then(() => { if (active) setLoading(false); }, () => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [selectedId]);
 
