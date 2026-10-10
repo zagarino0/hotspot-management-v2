@@ -9,14 +9,11 @@ export function shouldNotifyRouterOffline(consecutiveConnectionFailures: number)
     && consecutiveConnectionFailures >= ROUTER_OFFLINE_FAILURE_THRESHOLD;
 }
 
-/** Le problème réseau est déclenché par des routeurs distincts dans la fenêtre métier. */
-export function shouldNotifyNetworkProblem(
-  distinctOfflineRouters: number,
-  oldestOutageAgeSeconds: number
-): boolean {
-  return Number.isInteger(distinctOfflineRouters)
-    && distinctOfflineRouters >= NETWORK_PROBLEM_ROUTER_THRESHOLD
-    && Number.isFinite(oldestOutageAgeSeconds)
-    && oldestOutageAgeSeconds >= 0
-    && oldestOutageAgeSeconds <= NETWORK_PROBLEM_WINDOW_SECONDS;
+/**
+ * Le paramètre doit déjà représenter le nombre de routeurs distincts du site
+ * dont offline_since se trouve dans la fenêtre de 30 secondes.
+ */
+export function shouldNotifyNetworkProblem(recentDistinctOfflineRouters: number): boolean {
+  return Number.isInteger(recentDistinctOfflineRouters)
+    && recentDistinctOfflineRouters >= NETWORK_PROBLEM_ROUTER_THRESHOLD;
 }
