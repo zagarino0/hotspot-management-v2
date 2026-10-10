@@ -1,5 +1,6 @@
 import { pool } from "../../database/pool.js";
 import { badRequest, forbidden, notFoundError } from "../../lib/errors.js";
+import { isValidClosureTime } from "./posOperations.rules.js";
 
 const TIME_ZONE = "Indian/Antananarivo";
 
@@ -55,7 +56,7 @@ export async function updatePosSalesSettings(
   if (input.detectSaleOnFirstUse !== undefined && typeof input.detectSaleOnFirstUse !== "boolean") {
     throw badRequest("detectSaleOnFirstUse doit être un booléen.");
   }
-  if (input.closureTime !== undefined && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.closureTime)) {
+  if (input.closureTime !== undefined && !isValidClosureTime(input.closureTime)) {
     throw badRequest("L'heure de clôture doit respecter le format HH:mm (00:00–23:59).");
   }
 
