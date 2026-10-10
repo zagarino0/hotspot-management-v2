@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { pool } from "../src/database/pool.js";
+import { countRecentOfflineRouters, hasOfflineRoutersForSite, updateRouterHealth } from "../src/modules/routers/router.repository.js";
 import {
   getNotificationSettings,
   publishNotification,
@@ -19,10 +20,15 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
   const userA = randomUUID();
   const userA2 = randomUUID();
   const userB = randomUUID();
+  const routerA1 = randomUUID();
+  const routerA2 = randomUUID();
+  const routerA2Site = randomUUID();
+  const routerB = randomUUID();
   let seeded = false;
 
   t.after(async () => {
     if (seeded) {
+      await pool.query("DELETE FROM router WHERE id = ANY($1::uuid[])", [[routerA1, routerA2, routerA2Site, routerB]]);
       await pool.query('DELETE FROM "user" WHERE id = ANY($1::uuid[])', [[userA, userA2, userB]]);
       await pool.query("DELETE FROM site WHERE id = ANY($1::uuid[])", [[siteA, siteA2, siteB]]);
       await pool.query("DELETE FROM organization WHERE id = ANY($1::uuid[])", [[orgA, orgB]]);
@@ -48,6 +54,13 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
      userA2, `notif-a2-${suffix}`, userB, orgB, `notif-b-${suffix}`],
   );
 
+  await pool.query(
+    "INSERT INTO router (id,site_id,name,code,management_ip) VALUES ($1,$2,$3,$4,$5),($6,$2,$7,$8,$9),($10,$11,$12,$13,$14),($15,$16,$17,$18,$19)",
+    [routerA1, siteA, "Router A1", `ROUTER-A1-${suffix}`, "192.0.2.11",
+     routerA2, "Router A2", `ROUTER-A2-${suffix}`, "192.0.2.12",
+     routerA2Site, siteA2, "Router A2 site", `ROUTER-A2S-${suffix}`, "192.0.2.13",
+     routerB, siteB, "Router B", `ROUTER-B-${suffix}`, "192.0.2.14"],
+  );
   const savedSettings = await updateNotificationSettings(userA, {
     enabled: true,
     newSessionEnabled: true,
@@ -112,4 +125,37 @@ test("PostgreSQL notifications integration: preferences, site/org isolation, ded
 
   const republished = await publishNotification(orgA, { ...notification, siteId: siteA });
   assert.equal(republished.length, 2, "a new occurrence after resolution may create a fresh active event");
+  const failConnection = (routerId: string) => updateRouterHealth({
+    routerId, reachable: false, connectionFailure: true, errorMessage: "integration connection failure",
+  });
+  const firstFailure = await failConnection(routerA1);
+  assert.equal(firstFailure?.consecutiveConnectionFailures, 1);
+  assert.equal(await countRecentOfflineRouters(orgA, siteA), 1, "one failed router is not yet a site-wide network incident");
+  const secondFailure = await failConnection(routerA1);
+  assert.equal(secondFailure?.consecutiveConnectionFailures, 2);
+
+  await failConnection(routerA2);
+  const secondRouterFailure = await failConnection(routerA2);
+  assert.equal(secondRouterFailure?.consecutiveConnectionFailures, 2);
+  assert.equal(await countRecentOfflineRouters(orgA, siteA), 2, "two routers offline within 30 seconds satisfy the site threshold");
+
+  await failConnection(routerA2Site);
+  await failConnection(routerA2Site);
+  assert.equal(await countRecentOfflineRouters(orgA, siteA2), 1, "another site is counted independently");
+  assert.equal(await countRecentOfflineRouters(orgA, siteA), 2, "another site does not affect site A");
+
+  await failConnection(routerB);
+  await failConnection(routerB);
+  assert.equal(await countRecentOfflineRouters(orgA, siteB), 0, "an organization cannot count another organization site");
+  assert.equal(await countRecentOfflineRouters(orgB, siteB), 1);
+
+  const recoveredA1 = await updateRouterHealth({ routerId: routerA1, reachable: true });
+  assert.equal(recoveredA1?.currentStatus, "ONLINE");
+  assert.equal(recoveredA1?.consecutiveConnectionFailures, 0);
+  assert.equal(await countRecentOfflineRouters(orgA, siteA), 1, "recovered routers leave the offline count");
+  assert.equal(await hasOfflineRoutersForSite(orgA, siteA), true, "the incident remains while another router is offline");
+
+  await updateRouterHealth({ routerId: routerA2, reachable: true });
+  assert.equal(await countRecentOfflineRouters(orgA, siteA), 0);
+  assert.equal(await hasOfflineRoutersForSite(orgA, siteA), false, "the site incident clears after all configured routers recover");
 });
