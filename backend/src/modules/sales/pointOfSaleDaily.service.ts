@@ -86,35 +86,63 @@ export async function createTicketEvent(id: string,userId: string,input: {
   } catch(e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
 }
 export async function closeDailySales(id:string,userId:string,input:{
-  businessDate:string;currency?:string;openingStock:number;ticketsReceived?:number;unsoldInStock:number;
-  rejectedPending:number;unusableOrReplaced:number;missingTickets:number;notes?:string|null;
+  businessDate:string;currency?:string;openingStock:number;ticketsReceived?:number;
+  physicalStockCount?:number;unsoldInStock?:number;rejectedPending?:number;
+  unusableOrReplaced?:number;missingTickets?:number;notes?:string|null;
+  stockDiscrepancyReason?:string|null;
 }) {
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.businessDate)) throw badRequest("La date doit respecter le format YYYY-MM-DD.");
   const d=new Date(input.businessDate+"T00:00:00Z");
   if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==input.businessDate) throw badRequest("La date de clôture est invalide.");
   const currency=(input.currency??"MGA").toUpperCase(); if(currency!=="MGA") throw badRequest("La devise de ce point de vente doit être MGA.");
-  const baseCounts=[input.openingStock,input.ticketsReceived??0,input.unsoldInStock,input.rejectedPending,input.unusableOrReplaced,input.missingTickets];
-  if(baseCounts.some(n=>!Number.isSafeInteger(n)||n<0)) throw badRequest("Les compteurs de stock doivent être des entiers positifs ou nuls.");
+  // Compatibilité API : les anciens clients transmettent unsoldInStock comme comptage physique.
+  const physicalStockCount=input.physicalStockCount ?? input.unsoldInStock;
+  const baseCounts=[input.openingStock,input.ticketsReceived??0,physicalStockCount];
+  if(baseCounts.some(n=>n===undefined||!Number.isSafeInteger(n)||Number(n)<0)) throw badRequest("Le stock initial, les entrées et le stock physique doivent être des entiers positifs ou nuls.");
   const c=await pool.connect();
   try {
     await c.query("BEGIN"); const pos=await assertExternalPosAccess(c,id,userId);
     await assertPermission(c,userId,pos.organizationId,"POS_DAILY_CLOSURES_CLOSE");
-    const events=await c.query<{eventType:string;voucherCode:string;unitPrice:string;currency:string}>(`SELECT event_type AS "eventType",voucher_code AS "voucherCode",unit_price::text AS "unitPrice",currency
-      FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1 AND (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date=$2::date AND event_type IN ('SOLD','REFUNDED')`,[id,input.businessDate]);
+    const events=await c.query<{eventType:string;voucherCode:string;replacementVoucherCode:string|null;unitPrice:string;currency:string}>(`SELECT event_type AS "eventType",voucher_code AS "voucherCode",
+      replacement_voucher_code AS "replacementVoucherCode",unit_price::text AS "unitPrice",currency
+      FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1
+      AND (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date=$2::date
+      AND event_type IN ('SOLD','REFUNDED','UNSOLD_CONFIRMED','REJECTED','UNUSABLE','MISSING','REPLACED')`,[id,input.businessDate]);
     let fin:ReturnType<typeof calculateDailyFinancials>;
     try { fin=calculateDailyFinancials(events.rows.map(e=>({...e,unitPrice:Number(e.unitPrice)})),currency); }
     catch(e) { throw badRequest(e instanceof Error?e.message:"Événements financiers incohérents."); }
-    const reps=await c.query<{count:string}>(`SELECT COUNT(*)::text AS count FROM point_of_sale_ticket_event
-      WHERE point_of_sale_id=$1 AND (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date=$2::date AND event_type='REPLACED'`,[id,input.businessDate]);
-    const replacementCount=Number(reps.rows[0]?.count??0);
-    const stock=calculateDailyStock({openingStock:input.openingStock,ticketsReceived:input.ticketsReceived??0,ticketsSold:fin.ticketsSold,
-      unsoldInStock:input.unsoldInStock,rejectedPending:input.rejectedPending,unusableOrReplaced:input.unusableOrReplaced,
-      replacementTicketsIssued:replacementCount,missingTickets:input.missingTickets});
+
+    const distinctCount=(eventType:string, useReplacementCode=false) => {
+      const codes=new Set(events.rows.filter(e=>e.eventType===eventType)
+        .map(e=>(useReplacementCode?(e.replacementVoucherCode??e.voucherCode):e.voucherCode).trim().toLowerCase()));
+      return codes.size;
+    };
+    const unsoldInStock=distinctCount("UNSOLD_CONFIRMED");
+    const rejectedPending=distinctCount("REJECTED");
+    const unusableOrReplaced=distinctCount("UNUSABLE");
+    const missingTickets=distinctCount("MISSING");
+    const replacementCount=distinctCount("REPLACED",true);
+    const stock=calculateDailyStock({
+      openingStock:input.openingStock,ticketsReceived:input.ticketsReceived??0,ticketsSold:fin.ticketsSold,
+      unsoldInStock,rejectedPending,unusableOrReplaced,replacementTicketsIssued:replacementCount,
+      missingTickets,physicalStockCount:Number(physicalStockCount),
+    });
+    const stockReviewRequired=!stock.stockBalanced;
     const r=await c.query(`INSERT INTO point_of_sale_daily_closure
-      (point_of_sale_id,business_date,currency,opening_stock,tickets_received,tickets_sold,unsold_in_stock,rejected_pending,unusable_or_replaced,replacement_tickets_issued,missing_tickets,free_replacements,gross_revenue,refunds,net_revenue,stock_discrepancy,status,notes,created_by,closed_by,closed_at)
-      VALUES ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10,$12,$13,$14,$15,'CLOSED',$16,$17,$17,NOW()) RETURNING *`,
-      [id,input.businessDate,currency,input.openingStock,input.ticketsReceived??0,fin.ticketsSold,input.unsoldInStock,input.rejectedPending,input.unusableOrReplaced,replacementCount,input.missingTickets,fin.grossRevenue,fin.refunds,fin.netRevenue,stock.discrepancy,input.notes??null,userId]);
-    await c.query("COMMIT"); return {...r.rows[0],stockBalanced:stock.stockBalanced,expectedStock:stock.expectedStock,accountedStock:stock.accountedStock};
+      (point_of_sale_id,business_date,currency,opening_stock,tickets_received,tickets_sold,unsold_in_stock,
+       rejected_pending,unusable_or_replaced,replacement_tickets_issued,missing_tickets,free_replacements,
+       gross_revenue,refunds,net_revenue,stock_discrepancy,physical_stock_count,theoretical_stock,
+       event_stock_discrepancy,stock_review_required,stock_discrepancy_reason,status,notes,created_by,closed_by,closed_at)
+      VALUES ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10,$12,$13,$14,$15,$16,$17,$18,$19,$20,'CLOSED',$21,$22,$22,NOW()) RETURNING *`,
+      [id,input.businessDate,currency,input.openingStock,input.ticketsReceived??0,fin.ticketsSold,unsoldInStock,
+        rejectedPending,unusableOrReplaced,replacementCount,missingTickets,fin.grossRevenue,fin.refunds,fin.netRevenue,
+        stock.discrepancy,stock.physicalStockCount,stock.theoreticalStock,stock.eventStockDiscrepancy,stockReviewRequired,
+        input.stockDiscrepancyReason?.trim()||null,input.notes??null,userId]);
+    await c.query("COMMIT");
+    return {...r.rows[0],stockBalanced:stock.stockBalanced,expectedStock:stock.expectedStock,
+      accountedStock:stock.accountedStock,theoreticalStock:stock.theoreticalStock,
+      physicalStockCount:stock.physicalStockCount,eventStockDiscrepancy:stock.eventStockDiscrepancy,
+      stockReviewRequired};
   } catch(e:any) { await c.query("ROLLBACK"); if(e?.code==="23505") throw conflict("Une clôture existe déjà pour ce point de vente et cette date. Toute correction doit être auditée."); throw e; }
   finally { c.release(); }
 }
