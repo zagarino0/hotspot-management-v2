@@ -118,12 +118,14 @@ async function detectFirstUse() {
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              p.price::text AS "unitPrice", p.currency,
+              COALESCE(sp.price, p.price)::text AS "unitPrice", COALESCE(sp.currency, p.currency) AS currency,
               (first_session.started_at AT TIME ZONE $1)::date::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
            AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
          JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+         LEFT JOIN site_hotspot_profile_price sp
+           ON sp.site_id = v.site_id AND sp.profile_code = v.mikrotik_profile
          JOIN LATERAL (
            SELECT MIN(s.started_at) AS started_at
              FROM session s
