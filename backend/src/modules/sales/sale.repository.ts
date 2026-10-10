@@ -94,12 +94,12 @@ export async function findSales(filter?: {
 
   if (filter?.siteId) {
     params.push(filter.siteId);
-    conditions.push(`sa.site_id = ${params.length}`);
+    conditions.push(`sa.site_id = $${params.length}`);
   }
 
   if (filter?.pointOfSaleId) {
     params.push(filter.pointOfSaleId);
-    conditions.push(`sa.point_of_sale_id = ${params.length}`);
+    conditions.push(`sa.point_of_sale_id = $${params.length}`);
   }
 
   const whereClause = conditions.length
@@ -260,7 +260,7 @@ export async function insertSale(
         created_by
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', $13
       )
       RETURNING id
     `,
