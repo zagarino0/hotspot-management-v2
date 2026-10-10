@@ -5,7 +5,7 @@ const POLL_INTERVAL_MS = 30_000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
-function localParts(date = new Date()) {
+export function localParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIME_ZONE,
     year: "numeric",
@@ -18,17 +18,17 @@ function localParts(date = new Date()) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-function localDate(date = new Date()) {
+export function localDate(date = new Date()) {
   const p = localParts(date);
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-function localTime(date = new Date()) {
+export function localTime(date = new Date()) {
   const p = localParts(date);
   return `${p.hour}:${p.minute}`;
 }
 
-function addDays(date: string, days: number) {
+export function addDays(date: string, days: number) {
   const d = new Date(`${date}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
@@ -201,6 +201,10 @@ async function detectFirstUse() {
   }
 }
 
+export function isClosureDue(currentLocalTime: string, configuredTime: string) {
+  return currentLocalTime >= configuredTime.slice(0, 5);
+}
+
 async function closeFinancialDay(pointOfSaleId: string, businessDate: string, currency = "MGA") {
   const client = await pool.connect();
   try {
@@ -310,7 +314,7 @@ async function runSchedulerCycle() {
     for (const setting of settings.rows) {
       if (!setting.enabled) continue;
       const closureTime = setting.closureTime.slice(0, 5);
-      const targetDate = nowTime >= closureTime ? nowDate : addDays(nowDate, -1);
+      const targetDate = isClosureDue(nowTime, closureTime) ? nowDate : addDays(nowDate, -1);
       const posResult = await pool.query<{ id: string; createdDate: string }>(
         `SELECT pos.id,
                 (pos.created_at AT TIME ZONE $2)::date::text AS "createdDate"
