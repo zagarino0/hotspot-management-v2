@@ -22,6 +22,7 @@ import userRoutes from "./modules/users/user.routes.js";
 import roleRoutes from "./modules/roles/role.routes.js";
 import statisticsRoutes from "./modules/statistics/statistics.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
+import posOperationsRoutes from "./modules/sales/posOperations.routes.js";
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use("/api/users", authenticate, userRoutes);
 app.use("/api/roles", authenticate, roleRoutes);
 app.use("/api/statistics", authenticate, statisticsRoutes);
 app.use("/api/notifications", authenticate, notificationRoutes);
+app.use("/api/pos-operations", authenticate, posOperationsRoutes);
 /*
  * ============================================================
  * SYSTEM
