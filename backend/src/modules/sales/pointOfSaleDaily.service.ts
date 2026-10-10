@@ -107,7 +107,7 @@ export async function closeDailySales(id:string,userId:string,input:{
       replacement_voucher_code AS "replacementVoucherCode",unit_price::text AS "unitPrice",currency
       FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1
       AND (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date=$2::date
-      AND event_type IN ('SOLD','REFUNDED','UNSOLD_CONFIRMED','REJECTED','UNUSABLE','MISSING','REPLACED')`,[id,input.businessDate]);
+      AND event_type IN ('STOCK_ASSIGNED','SOLD','REFUNDED','UNSOLD_CONFIRMED','REJECTED','UNUSABLE','MISSING','REPLACED')`,[id,input.businessDate]);
     let fin:ReturnType<typeof calculateDailyFinancials>;
     try { fin=calculateDailyFinancials(events.rows.map(e=>({...e,unitPrice:Number(e.unitPrice)})),currency); }
     catch(e) { throw badRequest(e instanceof Error?e.message:"Événements financiers incohérents."); }
@@ -118,12 +118,16 @@ export async function closeDailySales(id:string,userId:string,input:{
       return codes.size;
     };
     const unsoldInStock=distinctCount("UNSOLD_CONFIRMED");
+    const eventReceivedCount=distinctCount("STOCK_ASSIGNED");
+    // Compatibilité : les anciens clients n'enregistrent pas toujours STOCK_ASSIGNED.
+    const ticketsReceived=events.rows.some(e=>e.eventType==="STOCK_ASSIGNED")
+      ? eventReceivedCount : (input.ticketsReceived??0);
     const rejectedPending=distinctCount("REJECTED");
     const unusableOrReplaced=distinctCount("UNUSABLE");
     const missingTickets=distinctCount("MISSING");
     const replacementCount=distinctCount("REPLACED",true);
     const stock=calculateDailyStock({
-      openingStock:input.openingStock,ticketsReceived:input.ticketsReceived??0,ticketsSold:fin.ticketsSold,
+      openingStock:input.openingStock,ticketsReceived,ticketsSold:fin.ticketsSold,
       unsoldInStock,rejectedPending,unusableOrReplaced,replacementTicketsIssued:replacementCount,
       missingTickets,physicalStockCount:Number(physicalStockCount),
     });
@@ -134,7 +138,7 @@ export async function closeDailySales(id:string,userId:string,input:{
        gross_revenue,refunds,net_revenue,stock_discrepancy,physical_stock_count,theoretical_stock,
        event_stock_discrepancy,stock_review_required,stock_discrepancy_reason,status,notes,created_by,closed_by,closed_at)
       VALUES ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10,$12,$13,$14,$15,$16,$17,$18,$19,$20,'CLOSED',$21,$22,$22,NOW()) RETURNING *`,
-      [id,input.businessDate,currency,input.openingStock,input.ticketsReceived??0,fin.ticketsSold,unsoldInStock,
+      [id,input.businessDate,currency,input.openingStock,ticketsReceived,fin.ticketsSold,unsoldInStock,
         rejectedPending,unusableOrReplaced,replacementCount,missingTickets,fin.grossRevenue,fin.refunds,fin.netRevenue,
         stock.discrepancy,stock.physicalStockCount,stock.theoreticalStock,stock.eventStockDiscrepancy,stockReviewRequired,
         input.stockDiscrepancyReason?.trim()||null,input.notes??null,userId]);
