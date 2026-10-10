@@ -1,8 +1,10 @@
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { syncAllRouters } from "./modules/sessions/session.service.js";
+import { startPosOperationsScheduler, stopPosOperationsScheduler } from "./modules/sales/posOperations.scheduler.js";
 
 const server = app.listen(env.port, () => {
+  startPosOperationsScheduler();
   console.log(
     `HOTSPOT MANAGEMENT V2 → http://localhost:${env.port}`
   );
@@ -73,6 +75,7 @@ function shutdown(signal: string): void {
   if (syncInterval) {
     clearInterval(syncInterval);
   }
+  stopPosOperationsScheduler();
 
   server.close(() => {
     console.log("Serveur arrêté.");
