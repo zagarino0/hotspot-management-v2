@@ -16,12 +16,14 @@ test("PostgreSQL POS operations integration: configurable closure time and remit
   const userId = randomUUID();
   const roleId = randomUUID();
   const closureId = randomUUID();
-  const businessDate = new Intl.DateTimeFormat("en-CA", {
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Indian/Antananarivo",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const dateValues = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+  const businessDate = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
   let seeded = false;
 
   t.after(async () => {
