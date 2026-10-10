@@ -14,15 +14,18 @@ export type DailyStockInput = {
   unusableOrReplaced: number;
   replacementTicketsIssued: number;
   missingTickets: number;
+  physicalStockCount: number;
 };
 
 export type DailyStockResult = {
   expectedStock: number;
   accountedStock: number;
+  theoreticalStock: number;
+  physicalStockCount: number;
   discrepancy: number;
+  eventStockDiscrepancy: number;
   stockBalanced: boolean;
 };
-
 export function validatePosCurrency(currency: string | undefined): string {
   const normalized = (currency ?? "MGA").trim().toUpperCase();
   if (normalized !== "MGA") {
@@ -71,8 +74,19 @@ export function calculateDailyStock(input: DailyStockInput): DailyStockResult {
   const accountedStock = input.ticketsSold + input.unsoldInStock
     + input.rejectedPending + input.unusableOrReplaced
     + input.replacementTicketsIssued + input.missingTickets;
-  const discrepancy = expectedStock - accountedStock;
-  return { expectedStock, accountedStock, discrepancy, stockBalanced: discrepancy === 0 };
+  const theoreticalStock = expectedStock - input.ticketsSold - input.rejectedPending
+    - input.unusableOrReplaced - input.replacementTicketsIssued - input.missingTickets;
+  const discrepancy = input.physicalStockCount - theoreticalStock;
+  const eventStockDiscrepancy = expectedStock - accountedStock;
+  return {
+    expectedStock,
+    accountedStock,
+    theoreticalStock,
+    physicalStockCount: input.physicalStockCount,
+    discrepancy,
+    eventStockDiscrepancy,
+    stockBalanced: discrepancy === 0 && eventStockDiscrepancy === 0,
+  };
 }
 
 export function calculateDailyFinancials(events: DailyTicketEvent[], currency = "MGA") {
