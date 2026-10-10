@@ -59,17 +59,30 @@ test("le stock calcule l'écart et identifie une clôture équilibrée", () => {
   assert.deepEqual(calculateDailyStock({
     openingStock: 10, ticketsReceived: 2, ticketsSold: 4,
     unsoldInStock: 3, rejectedPending: 1, unusableOrReplaced: 1,
-    replacementTicketsIssued: 1, missingTickets: 2,
+    replacementTicketsIssued: 1, missingTickets: 2, physicalStockCount: 3,
   }), {
-    expectedStock: 12, accountedStock: 12, discrepancy: 0, stockBalanced: true,
+    expectedStock: 12, accountedStock: 12, theoreticalStock: 3, physicalStockCount: 3,
+    discrepancy: 0, eventStockDiscrepancy: 0, stockBalanced: true,
   });
+});
+
+test("le stock physique est comparé au stock théorique calculé à partir des mouvements", () => {
+  const stock = calculateDailyStock({
+    openingStock: 10, ticketsReceived: 0, ticketsSold: 3,
+    unsoldInStock: 3, rejectedPending: 1, unusableOrReplaced: 2,
+    replacementTicketsIssued: 1, missingTickets: 0, physicalStockCount: 2,
+  });
+  assert.equal(stock.theoreticalStock, 3);
+  assert.equal(stock.discrepancy, -1);
+  assert.equal(stock.eventStockDiscrepancy, 0);
+  assert.equal(stock.stockBalanced, false);
 });
 
 test("les compteurs de stock négatifs ou fractionnaires sont refusés", () => {
   assert.throws(() => calculateDailyStock({
     openingStock: -1, ticketsReceived: 0, ticketsSold: 0,
     unsoldInStock: 0, rejectedPending: 0, unusableOrReplaced: 0,
-    replacementTicketsIssued: 0, missingTickets: 0,
+    replacementTicketsIssued: 0, missingTickets: 0, physicalStockCount: 0,
   }), /entiers positifs/);
 });
 
@@ -85,13 +98,14 @@ test("journée CASHPOINTWIFI complète : ventes, invendus, rejets, tickets manqu
   const stock = calculateDailyStock({
     openingStock: 20, ticketsReceived: 0, ticketsSold: financials.ticketsSold,
     unsoldInStock: 5, rejectedPending: 2, unusableOrReplaced: 1,
-    replacementTicketsIssued: 1, missingTickets: 3,
+    replacementTicketsIssued: 1, missingTickets: 3, physicalStockCount: 5,
   });
   assert.deepEqual(financials, {
     ticketsSold: 8, grossRevenue: 20000, refunds: 0, netRevenue: 20000,
   });
   assert.deepEqual(stock, {
-    expectedStock: 20, accountedStock: 20, discrepancy: 0, stockBalanced: true,
+    expectedStock: 20, accountedStock: 20, theoreticalStock: 5, physicalStockCount: 5,
+    discrepancy: 0, eventStockDiscrepancy: 0, stockBalanced: true,
   });
 });
 
