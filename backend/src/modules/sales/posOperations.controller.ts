@@ -70,6 +70,7 @@ export async function postPosRemittance(req: Request, res: Response, next: NextF
     const data = await recordPosRemittance(auth.userId, auth.organizationId, String(req.params.id), {
       businessDate: body.businessDate,
       remittedAmount: Number(body.remittedAmount),
+      remittedBy: typeof body.remittedBy === "string" ? body.remittedBy : null,
       note: typeof body.note === "string" ? body.note : null,
     });
     return res.status(201).json({ success: true, data });
