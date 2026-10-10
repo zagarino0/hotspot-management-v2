@@ -16,6 +16,9 @@ import {
   findRouterCredential,
   findRoutersForSync,
   updateRouterHealth,
+  updateRouterSyncFailure,
+  countRecentOfflineRouters,
+  hasOfflineRoutersForSite,
   type RouterForSync,
 } from "../routers/router.repository.js";
 
@@ -77,29 +80,93 @@ export interface RouterSyncResult {
   closedCount: number;
   error?: string;
 }
+async function publishSyncError(
+  router: RouterForSync,
+  message: string
+): Promise<void> {
+  await publishNotification(router.organizationId, {
+    siteId: router.siteId,
+    routerId: router.id,
+    type: "SYNC_ERROR",
+    severity: "WARNING",
+    title: "Erreur de synchronisation",
+    message: `La synchronisation du routeur "${router.name}" a échoué : ${message}`,
+    eventKey: `router:${router.id}:sync-error`,
+  });
+}
+
+async function publishSiteNetworkProblemIfNeeded(router: RouterForSync): Promise<void> {
+  const affectedRouters = await countRecentOfflineRouters(
+    router.organizationId, router.siteId, 30
+  );
+  if (affectedRouters < 2) return;
+
+  await publishNotification(router.organizationId, {
+    siteId: router.siteId,
+    type: "NETWORK_PROBLEM",
+    severity: "CRITICAL",
+    title: "Problème réseau sur le site",
+    message: `Au moins deux routeurs du site sont devenus injoignables dans une fenêtre de 30 secondes.`,
+    eventKey: `site:${router.siteId}:network-problem`,
+  });
+}
+
+async function resolveSiteNetworkProblemIfRecovered(router: RouterForSync): Promise<void> {
+  const hasOfflineRouters = await hasOfflineRoutersForSite(
+    router.organizationId, router.siteId
+  );
+  if (!hasOfflineRouters) {
+    await resolveNotificationEvent(
+      router.organizationId, `site:${router.siteId}:network-problem`
+    );
+  }
+}
+
 async function publishRouterHealthNotifications(
   router: RouterForSync,
-  transition: { previousStatus: string | null; currentStatus: string }
+  transition: {
+    previousStatus: string | null;
+    currentStatus: string;
+    previousConnectionFailures: number;
+    consecutiveConnectionFailures: number;
+  }
 ): Promise<void> {
-  if (transition.currentStatus === "OFFLINE" && transition.previousStatus !== "OFFLINE") {
+  // Le statut du routeur passe OFFLINE dès la première observation, mais la
+  // notification est émise seulement au deuxième échec de connexion consécutif.
+  if (
+    transition.currentStatus === "OFFLINE" &&
+    transition.consecutiveConnectionFailures >= 2
+  ) {
     await publishNotification(router.organizationId, {
-      siteId: router.siteId, routerId: router.id,
-      type: "ROUTER_OFFLINE", severity: "CRITICAL",
+      siteId: router.siteId,
+      routerId: router.id,
+      type: "ROUTER_OFFLINE",
+      severity: "CRITICAL",
       title: "Routeur hors ligne",
-      message: `Le routeur "${router.name}" est devenu injoignable.`,
+      message: `Le routeur "${router.name}" a échoué à se connecter deux fois de suite.`,
       eventKey: `router:${router.id}:offline`,
     });
-    return;
   }
-  if (transition.previousStatus === "OFFLINE" && transition.currentStatus === "ONLINE") {
-    await resolveNotificationEvent(router.organizationId, `router:${router.id}:offline`);
-    await publishNotification(router.organizationId, {
-      siteId: router.siteId, routerId: router.id,
-      type: "ROUTER_ONLINE", severity: "INFO",
-      title: "Routeur en ligne",
-      message: `Le routeur "${router.name}" est de nouveau accessible.`,
-      eventKey: `router:${router.id}:online:${Date.now()}`,
-    });
+
+  if (
+    transition.previousStatus === "OFFLINE" &&
+    transition.currentStatus === "ONLINE"
+  ) {
+    if (transition.previousConnectionFailures >= 2) {
+      await resolveNotificationEvent(
+        router.organizationId, `router:${router.id}:offline`
+      );
+      await publishNotification(router.organizationId, {
+        siteId: router.siteId,
+        routerId: router.id,
+        type: "ROUTER_ONLINE",
+        severity: "INFO",
+        title: "Routeur en ligne",
+        message: `Le routeur "${router.name}" est de nouveau accessible.`,
+        eventKey: `router:${router.id}:online:${Date.now()}`,
+      });
+    }
+    await resolveSiteNetworkProblemIfRecovered(router);
   }
 }
 
@@ -109,16 +176,9 @@ async function performRouterSyncSessions(
   const credential = await findRouterCredential(router.id);
 
   if (!credential) {
-    const transition = await updateRouterHealth({
-      routerId: router.id,
-      reachable: false,
-      errorMessage:
-        "Aucun identifiant MikroTik enregistré pour ce routeur.",
-    });
-
-    if (transition) {
-      await publishRouterHealthNotifications(router, transition);
-    }
+    const message = "Aucun identifiant MikroTik enregistré pour ce routeur.";
+    await updateRouterSyncFailure(router.id, message);
+    await publishSyncError(router, message);
 
     return {
       routerId: router.id,
@@ -136,16 +196,9 @@ async function performRouterSyncSessions(
   try {
     password = decryptSecret(credential.encryptedSecret);
   } catch {
-    const transition = await updateRouterHealth({
-      routerId: router.id,
-      reachable: false,
-      errorMessage:
-        "Le secret stocké est illisible (clé de chiffrement changée ?).",
-    });
-
-    if (transition) {
-      await publishRouterHealthNotifications(router, transition);
-    }
+    const message = "Le secret stocké est illisible (clé de chiffrement changée ?).";
+    await updateRouterSyncFailure(router.id, message);
+    await publishSyncError(router, message);
 
     return {
       routerId: router.id,
@@ -178,12 +231,15 @@ async function performRouterSyncSessions(
     const transition = await updateRouterHealth({
       routerId: router.id,
       reachable: false,
+      connectionFailure: true,
       errorMessage: message,
     });
 
     if (transition) {
       await publishRouterHealthNotifications(router, transition);
     }
+    await publishSyncError(router, message);
+    await publishSiteNetworkProblemIfNeeded(router);
 
     return {
       routerId: router.id,
@@ -388,6 +444,7 @@ async function performRouterSyncSessions(
     if (transition) {
       await publishRouterHealthNotifications(router, transition);
     }
+    await resolveSiteNetworkProblemIfRecovered(router);
 
     return {
       routerId: router.id,
@@ -402,17 +459,14 @@ async function performRouterSyncSessions(
         ? error.message
         : "Erreur lors de la lecture des sessions actives.";
 
-    await updateRouterHealth({
+    const transition = await updateRouterHealth({
       routerId: router.id, reachable: true, errorMessage: message, syncError: true,
     });
-
-    await publishNotification(router.organizationId, {
-      siteId: router.siteId, routerId: router.id,
-      type: "SYNC_ERROR", severity: "WARNING",
-      title: "Erreur de synchronisation",
-      message: `La synchronisation du routeur "${router.name}" a échoué : ${message}`,
-      eventKey: `router:${router.id}:sync-error`,
-    });
+    if (transition) {
+      await publishRouterHealthNotifications(router, transition);
+    }
+    await publishSyncError(router, message);
+    await resolveSiteNetworkProblemIfRecovered(router);
 
     return {
       routerId: router.id,
