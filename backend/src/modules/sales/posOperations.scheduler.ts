@@ -392,9 +392,6 @@ async function runSchedulerCycle() {
     for (const setting of settings.rows) {
       if (!setting.enabled) continue;
       const closureTime = setting.closureTime.slice(0, 5);
-      // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
-      if (!isClosureDue(nowTime, closureTime)) continue;
-      // La journée commerciale porte la date de clôture : le cycle ouvert la veille à 20:10 est clôturé à 20:00 aujourd'hui.
       const targetDate = nowDate;
       const posResult = await pool.query<{ id: string }>(
         `SELECT pos.id
@@ -403,6 +400,30 @@ async function runSchedulerCycle() {
         [setting.organizationId],
       );
       for (const pos of posResult.rows) {
+        // Recalcule régulièrement les clôtures récentes déjà CLOSED, même avant
+        // l'heure de clôture. Cela corrige les ventes tardives attribuées au lendemain
+        // sans attendre le prochain cycle de clôture financière.
+        const recentClosures = await pool.query<{ id: string }>(
+          `SELECT id
+             FROM point_of_sale_daily_closure
+            WHERE point_of_sale_id = $1
+              AND status = 'CLOSED'
+              AND business_date >= $2::date - 2
+              AND business_date <= $2::date
+            ORDER BY business_date`,
+          [pos.id, targetDate],
+        );
+        for (const closure of recentClosures.rows) {
+          await closeFinancialDay(pos.id, (await pool.query<{ businessDate: string }>(
+            `SELECT business_date::text AS "businessDate"
+               FROM point_of_sale_daily_closure WHERE id = $1`,
+            [closure.id],
+          )).rows[0].businessDate);
+        }
+
+        // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
+        if (!isClosureDue(nowTime, closureTime)) continue;
+        // La journée commerciale porte la date de clôture : le cycle ouvert la veille à 20:10 est clôturé à 20:00 aujourd'hui.
         const existing = await pool.query<{ lastDate: string | null }>(
           `SELECT MAX(business_date)::text AS "lastDate"
              FROM point_of_sale_daily_closure WHERE point_of_sale_id = $1`,
