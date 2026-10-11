@@ -20,6 +20,7 @@ import { findSiteProfilePrices } from "../plans/sitePricing.repository.js";
 import {
   badRequest,
   conflict,
+  forbidden,
   notFoundError,
 } from "../../lib/errors.js";
 
@@ -121,6 +122,97 @@ export async function createPointOfSale(
 
     throw error;
   }
+}
+
+export async function updatePointOfSale(
+  userId: string,
+  id: string,
+  data: { code: string; name: string }
+) {
+  await assertSuperAdmin(userId);
+  const existing = await pool.query<{
+    id: string; organizationId: string; code: string; name: string; type: "INTERNAL" | "EXTERNAL";
+  }>(
+    `SELECT id, organization_id AS "organizationId", code, name, type
+       FROM point_of_sale pos
+       JOIN "user" u ON u.organization_id = pos.organization_id
+      WHERE pos.id = $1 AND u.id = $2
+      LIMIT 1`,
+    [id, userId],
+  );
+  const point = existing.rows[0];
+  if (!point) throw notFoundError("Point de vente introuvable.");
+  if (point.type === "INTERNAL" && data.code.trim().toUpperCase() !== point.code) {
+    throw badRequest("Le code du point de vente interne ne peut pas être modifié.");
+  }
+
+  const nextCode = data.code.trim().toUpperCase();
+  const nextName = data.name.trim();
+  if (!nextCode || !nextName) throw badRequest("Le code et le nom sont obligatoires.");
+
+  if (nextCode !== point.code) {
+    const references = await pool.query(
+      `SELECT
+        EXISTS(SELECT 1 FROM voucher WHERE point_of_sale_id = $1) AS voucher,
+        EXISTS(SELECT 1 FROM sale WHERE point_of_sale_id = $1) AS sale,
+        EXISTS(SELECT 1 FROM point_of_sale_ticket_event WHERE point_of_sale_id = $1) AS ticket_event,
+        EXISTS(SELECT 1 FROM point_of_sale_daily_closure WHERE point_of_sale_id = $1) AS closure,
+        EXISTS(SELECT 1 FROM point_of_sale_remittance WHERE point_of_sale_id = $1) AS remittance,
+        EXISTS(SELECT 1 FROM voucher_event WHERE point_of_sale_id = $1) AS voucher_event`,
+      [id],
+    );
+    if (Object.values(references.rows[0] ?? {}).some(Boolean)) {
+      throw conflict("Le code ne peut pas être modifié : ce point de vente possède déjà des vouchers ou un historique commercial.");
+    }
+  }
+
+  try {
+    const updated = await pool.query(
+      `UPDATE point_of_sale
+          SET code = $3, name = $4, updated_at = NOW()
+        WHERE id = $1 AND organization_id = $2
+        RETURNING id, organization_id AS "organizationId", code, name, type, status`,
+      [id, point.organizationId, nextCode, nextName],
+    );
+    return updated.rows[0];
+  } catch (error: any) {
+    if (error?.code === "23505") throw conflict("Un point de vente avec ce code existe déjà.");
+    throw error;
+  }
+}
+
+export async function deletePointOfSale(userId: string, id: string) {
+  await assertSuperAdmin(userId);
+  const existing = await pool.query<{
+    id: string; organizationId: string; type: "INTERNAL" | "EXTERNAL"; name: string;
+  }>(
+    `SELECT pos.id, pos.organization_id AS "organizationId", pos.type, pos.name
+       FROM point_of_sale pos
+       JOIN "user" u ON u.organization_id = pos.organization_id
+      WHERE pos.id = $1 AND u.id = $2
+      LIMIT 1`,
+    [id, userId],
+  );
+  const point = existing.rows[0];
+  if (!point) throw notFoundError("Point de vente introuvable.");
+  if (point.type === "INTERNAL") throw badRequest("Le point de vente interne ne peut pas être supprimé.");
+
+  const references = await pool.query(
+    `SELECT
+      EXISTS(SELECT 1 FROM voucher WHERE point_of_sale_id = $1) AS voucher,
+      EXISTS(SELECT 1 FROM sale WHERE point_of_sale_id = $1) AS sale,
+      EXISTS(SELECT 1 FROM point_of_sale_ticket_event WHERE point_of_sale_id = $1) AS ticket_event,
+      EXISTS(SELECT 1 FROM point_of_sale_daily_closure WHERE point_of_sale_id = $1) AS closure,
+      EXISTS(SELECT 1 FROM point_of_sale_remittance WHERE point_of_sale_id = $1) AS remittance,
+      EXISTS(SELECT 1 FROM voucher_event WHERE point_of_sale_id = $1) AS voucher_event`,
+    [id],
+  );
+  if (Object.values(references.rows[0] ?? {}).some(Boolean)) {
+    throw conflict("Suppression impossible : ce point de vente possède des vouchers ou un historique. Désactivez-le pour conserver les données.");
+  }
+
+  await pool.query("DELETE FROM point_of_sale WHERE id = $1 AND organization_id = $2", [id, point.organizationId]);
+  return { id, name: point.name };
 }
 
 export async function getSaleDetails(id: string, userId: string) {
