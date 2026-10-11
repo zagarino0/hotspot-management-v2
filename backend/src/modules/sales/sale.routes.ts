@@ -9,6 +9,8 @@ import {
   listSales,
   listPointOfSales,
   createPointOfSaleController,
+  updatePointOfSaleController,
+  deletePointOfSaleController,
   deactivatePointOfSaleController,
   activatePointOfSaleController,
   recordPaymentController,
@@ -22,6 +24,8 @@ router.get("/", listSales);
 router.get("/point-of-sales", listPointOfSales);
 
 router.post("/point-of-sales", createPointOfSaleController);
+router.patch("/point-of-sales/:id", updatePointOfSaleController);
+router.delete("/point-of-sales/:id", deletePointOfSaleController);
 router.get("/point-of-sales/:id/daily-closures", listPointOfSaleClosures);
 router.post("/point-of-sales/:id/daily-closures", closePointOfSaleDailySales);
 router.get("/point-of-sales/:id/ticket-events", listPointOfSaleTicketEvents);
