@@ -37,7 +37,7 @@ async function assertPermission(client: PoolClient, userId: string, organization
 export async function listDailyClosures(id: string, userId: string, from?: string, to?: string) {
   const c=await pool.connect(); try {
     const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_DAILY_CLOSURES_READ");
-    const r=await c.query(`SELECT *, business_date::text AS business_date FROM point_of_sale_daily_closure WHERE point_of_sale_id=$1
+    const r=await c.query(`SELECT * FROM point_of_sale_daily_closure WHERE point_of_sale_id=$1
       AND ($2::date IS NULL OR business_date >= $2::date) AND ($3::date IS NULL OR business_date <= $3::date)
       ORDER BY business_date DESC LIMIT 120`,[id,from??null,to??null]); return r.rows;
   } finally { c.release(); }
