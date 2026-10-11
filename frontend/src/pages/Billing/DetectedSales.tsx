@@ -39,18 +39,24 @@ function dateLabel(value: string | null | undefined) {
 function businessDateKey(value: string | null | undefined) {
   if (!value) return "";
 
+  // Une valeur PostgreSQL DATE peut arriver sous forme de timestamp UTC.
+  // Pour Madagascar (UTC+3), minuit local est sérialisé à 21 h UTC la veille.
+  // On ajoute donc explicitement 3 h, sans dépendre du fuseau du navigateur
+  // ni de la prise en charge d'Intl.DateTimeFormat par la cible TypeScript.
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
 
-  const formatted = date.toLocaleDateString("en-GB", {
-    timeZone: "Indian/Antananarivo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  if (value.includes("T")) {
+    date.setUTCHours(date.getUTCHours() + 3);
+    return [
+      date.getUTCFullYear(),
+      String(date.getUTCMonth() + 1).padStart(2, "0"),
+      String(date.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+  }
 
-  const [day, month, year] = formatted.split("/");
-  return `${year}-${month}-${day}`;
+  // Les valeurs déjà au format YYYY-MM-DD sont des dates sans fuseau.
+  return value.slice(0, 10);
 }
 
 export default function Sales() {
