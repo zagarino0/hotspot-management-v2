@@ -2,6 +2,7 @@ import { pool } from "../../database/pool.js";
 
 import {
   POS_TIME_ZONE as TIME_ZONE,
+  POS_BUSINESS_DAY_CUTOFF as BUSINESS_DAY_CUTOFF,
   addDays,
   isClosureDue,
   localDate,
@@ -27,7 +28,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
        COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'REFUNDED'), 0)::numeric(14,2) AS refunds
      FROM point_of_sale_ticket_event
      WHERE point_of_sale_id = $1
-       AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '20:00'
+       AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
                  THEN (occurred_at AT TIME ZONE $3)::date + 1
                  ELSE (occurred_at AT TIME ZONE $3)::date END) = $2::date
        AND event_type IN ('SOLD', 'REFUNDED')`,
@@ -113,7 +114,7 @@ async function detectFirstUse() {
                 WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
                 ELSE 'CURRENT_PLAN'
               END AS "priceSource",
-              (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > '20:00'
+              (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
@@ -270,7 +271,7 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
          COUNT(*) FILTER (WHERE event_type = 'REPLACED')::int AS free_replacements
        FROM point_of_sale_ticket_event
        WHERE point_of_sale_id = $1
-         AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '20:00'
+         AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
            THEN (occurred_at AT TIME ZONE $3)::date + 1
            ELSE (occurred_at AT TIME ZONE $3)::date END) = $2::date`,
       [pointOfSaleId, businessDate, TIME_ZONE],
