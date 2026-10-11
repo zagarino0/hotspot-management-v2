@@ -31,6 +31,21 @@ function dateLabel(value: string | null | undefined) {
   });
 }
 
+/**
+ * Convertit un timestamp ISO en journée locale du navigateur.
+ * Les business_date de PostgreSQL sont sérialisées en UTC ; à Madagascar,
+ * minuit local apparaît donc à 21 h UTC la veille.
+ */
+function businessDateKey(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function Sales() {
   const [points, setPoints] = useState<PointOfSale[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -55,8 +70,8 @@ export default function Sales() {
     () => events.filter((event) => event.event_type === "SOLD"),
     [events],
   );
-  const selectedClosure = closures.find((closure) => closure.business_date.slice(0, 10) === businessDate);
-  const selectedRemittance = remittances.find((item) => item.business_date.slice(0, 10) === businessDate);
+  const selectedClosure = closures.find((closure) => businessDateKey(closure.business_date) === businessDate);
+  const selectedRemittance = remittances.find((item) => businessDateKey(item.business_date) === businessDate);
 
   async function loadPoints() {
     const result = await getPointOfSales();
@@ -79,7 +94,7 @@ export default function Sales() {
     setEvents(eventRows);
     setClosures(closureRows);
     setRemittances(remittanceRows);
-    setBusinessDate((current) => current || closureRows[0]?.business_date.slice(0, 10) || "");
+    setBusinessDate((current) => current || businessDateKey(closureRows[0]?.business_date) || "");
   }
 
   useEffect(() => {
@@ -112,9 +127,9 @@ export default function Sales() {
         setEvents(eventRows);
         setClosures(closureRows);
         setRemittances(remittanceRows);
-        setBusinessDate((current) => closureRows.some((c) => c.business_date.slice(0, 10) === current)
+        setBusinessDate((current) => closureRows.some((c) => businessDateKey(c.business_date) === current)
           ? current
-          : closureRows[0]?.business_date.slice(0, 10) || "");
+          : businessDateKey(closureRows[0]?.business_date) || "");
       })
       .catch((e: any) => { if (active) setError(e?.response?.status === 403 ? "Accès refusé : seul l’administrateur peut consulter ces historiques." : e?.response?.status === 401 ? "Session expirée. Reconnectez-vous pour continuer." : "Impossible de charger les ventes détectées, les clôtures ou les versements."); })
       .then(() => { if (active) setLoading(false); }, () => { if (active) setLoading(false); });
@@ -222,7 +237,7 @@ export default function Sales() {
       setError("Sélectionnez une clôture existante avant de confirmer le versement.");
       return;
     }
-    if (remittances.some((item) => item.business_date.slice(0, 10) === businessDate)) {
+    if (remittances.some((item) => businessDateKey(item.business_date) === businessDate)) {
       setError("Un versement existe déjà pour cette journée. Consultez l’historique ; aucun nouveau versement n’a été créé.");
       return;
     }
@@ -348,13 +363,13 @@ export default function Sales() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center gap-2 border-b border-slate-100 p-4"><CalendarClock size={18} /><div><h2 className="font-bold text-slate-900">Clôtures quotidiennes</h2><p className="text-sm text-slate-500">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
         {closures.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucune clôture disponible pour ce point de vente.</p> :
-          <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{closure.business_date.slice(0,10)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-semibold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
-              const remittance = remittances.find((item) => item.business_date.slice(0, 10) === closure.business_date.slice(0, 10));
+          <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{businessDateKey(closure.business_date)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-semibold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
+              const remittance = remittances.find((item) => businessDateKey(item.business_date) === businessDateKey(closure.business_date));
               return remittance
                 ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14} /> Versement reçu</span>
                 : <span className="inline-flex items-center gap-1 text-amber-700"><CircleAlert size={14} /> En attente</span>;
             })()}</td><td className="px-4 py-3 font-semibold">{(() => {
-              const remittance = remittances.find((item) => item.business_date.slice(0, 10) === closure.business_date.slice(0, 10));
+              const remittance = remittances.find((item) => businessDateKey(item.business_date) === businessDateKey(closure.business_date));
               return remittance ? money(remittance.remitted_amount) : "—";
             })()}</td></tr>)}</tbody></table></div>
         }
@@ -366,7 +381,7 @@ export default function Sales() {
           <p className="mb-4 text-sm text-slate-500">La personne responsable saisit le montant réellement remis. La vente elle-même n'est pas saisie manuellement.</p>
           <label className="mb-3 block text-sm font-medium text-slate-700">Journée clôturée
             <select value={businessDate} onChange={(e) => { setBusinessDate(e.target.value); setAmount(""); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3">
-              {closures.filter((closure) => closure.status === "CLOSED").map((closure) => <option key={closure.id} value={closure.business_date.slice(0,10)}>{closure.business_date.slice(0,10)} — attendu {money(closure.net_revenue)}</option>)}
+              {closures.filter((closure) => closure.status === "CLOSED").map((closure) => <option key={closure.id} value={businessDateKey(closure.business_date)}>{businessDateKey(closure.business_date)} — attendu {money(closure.net_revenue)}</option>)}
             </select>
           </label>
           <div className="mb-3 rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Montant attendu</p><p className="text-lg font-bold text-slate-900">{selectedClosure ? money(selectedClosure.net_revenue) : "Aucune clôture sélectionnée"}</p></div>
@@ -383,7 +398,7 @@ export default function Sales() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 p-4"><h2 className="font-bold text-slate-900">Historique des versements</h2><p className="mt-1 text-sm text-slate-500">Montants reçus et écarts conservés par journée.</p></div>
           {remittances.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun versement enregistré.</p> :
-            <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Attendu</th><th className="px-4 py-3">Reçu</th><th className="px-4 py-3">Écart</th><th className="px-4 py-3">Date de réception</th></tr></thead><tbody>{remittances.map((item) => <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3">{item.business_date.slice(0,10)}</td><td className="px-4 py-3">{money(item.expected_amount)}</td><td className="px-4 py-3">{money(item.remitted_amount)}</td><td className={`px-4 py-3 font-semibold ${Number(item.difference) === 0 ? "text-emerald-700" : "text-amber-700"}`}>{money(item.difference)}</td><td className="px-4 py-3 text-slate-500">{dateLabel(item.remitted_at)}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Attendu</th><th className="px-4 py-3">Reçu</th><th className="px-4 py-3">Écart</th><th className="px-4 py-3">Date de réception</th></tr></thead><tbody>{remittances.map((item) => <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3">{businessDateKey(item.business_date)}</td><td className="px-4 py-3">{money(item.expected_amount)}</td><td className="px-4 py-3">{money(item.remitted_amount)}</td><td className={`px-4 py-3 font-semibold ${Number(item.difference) === 0 ? "text-emerald-700" : "text-amber-700"}`}>{money(item.difference)}</td><td className="px-4 py-3 text-slate-500">{dateLabel(item.remitted_at)}</td></tr>)}</tbody></table></div>
           }
         </div>
       </section>
