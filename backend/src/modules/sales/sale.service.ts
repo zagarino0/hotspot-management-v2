@@ -20,7 +20,6 @@ import { findSiteProfilePrices } from "../plans/sitePricing.repository.js";
 import {
   badRequest,
   conflict,
-  forbidden,
   notFoundError,
 } from "../../lib/errors.js";
 
@@ -133,7 +132,7 @@ export async function updatePointOfSale(
   const existing = await pool.query<{
     id: string; organizationId: string; code: string; name: string; type: "INTERNAL" | "EXTERNAL";
   }>(
-    `SELECT id, organization_id AS "organizationId", code, name, type
+    `SELECT pos.id, pos.organization_id AS "organizationId", pos.code, pos.name, pos.type
        FROM point_of_sale pos
        JOIN "user" u ON u.organization_id = pos.organization_id
       WHERE pos.id = $1 AND u.id = $2
