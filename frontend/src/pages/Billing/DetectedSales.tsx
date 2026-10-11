@@ -48,11 +48,9 @@ function businessDateKey(value: string | null | undefined) {
 
   if (value.includes("T")) {
     date.setUTCHours(date.getUTCHours() + 3);
-    return [
-      date.getUTCFullYear(),
-      String(date.getUTCMonth() + 1).padStart(2, "0"),
-      String(date.getUTCDate()).padStart(2, "0"),
-    ].join("-");
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    return `${date.getUTCFullYear()}-${month < 10 ? "0" : ""}${month}-${day < 10 ? "0" : ""}${day}`;
   }
 
   // Les valeurs déjà au format YYYY-MM-DD sont des dates sans fuseau.
