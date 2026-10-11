@@ -169,6 +169,21 @@ export async function createPointOfSale(data: {
   return response.data.data;
 }
 
+export async function updatePointOfSale(
+  id: string,
+  data: { code: string; name: string },
+): Promise<PointOfSale> {
+  const response = await api.patch<ApiEnvelope<PointOfSale>>(
+    `/api/sales/point-of-sales/${id}`,
+    data,
+  );
+  return response.data.data;
+}
+
+export async function deletePointOfSale(id: string): Promise<void> {
+  await api.delete(`/api/sales/point-of-sales/${id}`);
+}
+
 export async function deactivatePointOfSale(
   id: string
 ): Promise<PointOfSale> {
