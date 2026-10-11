@@ -12,6 +12,8 @@ import {
   getSales,
   getPointOfSalesForUser,
   createPointOfSale,
+  updatePointOfSale,
+  deletePointOfSale,
   getSummary,
   recordPayment,
 } from "./sale.service.js";
@@ -172,6 +174,36 @@ export async function createPointOfSaleController(
   } catch (error) {
     return next(error);
   }
+}
+
+export async function updatePointOfSaleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    const { code, name } = req.body ?? {};
+    if (typeof code !== "string" || !code.trim() || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Le code et le nom du point de vente sont obligatoires." });
+    }
+    const pointOfSale = await updatePointOfSale(userId, String(req.params.id ?? ""), { code: code.trim(), name: name.trim() });
+    return res.status(200).json({ success: true, message: "Point de vente modifié avec succès.", data: pointOfSale });
+  } catch (error) { return next(error); }
+}
+
+export async function deletePointOfSaleController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    const data = await deletePointOfSale(userId, String(req.params.id ?? ""));
+    return res.status(200).json({ success: true, message: "Point de vente supprimé.", data });
+  } catch (error) { return next(error); }
 }
 
 /* ============================================================
