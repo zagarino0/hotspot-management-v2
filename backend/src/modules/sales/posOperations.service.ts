@@ -1,5 +1,5 @@
 import { pool } from "../../database/pool.js";
-import { badRequest, forbidden, notFoundError } from "../../lib/errors.js";
+import { badRequest, conflict, forbidden, notFoundError } from "../../lib/errors.js";
 import { isValidClosureTime } from "./posOperations.rules.js";
 
 const TIME_ZONE = "Indian/Antananarivo";
@@ -171,6 +171,19 @@ export async function recordPosRemittance(
     if (expectedAmount < 0) {
       throw badRequest("La recette nette est négative; vérifiez les remboursements avant d'enregistrer le versement.");
     }
+    // La ligne POS est déjà verrouillée plus haut : ce contrôle sérialise les
+    // demandes concurrentes et transforme le doublon en erreur métier explicite.
+    const existingRemittance = await client.query(
+      `SELECT id, expected_amount, remitted_amount, currency, business_date
+         FROM point_of_sale_remittance
+        WHERE point_of_sale_id = $1 AND business_date = $2::date
+        FOR UPDATE`,
+      [pointOfSaleId, input.businessDate],
+    );
+    if (existingRemittance.rows[0]) {
+      throw conflict("Un versement existe déjà pour ce point de vente et cette journée. Consultez l'historique avant toute correction.");
+    }
+
     const remittedBy = input.remittedBy?.trim() || null;
     if (remittedBy) {
       const remitter = await client.query(
