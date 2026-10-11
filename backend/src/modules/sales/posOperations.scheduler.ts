@@ -8,7 +8,7 @@ import {
   localTime,
 } from "./posOperations.rules.js";
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 10_000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
