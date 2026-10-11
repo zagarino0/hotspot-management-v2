@@ -92,7 +92,7 @@ export async function listPosRemittances(
   );
   if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
   const result = await pool.query(
-    `SELECT r.* FROM point_of_sale_remittance r
+    `SELECT r.*, r.business_date::text AS business_date FROM point_of_sale_remittance r
       WHERE r.point_of_sale_id = $1
         AND ($2::date IS NULL OR r.business_date >= $2::date)
         AND ($3::date IS NULL OR r.business_date <= $3::date)
