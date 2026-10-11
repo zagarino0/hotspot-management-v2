@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Plus, RefreshCw, Wallet } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Pencil, Plus, RefreshCw, Save, Trash2, Wallet, X } from "lucide-react";
 import {
   activatePointOfSale,
   createPointOfSale,
   deactivatePointOfSale,
   getPointOfSales,
+  updatePointOfSale,
+  deletePointOfSale,
   type PointOfSale,
 } from "../../services/saleService";
 import {
@@ -40,6 +42,9 @@ export default function Sales() {
   const [note, setNote] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
+  const [editingPoint, setEditingPoint] = useState(false);
+  const [editCode, setEditCode] = useState("");
+  const [editName, setEditName] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -150,6 +155,50 @@ export default function Sales() {
     }
   }
 
+  function beginEditPoint(point: PointOfSale) {
+    setEditCode(point.code);
+    setEditName(point.name);
+    setEditingPoint(true);
+    setError("");
+  }
+
+  async function handleUpdatePoint() {
+    if (!selectedPos || !editCode.trim() || !editName.trim()) {
+      setError("Le code et le nom du point de vente sont obligatoires.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updatePointOfSale(selectedPos.id, { code: editCode.trim(), name: editName.trim() });
+      setPoints((current) => current.map((point) => point.id === updated.id ? updated : point));
+      setEditingPoint(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Modification du point de vente impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeletePoint(point: PointOfSale) {
+    if (!window.confirm(`Supprimer définitivement « ${point.name} » ? Cette action est possible uniquement si aucun voucher ni historique commercial n'y est associé. Sinon, désactivez le point de vente.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deletePointOfSale(point.id);
+      const remaining = await getPointOfSales();
+      setPoints(remaining);
+      setSelectedId(remaining.find((item) => item.type === "EXTERNAL")?.id ?? "");
+      setEditingPoint(false);
+      setBusinessDate("");
+      setAmount("");
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Suppression du point de vente impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleToggle(point: PointOfSale) {
     const action = point.status === "ACTIVE" ? "désactiver" : "réactiver";
     if (!window.confirm(`Voulez-vous ${action} « ${point.name} » sur les routeurs MikroTik ?`)) return;
@@ -238,9 +287,30 @@ export default function Sales() {
           </label>
           <button type="button" onClick={handleCreatePoint} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-semibold text-white disabled:opacity-50"><Plus size={15} /> Ajouter</button>
         </div>
-        {selectedPos && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-          <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p></div>
-          <button type="button" onClick={() => handleToggle(selectedPos)} disabled={busy} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">{selectedPos.status === "ACTIVE" ? "Désactiver le point de vente" : "Réactiver le point de vente"}</button>
+        {selectedPos && <div className="mt-4 rounded-xl bg-slate-50 p-3">
+          {editingPoint ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">Code
+                <input value={editCode} onChange={(e) => setEditCode(e.target.value)} disabled={selectedPos.type === "INTERNAL"} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-100" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">Nom
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+              </label>
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                <button type="button" onClick={handleUpdatePoint} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save size={15} /> Enregistrer</button>
+                <button type="button" onClick={() => setEditingPoint(false)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"><X size={15} /> Annuler</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p></div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => beginEditPoint(selectedPos)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"><Pencil size={15} /> Modifier</button>
+                <button type="button" onClick={() => handleToggle(selectedPos)} disabled={busy} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">{selectedPos.status === "ACTIVE" ? "Désactiver" : "Réactiver"}</button>
+                {selectedPos.type === "EXTERNAL" && <button type="button" onClick={() => handleDeletePoint(selectedPos)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-50"><Trash2 size={15} /> Supprimer</button>}
+              </div>
+            </div>
+          )}
         </div>}
       </section>
 
