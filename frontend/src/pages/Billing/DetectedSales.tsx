@@ -32,18 +32,22 @@ function dateLabel(value: string | null | undefined) {
 }
 
 /**
- * Convertit un timestamp ISO en journée locale du navigateur.
- * Les business_date de PostgreSQL sont sérialisées en UTC ; à Madagascar,
- * minuit local apparaît donc à 21 h UTC la veille.
+ * Retourne la journée commerciale dans le fuseau horaire de Madagascar.
+ * PostgreSQL sérialise business_date en UTC : minuit à Madagascar apparaît
+ * à 21 h UTC la veille. Le résultat ne dépend pas du fuseau du navigateur.
  */
 function businessDateKey(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Indian/Antananarivo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 export default function Sales() {
