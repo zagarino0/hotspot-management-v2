@@ -430,6 +430,20 @@ export interface UpsertActiveSessionResult {
 export async function upsertActiveSession(
   data: LiveSessionData
 ): Promise<UpsertActiveSessionResult> {
+  // Le routeur est la source de vérité pour le site. Certains chemins de live-sync
+  // peuvent fournir un siteId vide; on le résout ici avant toute écriture.
+  let siteId = data.siteId?.trim();
+  if (!siteId) {
+    const routerSite = await pool.query<{ siteId: string | null }>(
+      `SELECT site_id AS "siteId" FROM router WHERE id = $1 LIMIT 1`,
+      [data.routerId],
+    );
+    siteId = routerSite.rows[0]?.siteId?.trim() ?? "";
+  }
+  if (!siteId) {
+    throw new Error(`Impossible d'enregistrer la session MikroTik : aucun site associé au routeur ${data.routerId}.`);
+  }
+
   const existing = await pool.query<{ id: string }>(
     `
       SELECT id
@@ -530,7 +544,7 @@ export async function upsertActiveSession(
       RETURNING id
     `,
     [
-      data.siteId,
+      siteId,
       data.routerId,
       data.voucherId ?? null,
       data.username,
