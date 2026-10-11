@@ -27,7 +27,9 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
        COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'REFUNDED'), 0)::numeric(14,2) AS refunds
      FROM point_of_sale_ticket_event
      WHERE point_of_sale_id = $1
-       AND (occurred_at AT TIME ZONE $3)::date = $2::date
+       AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') < '20:10'
+                 THEN (occurred_at AT TIME ZONE $3)::date - 1
+                 ELSE (occurred_at AT TIME ZONE $3)::date END) = $2::date
        AND event_type IN ('SOLD', 'REFUNDED')`,
     [old.point_of_sale_id, old.business_date, TIME_ZONE],
   );
@@ -103,7 +105,9 @@ async function detectFirstUse() {
                 WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
                 ELSE 'CURRENT_PLAN'
               END AS "priceSource",
-              (first_session.started_at AT TIME ZONE $1)::date::text AS "businessDate"
+              (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') < '20:10'
+                THEN (first_session.started_at AT TIME ZONE $1)::date - 1
+                ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
            AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
@@ -370,7 +374,10 @@ async function runSchedulerCycle() {
     for (const setting of settings.rows) {
       if (!setting.enabled) continue;
       const closureTime = setting.closureTime.slice(0, 5);
-      const targetDate = isClosureDue(nowTime, closureTime) ? nowDate : addDays(nowDate, -1);
+      // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
+      if (!isClosureDue(nowTime, closureTime)) continue;
+      // La journée commerciale est datée du jour de son ouverture (20:10). À 20:00 le lendemain, on clôture donc la veille.
+      const targetDate = addDays(nowDate, -1);
       const posResult = await pool.query<{ id: string }>(
         `SELECT pos.id
            FROM point_of_sale pos
