@@ -38,16 +38,19 @@ function dateLabel(value: string | null | undefined) {
  */
 function businessDateKey(value: string | null | undefined) {
   if (!value) return "";
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  const parts = new Intl.DateTimeFormat("en", {
+
+  const formatted = date.toLocaleDateString("en-GB", {
     timeZone: "Indian/Antananarivo",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(date);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
+  });
+
+  const [day, month, year] = formatted.split("/");
+  return `${year}-${month}-${day}`;
 }
 
 export default function Sales() {
