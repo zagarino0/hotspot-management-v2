@@ -56,6 +56,7 @@ export default function Sales() {
     [events],
   );
   const selectedClosure = closures.find((closure) => closure.business_date.slice(0, 10) === businessDate);
+  const selectedRemittance = remittances.find((item) => item.business_date.slice(0, 10) === businessDate);
 
   async function loadPoints() {
     const result = await getPointOfSales();
@@ -216,8 +217,13 @@ export default function Sales() {
   }
 
   async function handleRemittance() {
+    if (busy) return;
     if (!selectedId || !businessDate || !selectedClosure) {
       setError("Sélectionnez une clôture existante avant de confirmer le versement.");
+      return;
+    }
+    if (remittances.some((item) => item.business_date.slice(0, 10) === businessDate)) {
+      setError("Un versement existe déjà pour cette journée. Consultez l’historique ; aucun nouveau versement n’a été créé.");
       return;
     }
     const parsedAmount = Number(amount);
@@ -237,7 +243,16 @@ export default function Sales() {
       setNote("");
       setRemittances(await getPosRemittances(selectedId));
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Impossible d'enregistrer le versement.");
+      if (e?.response?.status === 409) {
+        try {
+          setRemittances(await getPosRemittances(selectedId));
+        } catch {
+          // Conserver les données affichées si l’actualisation échoue.
+        }
+        setError(e?.response?.data?.message ?? "Un versement existe déjà pour cette journée. Consultez l’historique.");
+      } else {
+        setError(e?.response?.data?.message ?? "Impossible d'enregistrer le versement.");
+      }
     } finally {
       setBusy(false);
     }
@@ -353,8 +368,9 @@ export default function Sales() {
           <label className="mb-4 block text-sm font-medium text-slate-700">Note (facultatif)
             <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Commentaire sur le versement" />
           </label>
-          <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === ""} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Confirmer la réception</button>
-          <p className="mt-3 text-xs text-slate-500">Le système conserve l'écart entre le montant attendu et le montant reçu.</p>
+          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
+          <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === "" || Boolean(selectedRemittance)} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Enregistrement…" : selectedRemittance ? "Versement déjà enregistré" : "Confirmer la réception"}</button>
+          <p className="mt-3 text-xs text-slate-500">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
         </div>
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 p-4"><h2 className="font-bold text-slate-900">Historique des versements</h2><p className="mt-1 text-sm text-slate-500">Montants reçus et écarts conservés par journée.</p></div>
