@@ -430,6 +430,15 @@ export interface UpsertActiveSessionResult {
 export async function upsertActiveSession(
   data: LiveSessionData
 ): Promise<UpsertActiveSessionResult> {
+  // DIAGNOSTIC TEMPORAIRE live-sync : tracer la provenance du site_id.
+  console.info("[session-debug] upsertActiveSession:entrée", {
+    routerId: data.routerId,
+    receivedSiteId: data.siteId ?? null,
+    receivedSiteIdType: typeof data.siteId,
+    username: data.username,
+    macAddress: data.macAddress,
+  });
+
   // Le routeur est la source de vérité pour le site. Certains chemins de live-sync
   // peuvent fournir un siteId vide; on le résout ici avant toute écriture.
   let siteId = data.siteId?.trim();
@@ -440,6 +449,13 @@ export async function upsertActiveSession(
     );
     siteId = routerSite.rows[0]?.siteId?.trim() ?? "";
   }
+  console.info("[session-debug] upsertActiveSession:site-résolu", {
+    routerId: data.routerId,
+    siteId: siteId || null,
+    siteIdType: typeof siteId,
+    resolvedFromRouter: !data.siteId?.trim(),
+  });
+
   if (!siteId) {
     throw new Error(`Impossible d'enregistrer la session MikroTik : aucun site associé au routeur ${data.routerId}.`);
   }
@@ -502,6 +518,14 @@ export async function upsertActiveSession(
 
     return { created: false, sessionId };
   }
+
+  console.info("[session-debug] upsertActiveSession:avant-INSERT", {
+    routerId: data.routerId,
+    siteId,
+    siteIdType: typeof siteId,
+    username: data.username,
+    macAddress: data.macAddress,
+  });
 
   const inserted = await pool.query<{ id: string }>(
     `
