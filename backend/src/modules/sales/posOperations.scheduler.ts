@@ -48,6 +48,14 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
     net_revenue: Number(old.net_revenue),
   };
 
+  // Évite de réécrire l'audit et la date de clôture si les montants sont déjà exacts.
+  if (
+    previousSnapshot.tickets_sold === newSnapshot.tickets_sold &&
+    previousSnapshot.gross_revenue === newSnapshot.gross_revenue &&
+    previousSnapshot.refunds === newSnapshot.refunds &&
+    previousSnapshot.net_revenue === newSnapshot.net_revenue
+  ) return;
+
   await client.query(
     `UPDATE point_of_sale_daily_closure
         SET status = 'OPEN', closed_at = NULL, updated_at = NOW()
@@ -238,6 +246,13 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
       [pointOfSaleId, businessDate],
     );
     if (existing.rows[0]?.status === "CLOSED") {
+      // Recalcule les clôtures existantes selon la règle commerciale actuelle.
+      // Les versements historiques restent inchangés et leur écart est conservé.
+      await refreshClosedDay(
+        client,
+        String(existing.rows[0].id),
+        "Recalcul automatique des montants selon la règle de journée commerciale après 20:00.",
+      );
       await client.query("COMMIT");
       return;
     }
