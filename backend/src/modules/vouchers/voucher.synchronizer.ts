@@ -420,6 +420,36 @@ export async function syncMikrotikVouchers(
     [router.id]
   );
 
+  // A successful but unexpectedly empty MikroTik response must not make every
+  // tracked voucher look deleted. Keep the database records and register an
+  // anomaly so the situation can be investigated instead of silently deleting data.
+  if (hotspotUsers.length === 0 && tracked.rows.length > 0) {
+    for (const voucher of tracked.rows) {
+      await appendVoucherEvent({
+        voucherId: voucher.id,
+        siteId: router.siteId,
+        routerId: router.id,
+        username: voucher.username,
+        voucherCode: voucher.code,
+        pointOfSaleId: voucher.pointOfSaleId,
+        eventType: "SYNC_ANOMALY",
+        eventKey: `voucher:${router.id}:${voucher.username}:empty-mikrotik-response`,
+        metadata: {
+          reason:
+            "Réponse MikroTik vide : suppression des vouchers ignorée par mesure de sécurité.",
+          trackedVoucherCount: tracked.rows.length,
+        },
+      });
+    }
+
+    return {
+      discovered,
+      updated,
+      deleted: 0,
+      anomalies: anomalies + tracked.rows.length,
+    };
+  }
+
   for (const voucher of tracked.rows) {
     if (seen.has(voucher.username.trim().toLowerCase())) continue;
 
