@@ -1,4 +1,5 @@
 export const POS_TIME_ZONE = "Indian/Antananarivo";
+export const POS_BUSINESS_DAY_START = "20:10";
 
 export function localParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
