@@ -394,6 +394,11 @@ async function runSchedulerCycle() {
         for (let n = 0; date <= targetDate && n < 366; n++, date = addDays(date, 1)) {
           await closeFinancialDay(pos.id, date);
         }
+
+        // Garantit la clôture de la journée cible même si une clôture future
+        // existe déjà : MAX(business_date) seul ne détecte pas les trous antérieurs.
+        // closeFinancialDay est idempotente pour une journée déjà clôturée.
+        await closeFinancialDay(pos.id, targetDate);
       }
     }
   } catch (error) {
