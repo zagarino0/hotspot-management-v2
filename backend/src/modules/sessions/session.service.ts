@@ -391,20 +391,8 @@ async function performRouterSyncSessions(
           mikrotikLimitUptimeSeconds
         );
       }
-
-      console.info("[session-debug] session.service:avant-upsert", {
-        routerId: router.id,
-        routerName: router.name,
-        siteId: router.siteId ?? null,
-        siteIdType: typeof router.siteId,
-        username: user.username,
-        macAddress: user.macAddress,
-      });
-
-      let sessionSync: Awaited<ReturnType<typeof upsertActiveSession>>;
-
-      try {
-        sessionSync = await upsertActiveSession({
+      const sessionSync: Awaited<ReturnType<typeof upsertActiveSession>> =
+        await upsertActiveSession({
           siteId: router.siteId,
           routerId: router.id,
           username: user.username,
@@ -420,38 +408,6 @@ async function performRouterSyncSessions(
           cookiePresent,
           voucherId,
         });
-
-        console.info("[session-debug] session.service:après-upsert", {
-          routerId: router.id,
-          siteId: router.siteId ?? null,
-          username: user.username,
-          created: sessionSync.created,
-          sessionId: sessionSync.sessionId,
-        });
-      } catch (error: unknown) {
-        const dbError = error as {
-          code?: unknown;
-          detail?: unknown;
-          constraint?: unknown;
-          table?: unknown;
-          column?: unknown;
-        };
-
-        console.error("[session-debug] session.service:échec-upsert", {
-          routerId: router.id,
-          siteId: router.siteId ?? null,
-          username: user.username,
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          code: dbError.code,
-          detail: dbError.detail,
-          constraint: dbError.constraint,
-          table: dbError.table,
-          column: dbError.column,
-        });
-
-        throw error;
-      }
 
       if (sessionSync.created) {
         await publishNotification(router.organizationId, {
@@ -510,7 +466,7 @@ async function performRouterSyncSessions(
       closedCount,
     };
   } catch (error) {
-    console.error("[session-debug] sync-routeur:échec", {
+    console.error("[session-sync] Échec de synchronisation du routeur", {
       routerId: router.id,
       routerName: router.name,
       siteId: router.siteId ?? null,
