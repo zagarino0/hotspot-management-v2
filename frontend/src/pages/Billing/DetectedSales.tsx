@@ -348,17 +348,15 @@ export default function Sales() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center gap-2 border-b border-slate-100 p-4"><CalendarClock size={18} /><div><h2 className="font-bold text-slate-900">Clôtures quotidiennes</h2><p className="text-sm text-slate-500">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
         {closures.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucune clôture disponible pour ce point de vente.</p> :
-          <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Stock</th><th className="px-4 py-3">État</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{closure.business_date.slice(0,10)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-semibold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{closure.stock_review_required ? <span className="inline-flex items-center gap-1 text-amber-700"><CircleAlert size={14} /> À vérifier</span> : <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14} /> Vérifié</span>}</td><td className="px-4 py-3">
-              <div className="flex flex-col items-start gap-1">
-                <span>{closure.status === "CLOSED" ? "Clôturée" : "Ouverte"}</span>
-                {closure.status === "CLOSED" && (() => {
-                  const remittance = remittances.find((item) => item.business_date.slice(0, 10) === closure.business_date.slice(0, 10));
-                  return remittance
-                    ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"><CheckCircle2 size={13} /> Versement reçu</span>
-                    : <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700"><CircleAlert size={13} /> Versement en attente</span>;
-                })()}
-              </div>
-            </td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{closure.business_date.slice(0,10)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-semibold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
+              const remittance = remittances.find((item) => item.business_date.slice(0, 10) === closure.business_date.slice(0, 10));
+              return remittance
+                ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14} /> Versement reçu</span>
+                : <span className="inline-flex items-center gap-1 text-amber-700"><CircleAlert size={14} /> En attente</span>;
+            })()}</td><td className="px-4 py-3 font-semibold">{(() => {
+              const remittance = remittances.find((item) => item.business_date.slice(0, 10) === closure.business_date.slice(0, 10));
+              return remittance ? money(remittance.remitted_amount) : "—";
+            })()}</td></tr>)}</tbody></table></div>
         }
       </section>
 
