@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { pool } from "../../database/pool.js";
+import { POS_BUSINESS_DAY_CUTOFF } from "./posOperations.rules.js";
 import { badRequest, conflict, forbidden, notFoundError } from "../../lib/errors.js";
 import { calculateDailyFinancials, calculateDailyStock, validateRefundAmount, validateTicketEvent } from "./pointOfSaleDaily.calculations.js";
 
@@ -46,7 +47,7 @@ export async function listTicketEvents(id: string,userId: string,date?: string) 
   const c=await pool.connect(); try {
     const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_TICKET_EVENTS_READ");
     const r=await c.query(`SELECT e.* FROM point_of_sale_ticket_event e WHERE e.point_of_sale_id=$1
-      AND ($2::date IS NULL OR (CASE WHEN to_char(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > '20:00'
+      AND ($2::date IS NULL OR (CASE WHEN to_char(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > '${POS_BUSINESS_DAY_CUTOFF}'
         THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
         ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date END)=$2::date)
       ORDER BY e.occurred_at DESC LIMIT 500`,[id,date??null]); return r.rows;
