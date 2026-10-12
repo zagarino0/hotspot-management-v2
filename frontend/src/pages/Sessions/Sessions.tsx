@@ -89,7 +89,11 @@ export default function Sessions() {
             const elapsedSeconds = (sampledAt - previous.at) / 1000;
             const rxDelta = rxBytes - previous.rxBytes;
             const txDelta = txBytes - previous.txBytes;
-            nextRates[session.id] = elapsedSeconds > 0 && elapsedSeconds <= 10 && rxDelta >= 0 && txDelta >= 0
+            // Les compteurs MikroTik sont cumulatifs. Utiliser le temps réel
+            // entre deux relevés, même si la synchronisation du routeur prend
+            // plus de 10 s : le débit reste une moyenne valide sur cet intervalle.
+            // Si le compteur repart à zéro, attendre le relevé suivant.
+            nextRates[session.id] = elapsedSeconds > 0 && rxDelta >= 0 && txDelta >= 0
               ? { rx: (rxDelta * 8) / elapsedSeconds, tx: (txDelta * 8) / elapsedSeconds }
               : { rx: null, tx: null };
           } else {
