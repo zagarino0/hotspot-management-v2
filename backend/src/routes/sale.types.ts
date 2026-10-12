@@ -28,6 +28,7 @@ export interface SaleRow {
   pointOfSaleType: PointOfSaleType;
 
   voucherId: string | null;
+  clientId: string | null;
   voucherCode: string | null;
 
   planId: string | null;
