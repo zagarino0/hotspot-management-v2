@@ -466,7 +466,7 @@ export async function upsertActiveSession(
       `
         UPDATE session
         SET
-          voucher_id = COALESCE($2, voucher_id),
+          voucher_id = COALESCE($2, session.voucher_id),
           client_id = COALESCE(
             (SELECT sa.client_id FROM sale sa
              WHERE sa.site_id = $13 AND sa.voucher_id = COALESCE($2, voucher_id)
