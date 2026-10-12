@@ -17,6 +17,7 @@ export interface ClientListRow {
   createdAt: Date;
   updatedAt: Date;
   sessionsCount: number;
+  activeSessionsCount: number;
   purchasesCount: number;
   purchasesTotal: number;
   lastPurchaseAt: Date | null;
@@ -65,6 +66,7 @@ export async function findClients(): Promise<ClientListRow[]> {
       c.updated_at AS "updatedAt",
 
       COUNT(DISTINCT s.id)::int AS "sessionsCount",
+      COUNT(DISTINCT s.id) FILTER (WHERE s.status = 'ACTIVE' AND s.ended_at IS NULL)::int AS "activeSessionsCount",
       (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
       (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
       (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt",
@@ -112,12 +114,16 @@ export async function findClients(): Promise<ClientListRow[]> {
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planCurrency",
-      (SELECT sa.status
-       FROM session vs
-       JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
-       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+      COALESCE(c.payment_status, (SELECT sa.status
+       FROM sale sa
+       WHERE sa.site_id = c.site_id AND sa.client_id = c.id
        ORDER BY sa.sold_at DESC NULLS LAST
-       LIMIT 1) AS "paymentStatus",
+       LIMIT 1)) AS "paymentStatus",
+      COALESCE(c.payment_date, (SELECT CASE WHEN sa.status = 'PAID' THEN sa.sold_at ELSE NULL END
+       FROM sale sa
+       WHERE sa.site_id = c.site_id AND sa.client_id = c.id
+       ORDER BY sa.sold_at DESC NULLS LAST
+       LIMIT 1)) AS "paymentDate",
       (SELECT CASE WHEN sa.status = 'PAID' THEN sa.sold_at ELSE NULL END
        FROM session vs
        JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
@@ -285,34 +291,11 @@ export async function updateClient(
   if (data.email !== undefined) set("email", data.email);
   if (data.status !== undefined) set("status", data.status);
 
-  if (data.paymentStatus !== undefined || data.paymentDate !== undefined) {
-    const client = await findClientById(id);
-    if (!client) return null;
-    const paymentValues: unknown[] = [];
-    const paymentFields: string[] = [];
-    if (data.paymentStatus !== undefined) {
-      paymentValues.push(data.paymentStatus);
-      paymentFields.push(`status = $1`);
-    }
-    if (data.paymentDate !== undefined) {
-      paymentValues.push(data.paymentDate);
-      paymentFields.push("sold_at = $" + paymentValues.length + "::timestamptz");
-    }
-    paymentValues.push(id);
-    await pool.query(
-      `UPDATE sale sa
-       SET ${paymentFields.join(", ")}, updated_at = NOW()
-       WHERE sa.id = (
-         SELECT sa2.id
-         FROM sale sa2
-         JOIN session vs ON vs.site_id = sa2.site_id AND vs.voucher_id = sa2.voucher_id
-         WHERE vs.client_id = $ ${paymentValues.length}
-           AND vs.site_id = sa2.site_id
-         ORDER BY sa2.sold_at DESC NULLS LAST
-         LIMIT 1
-       )`.replace("$ ", "$"),
-      paymentValues
-    );
+  if (data.paymentStatus !== undefined) {
+    set("payment_status", data.paymentStatus);
+  }
+  if (data.paymentDate !== undefined) {
+    set("payment_date", data.paymentDate);
   }
 
   if (fields.length === 0) {
