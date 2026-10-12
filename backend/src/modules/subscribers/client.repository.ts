@@ -74,24 +74,40 @@ export async function findClients(): Promise<ClientListRow[]> {
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "voucherCode",
-      (SELECT p.name
+      (SELECT COALESCE(p.name, v.mikrotik_profile, vs.mikrotik_profile)
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planName",
-      (SELECT p.price::float8
+      (SELECT COALESCE(hpp.price, v.price_snapshot, p.price)::float8
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       LEFT JOIN LATERAL (
+         SELECT profile_price.price, profile_price.currency
+         FROM site_hotspot_profile_price profile_price
+         WHERE profile_price.site_id = v.site_id
+           AND LOWER(profile_price.profile_code) = LOWER(COALESCE(v.mikrotik_profile, vs.mikrotik_profile))
+         ORDER BY profile_price.updated_at DESC NULLS LAST
+         LIMIT 1
+       ) hpp ON TRUE
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planPrice",
-      (SELECT COALESCE(p.currency, v.currency_snapshot)
+      (SELECT COALESCE(hpp.currency, v.currency_snapshot, p.currency)
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       LEFT JOIN LATERAL (
+         SELECT profile_price.price, profile_price.currency
+         FROM site_hotspot_profile_price profile_price
+         WHERE profile_price.site_id = v.site_id
+           AND LOWER(profile_price.profile_code) = LOWER(COALESCE(v.mikrotik_profile, vs.mikrotik_profile))
+         ORDER BY profile_price.updated_at DESC NULLS LAST
+         LIMIT 1
+       ) hpp ON TRUE
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planCurrency",
@@ -160,24 +176,40 @@ export async function findClientById(
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "voucherCode",
-      (SELECT p.name
+      (SELECT COALESCE(p.name, v.mikrotik_profile, vs.mikrotik_profile)
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planName",
-      (SELECT p.price::float8
+      (SELECT COALESCE(hpp.price, v.price_snapshot, p.price)::float8
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       LEFT JOIN LATERAL (
+         SELECT profile_price.price, profile_price.currency
+         FROM site_hotspot_profile_price profile_price
+         WHERE profile_price.site_id = v.site_id
+           AND LOWER(profile_price.profile_code) = LOWER(COALESCE(v.mikrotik_profile, vs.mikrotik_profile))
+         ORDER BY profile_price.updated_at DESC NULLS LAST
+         LIMIT 1
+       ) hpp ON TRUE
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planPrice",
-      (SELECT COALESCE(p.currency, v.currency_snapshot)
+      (SELECT COALESCE(hpp.currency, v.currency_snapshot, p.currency)
        FROM session vs
        JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
        LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       LEFT JOIN LATERAL (
+         SELECT profile_price.price, profile_price.currency
+         FROM site_hotspot_profile_price profile_price
+         WHERE profile_price.site_id = v.site_id
+           AND LOWER(profile_price.profile_code) = LOWER(COALESCE(v.mikrotik_profile, vs.mikrotik_profile))
+         ORDER BY profile_price.updated_at DESC NULLS LAST
+         LIMIT 1
+       ) hpp ON TRUE
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY vs.started_at DESC
        LIMIT 1) AS "planCurrency",
