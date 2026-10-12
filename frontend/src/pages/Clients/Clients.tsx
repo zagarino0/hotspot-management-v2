@@ -279,6 +279,14 @@ export default function Clients() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Achats
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Total acheté
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Statut
                 </th>
 
@@ -292,7 +300,7 @@ export default function Clients() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={8}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des clients...
@@ -564,6 +572,16 @@ function ClientRow({
         <span className="rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
           {client.sessionsCount}
         </span>
+      </td>
+
+      <td className="px-5 py-4">
+        <span className="rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
+          {client.purchasesCount}
+        </span>
+      </td>
+
+      <td className="px-5 py-4 text-sm font-medium text-slate-700">
+        {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(client.purchasesTotal)} Ar
       </td>
 
       <td className="px-5 py-4">
