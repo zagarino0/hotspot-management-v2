@@ -17,6 +17,9 @@ export interface ClientListRow {
   createdAt: Date;
   updatedAt: Date;
   sessionsCount: number;
+  purchasesCount: number;
+  purchasesTotal: number;
+  lastPurchaseAt: Date | null;
 }
 
 /* ============================================================
@@ -55,7 +58,10 @@ export async function findClients(): Promise<ClientListRow[]> {
       c.created_at AS "createdAt",
       c.updated_at AS "updatedAt",
 
-      COUNT(s.id)::int AS "sessionsCount"
+      COUNT(DISTINCT s.id)::int AS "sessionsCount",
+      (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
+      (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
+      (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt"
 
     FROM client c
 
@@ -104,7 +110,10 @@ export async function findClientById(
         c.created_at AS "createdAt",
         c.updated_at AS "updatedAt",
 
-        COUNT(s.id)::int AS "sessionsCount"
+        COUNT(DISTINCT s.id)::int AS "sessionsCount",
+        (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
+        (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
+        (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt"
 
       FROM client c
 
@@ -240,5 +249,8 @@ export async function createClient(
   return {
     ...result.rows[0],
     sessionsCount: 0,
+    purchasesCount: 0,
+    purchasesTotal: 0,
+    lastPurchaseAt: null,
   };
 }
