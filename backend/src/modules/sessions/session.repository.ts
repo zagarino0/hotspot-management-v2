@@ -467,6 +467,13 @@ export async function upsertActiveSession(
         UPDATE session
         SET
           voucher_id = COALESCE($2, voucher_id),
+          client_id = COALESCE(
+            (SELECT sa.client_id FROM sale sa
+             WHERE sa.site_id = $13 AND sa.voucher_id = COALESCE($2, voucher_id)
+               AND sa.client_id IS NOT NULL
+             ORDER BY sa.sold_at DESC LIMIT 1),
+            client_id
+          ),
           username = COALESCE($3, username),
           ip_address = $4::inet,
           upload_bytes = $5,
@@ -499,6 +506,7 @@ export async function upsertActiveSession(
         data.loginMethod,
         data.cookiePresent,
         data.uptimeSeconds,
+        siteId,
       ]
     );
 
@@ -511,6 +519,7 @@ export async function upsertActiveSession(
         site_id,
         router_id,
         voucher_id,
+        client_id,
         username,
         mac_address,
         ip_address,
@@ -529,6 +538,10 @@ export async function upsertActiveSession(
         $1,
         $2,
         $3,
+        (SELECT sa.client_id FROM sale sa
+         WHERE sa.site_id = $1 AND sa.voucher_id = $3
+           AND sa.client_id IS NOT NULL
+         ORDER BY sa.sold_at DESC LIMIT 1),
         $4,
         $5,
         $6::inet,
