@@ -63,6 +63,8 @@ export interface UpdateClientPayload {
   phone?: string | null;
   email?: string | null;
   status?: ClientStatus;
+  paymentStatus?: "PAID" | "PENDING" | "CANCELLED" | "UNPAID";
+  paymentDate?: string | null;
 }
 
 interface ApiEnvelope<T> {
