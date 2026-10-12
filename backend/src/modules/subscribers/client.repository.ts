@@ -375,6 +375,8 @@ export async function createClient(
       data.phone ?? null,
       data.email ?? null,
       data.status ?? "ACTIVE",
+      data.paymentStatus ?? "PENDING",
+      data.paymentDate ?? null,
     ]
   );
 
