@@ -262,37 +262,13 @@ export default function Clients() {
           <table className="w-full min-w-[950px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70">
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Client
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Voucher MikroTik
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Site
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Sessions
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Forfait / prix
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Sessions
-                </th>
-
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Statut
-                </th>
-
-                <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Actions
-                </th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Client</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Voucher MikroTik</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Site</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Forfait / prix</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Sessions</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Paiement</th>
+                <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Actions</th>
               </tr>
             </thead>
 
@@ -522,9 +498,6 @@ function ClientRow({
   onEdit,
   onDelete,
 }: ClientRowProps) {
-  const active =
-    client.status === "ACTIVE";
-
   const name = client.displayName || "Client non renseigné";
   const username = client.voucherCode || client.username || "—";
   const paymentStatus = client.paymentStatus;
@@ -556,10 +529,7 @@ function ClientRow({
             <p className="truncate text-sm font-semibold text-slate-800">
               {name}
             </p>
-
-            <p className="mt-0.5 truncate text-xs text-slate-400">
-              {username}
-            </p>
+ 
           </div>
         </div>
       </td>
