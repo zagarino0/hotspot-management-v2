@@ -27,6 +27,7 @@ export interface Client {
   planPrice: number | null;
   planCurrency: string | null;
   paymentStatus: string | null;
+  paymentDate: string | null;
 }
 
 interface ClientsResponse {
@@ -53,6 +54,8 @@ export interface CreateClientPayload {
   phone?: string;
   email?: string;
   status?: ClientStatus;
+  paymentStatus?: "PAID" | "PENDING" | "CANCELLED" | "UNPAID";
+  paymentDate?: string | null;
 }
 
 export interface UpdateClientPayload {
