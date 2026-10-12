@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Pencil, Plus, RefreshCw, Save, Trash2, Wallet, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Pencil, Plus, MoreHorizontal, RefreshCw, Save, Trash2, Wallet, X } from "lucide-react";
 import {
   activatePointOfSale,
   createPointOfSale,
@@ -69,6 +69,7 @@ export default function Sales() {
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [editingPoint, setEditingPoint] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [editCode, setEditCode] = useState("");
   const [editName, setEditName] = useState("");
   const [editOpeningTime, setEditOpeningTime] = useState("08:00");
@@ -189,6 +190,7 @@ export default function Sales() {
     setEditName(point.name);
     setEditOpeningTime(point.openingTime || "08:00");
     setEditClosingTime(point.closingTime || "20:00");
+    setActionsMenuOpen(false);
     setEditingPoint(true);
     setError("");
   }
@@ -359,10 +361,23 @@ export default function Sales() {
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p><p className="mt-1 text-xs text-slate-500">Caisse : {selectedPos.openingTime || "08:00"} – {selectedPos.closingTime || "20:00"}</p></div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => beginEditPoint(selectedPos)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"><Pencil size={15} /> Modifier</button>
-                <button type="button" onClick={() => handleToggle(selectedPos)} disabled={busy} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">{selectedPos.status === "ACTIVE" ? "Désactiver" : "Réactiver"}</button>
-                {selectedPos.type === "EXTERNAL" && <button type="button" onClick={() => handleDeletePoint(selectedPos)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-50"><Trash2 size={15} /> Supprimer</button>}
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Actions du point de vente"
+                  aria-haspopup="menu"
+                  aria-expanded={actionsMenuOpen}
+                  onClick={() => setActionsMenuOpen((open) => !open)}
+                  disabled={busy}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                ><MoreHorizontal size={19} /></button>
+                {actionsMenuOpen && (
+                  <div role="menu" className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                    <button role="menuitem" type="button" onClick={() => beginEditPoint(selectedPos)} disabled={busy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Pencil size={15} /> Modifier</button>
+                    <button role="menuitem" type="button" onClick={() => { setActionsMenuOpen(false); void handleToggle(selectedPos); }} disabled={busy} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">{selectedPos.status === "ACTIVE" ? "Désactiver" : "Réactiver"}</button>
+                    {selectedPos.type === "EXTERNAL" && <button role="menuitem" type="button" onClick={() => { setActionsMenuOpen(false); void handleDeletePoint(selectedPos); }} disabled={busy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 size={15} /> Supprimer</button>}
+                  </div>
+                )}
               </div>
             </div>
           )}
