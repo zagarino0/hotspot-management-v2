@@ -26,12 +26,13 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
        COUNT(DISTINCT LOWER(voucher_code)) FILTER (WHERE event_type = 'SOLD')::int AS tickets_sold,
        COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'SOLD'), 0)::numeric(14,2) AS gross_revenue,
        COALESCE(SUM(unit_price) FILTER (WHERE event_type = 'REFUNDED'), 0)::numeric(14,2) AS refunds
-     FROM point_of_sale_ticket_event
-     WHERE point_of_sale_id = $1
-       AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
-                 THEN (occurred_at AT TIME ZONE $3)::date + 1
-                 ELSE (occurred_at AT TIME ZONE $3)::date END) = $2::date
-       AND event_type IN ('SOLD', 'REFUNDED')`,
+     FROM point_of_sale_ticket_event e
+     JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
+     WHERE e.point_of_sale_id = $1
+       AND (CASE WHEN to_char(e.occurred_at AT TIME ZONE $3, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
+                 THEN (e.occurred_at AT TIME ZONE $3)::date + 1
+                 ELSE (e.occurred_at AT TIME ZONE $3)::date END) = $2::date
+       AND e.event_type IN ('SOLD', 'REFUNDED')`,
     [old.point_of_sale_id, old.business_date, TIME_ZONE],
   );
   const f = financials.rows[0];
@@ -114,7 +115,7 @@ async function detectFirstUse() {
                 WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
                 ELSE 'CURRENT_PLAN'
               END AS "priceSource",
-              (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
+              (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
@@ -269,11 +270,12 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
          COUNT(*) FILTER (WHERE event_type IN ('UNUSABLE','REPLACED'))::int AS unusable_or_replaced,
          COUNT(*) FILTER (WHERE event_type = 'MISSING')::int AS missing_tickets,
          COUNT(*) FILTER (WHERE event_type = 'REPLACED')::int AS free_replacements
-       FROM point_of_sale_ticket_event
-       WHERE point_of_sale_id = $1
-         AND (CASE WHEN to_char(occurred_at AT TIME ZONE $3, 'HH24:MI') > '${BUSINESS_DAY_CUTOFF}'
-           THEN (occurred_at AT TIME ZONE $3)::date + 1
-           ELSE (occurred_at AT TIME ZONE $3)::date END) = $2::date`,
+       FROM point_of_sale_ticket_event e
+       JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
+       WHERE e.point_of_sale_id = $1
+         AND (CASE WHEN to_char(e.occurred_at AT TIME ZONE $3, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
+           THEN (e.occurred_at AT TIME ZONE $3)::date + 1
+           ELSE (e.occurred_at AT TIME ZONE $3)::date END) = $2::date`,
       [pointOfSaleId, businessDate, TIME_ZONE],
     );
     const t = totals.rows[0];
