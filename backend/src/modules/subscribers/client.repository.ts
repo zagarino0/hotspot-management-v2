@@ -39,6 +39,8 @@ export interface CreateClientData {
   displayName?: string | null;
   phone?: string | null;
   email?: string | null;
+  paymentStatus?: "PAID" | "PENDING" | "CANCELLED" | "UNPAID";
+  paymentDate?: string | null;
   status?:
     | "ACTIVE"
     | "INACTIVE"
@@ -339,7 +341,9 @@ export async function createClient(
         display_name,
         phone,
         email,
-        status
+        status,
+        payment_status,
+        payment_date
       )
       VALUES (
         $1,
@@ -347,7 +351,9 @@ export async function createClient(
         $3,
         $4,
         $5,
-        COALESCE($6, 'ACTIVE')
+        COALESCE($6, 'ACTIVE'),
+        $7,
+        $8
       )
       RETURNING
         id,
