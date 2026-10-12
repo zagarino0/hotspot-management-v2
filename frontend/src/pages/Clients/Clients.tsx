@@ -91,7 +91,12 @@ export default function Clients() {
         try { return [site.id, await getSiteProfilePrices(site.id)] as const; }
         catch { return [site.id, [] as SiteProfilePrice[]] as const; }
       }));
-      setPricesBySite(priceEntries.reduce<Record<string, SiteProfilePrice[]>>((acc, entry) => {\n        acc[entry[0]] = entry[1];\n        return acc;\n      }, {}));
+      setPricesBySite(
+        priceEntries.reduce<Record<string, SiteProfilePrice[]>>((acc, entry) => {
+          acc[entry[0]] = entry[1];
+          return acc;
+        }, {})
+      );
     } catch (err) {
       console.error(
         "Erreur lors du chargement des clients :",
