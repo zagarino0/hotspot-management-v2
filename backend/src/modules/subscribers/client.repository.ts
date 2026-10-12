@@ -61,7 +61,41 @@ export async function findClients(): Promise<ClientListRow[]> {
       COUNT(DISTINCT s.id)::int AS "sessionsCount",
       (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
       (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
-      (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt"
+      (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt",
+
+      (SELECT v.code
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "voucherCode",
+      (SELECT p.name
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planName",
+      (SELECT p.price::float8
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planPrice",
+      (SELECT COALESCE(p.currency, v.currency_snapshot)
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planCurrency",
+      (SELECT sa.status
+       FROM session vs
+       JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY sa.sold_at DESC NULLS LAST
+       LIMIT 1) AS "paymentStatus"
 
     FROM client c
 
@@ -113,7 +147,41 @@ export async function findClientById(
         COUNT(DISTINCT s.id)::int AS "sessionsCount",
         (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
         (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
-        (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt"
+        (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt",
+
+      (SELECT v.code
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "voucherCode",
+      (SELECT p.name
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planName",
+      (SELECT p.price::float8
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planPrice",
+      (SELECT COALESCE(p.currency, v.currency_snapshot)
+       FROM session vs
+       JOIN voucher v ON v.id = vs.voucher_id AND v.site_id = vs.site_id
+       LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY vs.started_at DESC
+       LIMIT 1) AS "planCurrency",
+      (SELECT sa.status
+       FROM session vs
+       JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY sa.sold_at DESC NULLS LAST
+       LIMIT 1) AS "paymentStatus"
 
       FROM client c
 
