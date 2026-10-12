@@ -137,7 +137,7 @@ export default function Sidebar({
           "border-r border-slate-200 bg-white text-slate-900",
           "shadow-[4px_0_20px_rgba(15,23,42,0.03)]",
           "transition-transform duration-300 ease-in-out",
-          "lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
+          "lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:translate-x-0 lg:shadow-none",
           mobileOpen
             ? "translate-x-0"
             : "-translate-x-full",
