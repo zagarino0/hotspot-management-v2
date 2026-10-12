@@ -497,7 +497,7 @@ export default function Sessions() {
         <div className="max-h-[65vh] overflow-auto overscroll-contain">
           <table className="w-full min-w-[1250px] table-fixed">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-slate-100 bg-slate-50/70">
+              <tr className="border-b border-slate-200 bg-slate-50">
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Utilisateur
                 </th>
