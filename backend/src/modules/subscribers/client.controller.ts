@@ -88,6 +88,8 @@ export async function createClient(
       phone,
       email,
       status,
+      paymentStatus,
+      paymentDate,
     } = req.body;
 
     /* ----------------------------------------------------------
@@ -182,6 +184,13 @@ export async function createClient(
       });
     }
 
+    if (paymentStatus !== undefined && !["PAID", "PENDING", "CANCELLED", "UNPAID"].includes(paymentStatus)) {
+      return res.status(400).json({ success: false, message: "Statut de paiement invalide." });
+    }
+    if (paymentDate !== undefined && paymentDate !== null && (typeof paymentDate !== "string" || Number.isNaN(Date.parse(paymentDate)))) {
+      return res.status(400).json({ success: false, message: "Date de paiement invalide." });
+    }
+
     /* ----------------------------------------------------------
        CREATE
     ---------------------------------------------------------- */
@@ -211,6 +220,8 @@ export async function createClient(
             : null,
 
         status,
+        paymentStatus,
+        paymentDate: paymentDate === undefined ? undefined : paymentDate,
       });
 
     return res.status(201).json({
