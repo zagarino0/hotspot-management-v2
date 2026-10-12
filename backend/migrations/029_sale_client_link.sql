@@ -16,7 +16,7 @@ BEGIN
       FOREIGN KEY (site_id, client_id)
       REFERENCES client(site_id, id)
       ON UPDATE CASCADE
-      ON DELETE SET NULL;
+      ON DELETE RESTRICT;
   END IF;
 END $$;
 
