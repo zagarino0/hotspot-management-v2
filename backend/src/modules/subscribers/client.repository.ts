@@ -25,6 +25,7 @@ export interface ClientListRow {
   planPrice: number | null;
   planCurrency: string | null;
   paymentStatus: string | null;
+  paymentDate: Date | null;
 }
 
 /* ============================================================
@@ -116,7 +117,13 @@ export async function findClients(): Promise<ClientListRow[]> {
        JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
        WHERE vs.site_id = c.site_id AND vs.client_id = c.id
        ORDER BY sa.sold_at DESC NULLS LAST
-       LIMIT 1) AS "paymentStatus"
+       LIMIT 1) AS "paymentStatus",
+      (SELECT CASE WHEN sa.status = 'PAID' THEN sa.sold_at ELSE NULL END
+       FROM session vs
+       JOIN sale sa ON sa.voucher_id = vs.voucher_id AND sa.site_id = vs.site_id
+       WHERE vs.site_id = c.site_id AND vs.client_id = c.id
+       ORDER BY sa.sold_at DESC NULLS LAST
+       LIMIT 1) AS "paymentDate"
 
     FROM client c
 
@@ -256,6 +263,8 @@ export interface UpdateClientData {
   phone?: string | null;
   email?: string | null;
   status?: "ACTIVE" | "INACTIVE" | "BLOCKED" | "ARCHIVED";
+  paymentStatus?: "PAID" | "PENDING" | "CANCELLED" | "UNPAID";
+  paymentDate?: string | null;
 }
 
 export async function updateClient(
@@ -275,6 +284,36 @@ export async function updateClient(
   if (data.phone !== undefined) set("phone", data.phone);
   if (data.email !== undefined) set("email", data.email);
   if (data.status !== undefined) set("status", data.status);
+
+  if (data.paymentStatus !== undefined || data.paymentDate !== undefined) {
+    const client = await findClientById(id);
+    if (!client) return null;
+    const paymentValues: unknown[] = [];
+    const paymentFields: string[] = [];
+    if (data.paymentStatus !== undefined) {
+      paymentValues.push(data.paymentStatus);
+      paymentFields.push(`status = $1`);
+    }
+    if (data.paymentDate !== undefined) {
+      paymentValues.push(data.paymentDate);
+      paymentFields.push(`sold_at = ${paymentValues.length}`);
+    }
+    paymentValues.push(id);
+    await pool.query(
+      `UPDATE sale sa
+       SET ${paymentFields.join(", ")}, updated_at = NOW()
+       WHERE sa.id = (
+         SELECT sa2.id
+         FROM sale sa2
+         JOIN session vs ON vs.site_id = sa2.site_id AND vs.voucher_id = sa2.voucher_id
+         WHERE vs.client_id = $ ${paymentValues.length}
+           AND vs.site_id = sa2.site_id
+         ORDER BY sa2.sold_at DESC NULLS LAST
+         LIMIT 1
+       )`.replace("$ ", "$"),
+      paymentValues
+    );
+  }
 
   if (fields.length === 0) {
     return findClientById(id);
