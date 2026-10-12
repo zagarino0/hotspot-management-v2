@@ -148,7 +148,7 @@ export async function updatePointOfSale(
   const nextCode = data.code.trim().toUpperCase();
   const nextName = data.name.trim();
   if (!nextCode || !nextName) throw badRequest("Le code et le nom sont obligatoires.");
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(data.openingTime) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(data.closingTime)) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(data.openingTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(data.closingTime)) {
     throw badRequest("Les heures d'ouverture et de fermeture doivent être au format HH:mm.");
   }
 
