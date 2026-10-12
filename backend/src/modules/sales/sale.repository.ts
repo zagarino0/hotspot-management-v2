@@ -253,7 +253,7 @@ export async function insertSale(
   let clientId: string | null = null;
   const customerName = data.customerName?.trim() || null;
   const customerPhone = data.customerPhone?.trim() || null;
-  const normalizedPhone = customerPhone?.replace(/\\D/g, "") ?? "";
+  const normalizedPhone = customerPhone?.replace(/[^0-9]/g, "") ?? "";
 
   if (customerName || normalizedPhone) {
     if (normalizedPhone) {
@@ -262,7 +262,7 @@ export async function insertSale(
           SELECT id
           FROM client
           WHERE site_id = $1
-            AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = $2
+            AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $2
             AND $2 <> ''
           ORDER BY updated_at DESC
           LIMIT 1
