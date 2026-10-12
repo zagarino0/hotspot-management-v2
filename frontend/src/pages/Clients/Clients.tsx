@@ -47,6 +47,8 @@ export default function Clients() {
     phone: "",
     email: "",
     status: "ACTIVE" as ClientStatus,
+    paymentStatus: "PENDING" as "PAID" | "PENDING" | "CANCELLED" | "UNPAID",
+    paymentDate: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(
@@ -105,6 +107,8 @@ export default function Clients() {
       phone: client.phone ?? "",
       email: client.email ?? "",
       status: (client.status as ClientStatus) ?? "ACTIVE",
+      paymentStatus: (client.paymentStatus as "PAID" | "PENDING" | "CANCELLED" | "UNPAID") ?? "PENDING",
+      paymentDate: client.paymentDate ? new Date(client.paymentDate).toISOString().slice(0, 10) : "",
     });
     setEditError(null);
   }
@@ -121,6 +125,8 @@ export default function Clients() {
         phone: editForm.phone.trim() || null,
         email: editForm.email.trim() || null,
         status: editForm.status,
+        paymentStatus: editForm.paymentStatus,
+        paymentDate: editForm.paymentDate || null,
       });
 
       setEditingClient(null);
@@ -436,6 +442,32 @@ export default function Clients() {
             </label>
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-600">Statut de paiement</span>
+              <select
+                value={editForm.paymentStatus}
+                onChange={(event) => setEditForm((f) => ({ ...f, paymentStatus: event.target.value as typeof f.paymentStatus }))}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+              >
+                <option value="PAID">Payé</option>
+                <option value="PENDING">En attente</option>
+                <option value="UNPAID">Impayé</option>
+                <option value="CANCELLED">Annulé</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-600">Date de paiement</span>
+              <input
+                type="date"
+                value={editForm.paymentDate}
+                onChange={(event) => setEditForm((f) => ({ ...f, paymentDate: event.target.value }))}
+                disabled={editForm.paymentStatus !== "PAID"}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </label>
+          </div>
+
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">
               Statut
@@ -561,9 +593,14 @@ function ClientRow({
       </td>
 
       <td className="px-5 py-4">
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${paymentTone}`}>
-          {paymentLabel}
-        </span>
+        <div>
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${paymentTone}`}>
+            {paymentLabel}
+          </span>
+          <p className="mt-1 text-xs text-slate-400">
+            {client.paymentDate ? new Date(client.paymentDate).toLocaleDateString("fr-FR") : "Date non renseignée"}
+          </p>
+        </div>
       </td>
 
       <td className="px-5 py-4 text-right">
