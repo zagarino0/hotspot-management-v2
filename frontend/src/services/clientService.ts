@@ -19,6 +19,9 @@ export interface Client {
   updatedAt: string;
 
   sessionsCount: number;
+  purchasesCount: number;
+  purchasesTotal: number;
+  lastPurchaseAt: string | null;
 }
 
 interface ClientsResponse {
