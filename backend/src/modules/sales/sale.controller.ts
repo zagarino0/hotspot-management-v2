@@ -184,11 +184,17 @@ export async function updatePointOfSaleController(
   try {
     const userId = req.auth?.sub;
     if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
-    const { code, name } = req.body ?? {};
+    const { code, name, openingTime, closingTime } = req.body ?? {};
     if (typeof code !== "string" || !code.trim() || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ success: false, message: "Le code et le nom du point de vente sont obligatoires." });
     }
-    const pointOfSale = await updatePointOfSale(userId, String(req.params.id ?? ""), { code: code.trim(), name: name.trim() });
+    const validTime = (value: unknown) => typeof value === "string" && /^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+    if (!validTime(openingTime) || !validTime(closingTime)) {
+      return res.status(400).json({ success: false, message: "Les heures d'ouverture et de fermeture doivent être au format HH:mm." });
+    }
+    const pointOfSale = await updatePointOfSale(userId, String(req.params.id ?? ""), {
+      code: code.trim(), name: name.trim(), openingTime, closingTime,
+    });
     return res.status(200).json({ success: true, message: "Point de vente modifié avec succès.", data: pointOfSale });
   } catch (error) { return next(error); }
 }
