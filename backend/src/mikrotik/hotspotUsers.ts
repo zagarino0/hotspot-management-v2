@@ -115,31 +115,31 @@ function parseOptionalTimeSeconds(
 
 
 function parseCreationDate(comment: string): string | null {
+  // Les commentaires générés utilisent MM.DD.YY (ex. "up-573-06.20.26-").
+  // On conserve aussi le format DD.MM.YY pour les anciens commentaires
+  // lorsque le format américain est invalide.
   const match = comment.match(
     /(?:^|[^0-9])(\d{2})\.(\d{2})\.(\d{2}|\d{4})(?:[^0-9]|$)/
   );
 
-  if (!match) {
-    return null;
-  }
+  if (!match) return null;
 
-  const day = Number(match[1]);
-  const month = Number(match[2]);
+  const first = Number(match[1]);
+  const second = Number(match[2]);
   const rawYear = Number(match[3]);
-  const year =
-    match[3].length === 2 ? 2000 + rawYear : rawYear;
+  const year = match[3].length === 2 ? 2000 + rawYear : rawYear;
 
-  const date = new Date(Date.UTC(year, month - 1, day));
+  const toIsoDate = (month: number, day: number): string | null => {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) return null;
+    return date.toISOString();
+  };
 
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return date.toISOString();
+  return toIsoDate(first, second) ?? toIsoDate(second, first);
 }
 
 
