@@ -472,6 +472,12 @@ export async function upsertActiveSession(
              WHERE sa.site_id = $13 AND sa.voucher_id = COALESCE($2, voucher_id)
                AND sa.client_id IS NOT NULL
              ORDER BY sa.sold_at DESC LIMIT 1),
+            (SELECT c.id FROM client c
+             WHERE c.site_id = $13
+               AND $3 IS NOT NULL
+               AND LOWER(c.username) = LOWER($3)
+             ORDER BY c.created_at DESC
+             LIMIT 1),
             client_id
           ),
           username = COALESCE($3, username),
@@ -538,10 +544,18 @@ export async function upsertActiveSession(
         $1,
         $2,
         $3,
-        (SELECT sa.client_id FROM sale sa
-         WHERE sa.site_id = $1 AND sa.voucher_id = $3
-           AND sa.client_id IS NOT NULL
-         ORDER BY sa.sold_at DESC LIMIT 1),
+        COALESCE(
+          (SELECT sa.client_id FROM sale sa
+           WHERE sa.site_id = $1 AND sa.voucher_id = $3
+             AND sa.client_id IS NOT NULL
+           ORDER BY sa.sold_at DESC LIMIT 1),
+          (SELECT c.id FROM client c
+           WHERE c.site_id = $1
+             AND $4 IS NOT NULL
+             AND LOWER(c.username) = LOWER($4)
+           ORDER BY c.created_at DESC
+           LIMIT 1)
+        ),
         $4,
         $5,
         $6::inet,
