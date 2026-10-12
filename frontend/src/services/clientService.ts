@@ -22,6 +22,11 @@ export interface Client {
   purchasesCount: number;
   purchasesTotal: number;
   lastPurchaseAt: string | null;
+  voucherCode: string | null;
+  planName: string | null;
+  planPrice: number | null;
+  planCurrency: string | null;
+  paymentStatus: string | null;
 }
 
 interface ClientsResponse {
