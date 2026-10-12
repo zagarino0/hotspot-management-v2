@@ -23,6 +23,8 @@ import {
   type ClientStatus,
 } from "../../services/clientService";
 import { getSites, type Site } from "../../services/siteService";
+import { getMikrotikVouchers, type MikrotikVoucher } from "../../services/voucherService";
+import { getSiteProfilePrices, type SiteProfilePrice } from "../../services/sitePricingService";
 
 interface ClientRowProps {
   client: Client;
@@ -36,6 +38,8 @@ export default function Clients() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [mikrotikVouchers, setMikrotikVouchers] = useState<MikrotikVoucher[]>([]);
+  const [pricesBySite, setPricesBySite] = useState<Record<string, SiteProfilePrice[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -71,13 +75,21 @@ export default function Clients() {
       setLoading(true);
       setError(null);
 
-      const [clientsData, sitesData] = await Promise.all([
+      const [clientsData, sitesData, vouchersData] = await Promise.all([
         fetchClients(),
         getSites().catch(() => []),
+        getMikrotikVouchers().catch(() => []),
       ]);
 
       setClients(clientsData);
       setSites(sitesData);
+      setMikrotikVouchers(vouchersData);
+
+      const priceEntries = await Promise.all(sitesData.map(async site => {
+        try { return [site.id, await getSiteProfilePrices(site.id)] as const; }
+        catch { return [site.id, [] as SiteProfilePrice[]] as const; }
+      }));
+      setPricesBySite(Object.fromEntries(priceEntries));
     } catch (err) {
       console.error(
         "Erreur lors du chargement des clients :",
@@ -578,12 +590,27 @@ function ClientRow({
       </td>
 
       <td className="px-5 py-4">
-        <p className="text-sm font-medium text-slate-700">{client.planName || "Forfait non identifié"}</p>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {client.planPrice === null
-            ? "Prix non configuré"
-            : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(client.planPrice)} ${client.planCurrency || "Ar"}`}
-        </p>
+        {(() => {
+          const linkedVoucher = mikrotikVouchers.find(v =>
+            v.siteId === client.siteId &&
+            v.code.toLowerCase() === (client.username ?? "").toLowerCase()
+          );
+          const profileCode = linkedVoucher?.profile ?? null;
+          const configuredPrice = profileCode
+            ? (pricesBySite[client.siteId] ?? []).find(p => p.code.toLowerCase() === profileCode.toLowerCase())
+            : null;
+          const planName = client.planName ?? configuredPrice?.name ?? profileCode;
+          const planPrice = client.planPrice ?? configuredPrice?.price ?? null;
+          const currency = client.planCurrency ?? configuredPrice?.currency ?? "Ar";
+          return <>
+            <p className="text-sm font-medium text-slate-700">{planName || "Forfait non identifié"}</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {planPrice === null
+                ? "Prix non configuré"
+                : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(planPrice)} ${currency}`}
+            </p>
+          </>;
+        })()}
       </td>
 
       <td className="px-5 py-4">
