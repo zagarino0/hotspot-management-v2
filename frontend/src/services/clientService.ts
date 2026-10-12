@@ -19,6 +19,7 @@ export interface Client {
   updatedAt: string;
 
   sessionsCount: number;
+  activeSessionsCount: number;
   purchasesCount: number;
   purchasesTotal: number;
   lastPurchaseAt: string | null;
