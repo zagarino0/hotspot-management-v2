@@ -1,6 +1,5 @@
 import type { PoolClient } from "pg";
 import { pool } from "../../database/pool.js";
-import { POS_BUSINESS_DAY_CUTOFF } from "./posOperations.rules.js";
 import { badRequest, conflict, forbidden, notFoundError } from "../../lib/errors.js";
 import { calculateDailyFinancials, calculateDailyStock, validateRefundAmount, validateTicketEvent } from "./pointOfSaleDaily.calculations.js";
 
@@ -46,8 +45,10 @@ export async function listDailyClosures(id: string, userId: string, from?: strin
 export async function listTicketEvents(id: string,userId: string,date?: string) {
   const c=await pool.connect(); try {
     const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_TICKET_EVENTS_READ");
-    const r=await c.query(`SELECT e.* FROM point_of_sale_ticket_event e WHERE e.point_of_sale_id=$1
-      AND ($2::date IS NULL OR (CASE WHEN to_char(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > '${POS_BUSINESS_DAY_CUTOFF}'
+    const r=await c.query(`SELECT e.* FROM point_of_sale_ticket_event e
+      JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
+      WHERE e.point_of_sale_id=$1
+      AND ($2::date IS NULL OR (CASE WHEN to_char(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
         THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
         ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date END)=$2::date)
       ORDER BY e.occurred_at DESC LIMIT 500`,[id,date??null]); return r.rows;
@@ -117,12 +118,14 @@ export async function closeDailySales(id:string,userId:string,input:{
   try {
     await c.query("BEGIN"); const pos=await assertExternalPosAccess(c,id,userId);
     await assertPermission(c,userId,pos.organizationId,"POS_DAILY_CLOSURES_CLOSE");
-    const events=await c.query<{eventType:string;voucherCode:string;replacementVoucherCode:string|null;unitPrice:string;currency:string}>(`SELECT event_type AS "eventType",voucher_code AS "voucherCode",
-      replacement_voucher_code AS "replacementVoucherCode",unit_price::text AS "unitPrice",currency
-      FROM point_of_sale_ticket_event WHERE point_of_sale_id=$1
-      AND (CASE WHEN to_char(occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > '20:00'
-        THEN (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
-        ELSE (occurred_at AT TIME ZONE 'Indian/Antananarivo')::date END)=$2::date
+    const events=await c.query<{eventType:string;voucherCode:string;replacementVoucherCode:string|null;unitPrice:string;currency:string}>(`SELECT e.event_type AS "eventType",e.voucher_code AS "voucherCode",
+      e.replacement_voucher_code AS "replacementVoucherCode",e.unit_price::text AS "unitPrice",e.currency
+      FROM point_of_sale_ticket_event e
+      JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
+      WHERE e.point_of_sale_id=$1
+      AND (CASE WHEN to_char(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
+        THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+        ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date END)=$2::date
       AND event_type IN ('STOCK_ASSIGNED','SOLD','REFUNDED','UNSOLD_CONFIRMED','REJECTED','UNUSABLE','MISSING','REPLACED')`,[id,input.businessDate]);
     let fin:ReturnType<typeof calculateDailyFinancials>;
     try { fin=calculateDailyFinancials(events.rows.map(e=>({...e,unitPrice:Number(e.unitPrice)})),currency); }
