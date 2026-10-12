@@ -36,6 +36,8 @@ const LIVE_SYNC_INTERVAL_MS = 1_000;
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionRates, setSessionRates] = useState<Record<string, { rx: number | null; tx: number | null }>>({});
+  const previousCounters = useRef<Record<string, { rxBytes: number; txBytes: number; at: number }>>({});
   const [routers, setRouters] = useState<Router[]>([]);
   const [selectedRouterId, setSelectedRouterId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,30 @@ export default function Sessions() {
         setError(null);
 
         const data = await fetchSessions();
+        const sampledAt = Date.now();
+        const nextCounters: typeof previousCounters.current = {};
+        const nextRates: typeof sessionRates = {};
 
+        for (const session of data) {
+          if (session.status !== "ACTIVE") continue;
+          const rxBytes = Number(session.downloadBytes) || 0;
+          const txBytes = Number(session.uploadBytes) || 0;
+          const previous = previousCounters.current[session.id];
+          if (previous) {
+            const elapsedSeconds = (sampledAt - previous.at) / 1000;
+            const rxDelta = rxBytes - previous.rxBytes;
+            const txDelta = txBytes - previous.txBytes;
+            nextRates[session.id] = elapsedSeconds > 0 && elapsedSeconds <= 10 && rxDelta >= 0 && txDelta >= 0
+              ? { rx: (rxDelta * 8) / elapsedSeconds, tx: (txDelta * 8) / elapsedSeconds }
+              : { rx: null, tx: null };
+          } else {
+            nextRates[session.id] = { rx: null, tx: null };
+          }
+          nextCounters[session.id] = { rxBytes, txBytes, at: sampledAt };
+        }
+
+        previousCounters.current = nextCounters;
+        setSessionRates(nextRates);
         setSessions(data);
       } catch (err) {
         console.error(
@@ -522,6 +547,8 @@ export default function Sessions() {
                   Restant après
                 </th>
 
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit RX</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit TX</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Routeur
                 </th>
@@ -540,7 +567,7 @@ export default function Sessions() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des sessions...
@@ -549,7 +576,7 @@ export default function Sessions() {
               ) : filteredSessions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className="px-5 py-12 text-center"
                   >
                     <div className="text-sm font-semibold text-slate-600">
@@ -568,6 +595,7 @@ export default function Sessions() {
                   <SessionRow
                     key={session.id}
                     session={session}
+                    rates={sessionRates[session.id] ?? { rx: null, tx: null }}
                     onOpenHistory={() => setHistorySession(session)}
                     onTerminate={() => {
                       setTerminatingSession(session);
@@ -730,6 +758,13 @@ function toFiniteNumber(value: number | string | null): number | null {
     : null;
 }
 
+function formatBitRate(bitsPerSecond: number | null): string {
+  if (bitsPerSecond === null || !Number.isFinite(bitsPerSecond)) return "Mesure…";
+  if (bitsPerSecond >= 1_000_000) return `${(bitsPerSecond / 1_000_000).toFixed(2)} Mbps`;
+  if (bitsPerSecond >= 1_000) return `${(bitsPerSecond / 1_000).toFixed(1)} kbps`;
+  return `${Math.round(bitsPerSecond)} bps`;
+}
+
 function formatDuration(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
     return "—";
@@ -850,10 +885,12 @@ function SessionStat({
 
 function SessionRow({
   session,
+  rates,
   onOpenHistory,
   onTerminate,
 }: {
   session: Session;
+  rates: { rx: number | null; tx: number | null };
   onOpenHistory: () => void;
   onTerminate: () => void;
 }) {
@@ -1054,6 +1091,16 @@ function SessionRow({
             Non disponible
           </div>
         )}
+      </td>
+
+      <td className="px-5 py-4">
+        <div className="text-sm font-semibold text-slate-700">{session.status === "ACTIVE" ? formatBitRate(rates.rx) : "—"}</div>
+        <div className="mt-0.5 text-[10px] text-slate-400">reçu par le client</div>
+      </td>
+
+      <td className="px-5 py-4">
+        <div className="text-sm font-semibold text-slate-700">{session.status === "ACTIVE" ? formatBitRate(rates.tx) : "—"}</div>
+        <div className="mt-0.5 text-[10px] text-slate-400">envoyé par le client</div>
       </td>
 
       <td className="px-5 py-4">
