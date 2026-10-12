@@ -188,7 +188,7 @@ export async function updatePointOfSaleController(
     if (typeof code !== "string" || !code.trim() || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ success: false, message: "Le code et le nom du point de vente sont obligatoires." });
     }
-    const validTime = (value: unknown) => typeof value === "string" && /^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+    const validTime = (value: unknown) => typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
     if (!validTime(openingTime) || !validTime(closingTime)) {
       return res.status(400).json({ success: false, message: "Les heures d'ouverture et de fermeture doivent être au format HH:mm." });
     }
