@@ -34,9 +34,9 @@ WHERE sa.client_id IS NULL
   AND sa.voucher_id IS NOT NULL
   AND (
     (sa.customer_phone IS NOT NULL
-      AND regexp_replace(sa.customer_phone, '\\D', '', 'g') <> ''
-      AND regexp_replace(c.phone, '\\D', '', 'g') =
-          regexp_replace(sa.customer_phone, '\\D', '', 'g'))
+      AND regexp_replace(sa.customer_phone, '[^0-9]', '', 'g') <> ''
+      AND regexp_replace(c.phone, '[^0-9]', '', 'g') =
+          regexp_replace(sa.customer_phone, '[^0-9]', '', 'g'))
   );
 
 -- Existing sessions inherit the client only through a known voucher sale.
