@@ -9,6 +9,8 @@ export interface PointOfSale {
   name: string;
   type: PointOfSaleType;
   status: "ACTIVE" | "INACTIVE";
+  openingTime: string;
+  closingTime: string;
 }
 
 export type SaleStatus =
@@ -171,7 +173,7 @@ export async function createPointOfSale(data: {
 
 export async function updatePointOfSale(
   id: string,
-  data: { code: string; name: string },
+  data: { code: string; name: string; openingTime: string; closingTime: string },
 ): Promise<PointOfSale> {
   const response = await api.patch<ApiEnvelope<PointOfSale>>(
     `/api/sales/point-of-sales/${id}`,
