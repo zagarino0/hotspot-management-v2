@@ -2,7 +2,6 @@ import { pool } from "../../database/pool.js";
 
 import {
   POS_TIME_ZONE as TIME_ZONE,
-  POS_BUSINESS_DAY_CUTOFF as BUSINESS_DAY_CUTOFF,
   addDays,
   isClosureDue,
   localDate,
@@ -393,10 +392,9 @@ async function runSchedulerCycle() {
 
     for (const setting of settings.rows) {
       if (!setting.enabled) continue;
-      const closureTime = setting.closureTime.slice(0, 5);
       const targetDate = nowDate;
-      const posResult = await pool.query<{ id: string }>(
-        `SELECT pos.id
+      const posResult = await pool.query<{ id: string; closingTime: string }>(
+        `SELECT pos.id, TO_CHAR(pos.closing_time, 'HH24:MI') AS "closingTime"
            FROM point_of_sale pos
           WHERE pos.organization_id = $1 AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'`,
         [setting.organizationId],
@@ -424,7 +422,7 @@ async function runSchedulerCycle() {
         }
 
         // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
-        if (!isClosureDue(nowTime, closureTime)) continue;
+        if (!isClosureDue(nowTime, pos.closingTime)) continue;
         // La journée commerciale porte la date de clôture : le cycle ouvert la veille à 20:10 est clôturé à 20:00 aujourd'hui.
         const existing = await pool.query<{ lastDate: string | null }>(
           `SELECT MAX(business_date)::text AS "lastDate"
