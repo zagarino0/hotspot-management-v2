@@ -20,6 +20,11 @@ export interface ClientListRow {
   purchasesCount: number;
   purchasesTotal: number;
   lastPurchaseAt: Date | null;
+  voucherCode: string | null;
+  planName: string | null;
+  planPrice: number | null;
+  planCurrency: string | null;
+  paymentStatus: string | null;
 }
 
 /* ============================================================
@@ -320,5 +325,10 @@ export async function createClient(
     purchasesCount: 0,
     purchasesTotal: 0,
     lastPurchaseAt: null,
+    voucherCode: null,
+    planName: null,
+    planPrice: null,
+    planCurrency: null,
+    paymentStatus: null,
   };
 }
