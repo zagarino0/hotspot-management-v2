@@ -94,17 +94,17 @@ export async function listPosRemittances(
   const result = await pool.query(
     `SELECT
         r.id,
-        r.point_of_sale_id AS "pointOfSaleId",
-        r.business_date AS "businessDate",
+        r.point_of_sale_id,
+        r.business_date,
         r.currency,
         COALESCE(c.net_revenue, r.expected_amount) AS expected_amount,
         r.remitted_amount,
         r.remitted_amount - COALESCE(c.net_revenue, r.expected_amount) AS difference,
-        r.remitted_by AS "remittedBy",
-        r.recorded_by AS "recordedBy",
-        r.remitted_at AS "remittedAt",
+        r.remitted_by,
+        r.recorded_by,
+        r.remitted_at,
         r.note,
-        r.created_at AS "createdAt"
+        r.created_at
        FROM point_of_sale_remittance r
        LEFT JOIN point_of_sale_daily_closure c
          ON c.point_of_sale_id = r.point_of_sale_id
