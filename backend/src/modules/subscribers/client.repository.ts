@@ -173,6 +173,7 @@ export async function findClientById(
         c.updated_at AS "updatedAt",
 
         COUNT(DISTINCT s.id)::int AS "sessionsCount",
+        COUNT(DISTINCT s.id) FILTER (WHERE s.status = 'ACTIVE' AND s.ended_at IS NULL)::int AS "activeSessionsCount",
         (SELECT COUNT(*)::int FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "purchasesCount",
         (SELECT COALESCE(SUM(sa.total_amount), 0)::float8 FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id AND sa.status <> 'CANCELLED') AS "purchasesTotal",
         (SELECT MAX(sa.sold_at) FROM sale sa WHERE sa.site_id = c.site_id AND sa.client_id = c.id) AS "lastPurchaseAt",
@@ -374,6 +375,7 @@ export async function createClient(
   return {
     ...result.rows[0],
     sessionsCount: 0,
+    activeSessionsCount: 0,
     purchasesCount: 0,
     purchasesTotal: 0,
     lastPurchaseAt: null,
