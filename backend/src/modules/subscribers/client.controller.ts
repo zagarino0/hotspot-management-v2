@@ -232,7 +232,7 @@ export async function updateClient(
 ) {
   try {
     const { id } = req.params;
-    const { displayName, phone, email, status } = req.body;
+    const { displayName, phone, email, status, paymentStatus, paymentDate } = req.body;
 
     if (
       status !== undefined &&
@@ -244,6 +244,30 @@ export async function updateClient(
       return res.status(400).json({
         success: false,
         message: "Statut client invalide.",
+      });
+    }
+
+    if (
+      paymentStatus !== undefined &&
+      paymentStatus !== "PAID" &&
+      paymentStatus !== "PENDING" &&
+      paymentStatus !== "CANCELLED" &&
+      paymentStatus !== "UNPAID"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Statut de paiement invalide.",
+      });
+    }
+
+    if (
+      paymentDate !== undefined &&
+      paymentDate !== null &&
+      (typeof paymentDate !== "string" || Number.isNaN(Date.parse(paymentDate)))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Date de paiement invalide.",
       });
     }
 
@@ -267,6 +291,8 @@ export async function updateClient(
             ? email.trim() || null
             : undefined,
       status,
+      paymentStatus,
+      paymentDate: paymentDate === undefined ? undefined : paymentDate,
     });
 
     return res.status(200).json({
