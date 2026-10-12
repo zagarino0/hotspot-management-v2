@@ -80,9 +80,20 @@ export default function AddClient() {
     setVoucherLoading(true);
     setVoucherError("");
     Promise.all([getMikrotikVouchers(), getSiteProfilePrices(form.siteId)])
-      .then(([allVouchers, prices]) => { if (mounted) { setVouchers(allVouchers.filter(v => v.siteId === form.siteId)); setProfilePrices(prices); } })
-      .catch((err) => { if (mounted) setVoucherError(err?.response?.data?.message ?? "Impossible de charger les vouchers et tarifs du site."); })
-      .finally(() => { if (mounted) setVoucherLoading(false); });
+      .then(
+        ([allVouchers, prices]) => {
+          if (mounted) {
+            setVouchers(allVouchers.filter(v => v.siteId === form.siteId));
+            setProfilePrices(prices);
+          }
+        },
+        (err) => {
+          if (mounted) setVoucherError(err?.response?.data?.message ?? "Impossible de charger les vouchers et tarifs du site.");
+        }
+      )
+      .then(() => {
+        if (mounted) setVoucherLoading(false);
+      });
     return () => { mounted = false; };
   }, [form.siteId]);
 
