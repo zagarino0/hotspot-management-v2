@@ -272,7 +272,7 @@ export default function Clients() {
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Voucher MikroTik</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Site</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Forfait / prix</th>
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Sessions</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Sessions actives</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Paiement</th>
                 <th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Actions</th>
               </tr>
@@ -588,7 +588,7 @@ function ClientRow({
 
       <td className="px-5 py-4">
         <span className="rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
-          {client.sessionsCount}
+          {client.activeSessionsCount}
         </span>
       </td>
 
