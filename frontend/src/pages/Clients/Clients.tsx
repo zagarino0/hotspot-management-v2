@@ -276,7 +276,7 @@ export default function Clients() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des clients...
