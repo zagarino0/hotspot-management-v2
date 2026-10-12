@@ -71,6 +71,8 @@ export default function Sales() {
   const [editingPoint, setEditingPoint] = useState(false);
   const [editCode, setEditCode] = useState("");
   const [editName, setEditName] = useState("");
+  const [editOpeningTime, setEditOpeningTime] = useState("08:00");
+  const [editClosingTime, setEditClosingTime] = useState("20:00");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -185,6 +187,8 @@ export default function Sales() {
   function beginEditPoint(point: PointOfSale) {
     setEditCode(point.code);
     setEditName(point.name);
+    setEditOpeningTime(point.openingTime || "08:00");
+    setEditClosingTime(point.closingTime || "20:00");
     setEditingPoint(true);
     setError("");
   }
@@ -197,7 +201,10 @@ export default function Sales() {
     setBusy(true);
     setError("");
     try {
-      const updated = await updatePointOfSale(selectedPos.id, { code: editCode.trim(), name: editName.trim() });
+      const updated = await updatePointOfSale(selectedPos.id, {
+        code: editCode.trim(), name: editName.trim(),
+        openingTime: editOpeningTime, closingTime: editClosingTime,
+      });
       setPoints((current) => current.map((point) => point.id === updated.id ? updated : point));
       setEditingPoint(false);
     } catch (e: any) {
@@ -337,6 +344,13 @@ export default function Sales() {
               <label className="block text-sm font-medium text-slate-700">Nom
                 <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
               </label>
+              <label className="block text-sm font-medium text-slate-700">Heure d'ouverture de la caisse
+                <input type="time" required value={editOpeningTime} onChange={(e) => setEditOpeningTime(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">Heure de fermeture de la caisse
+                <input type="time" required value={editClosingTime} onChange={(e) => setEditClosingTime(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+              </label>
+              <p className="text-xs text-slate-500 sm:col-span-2">Ces horaires sont enregistrés pour ce point de vente. La fermeture reste indépendante des autres points de vente.</p>
               <div className="flex flex-wrap gap-2 sm:col-span-2">
                 <button type="button" onClick={handleUpdatePoint} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save size={15} /> Enregistrer</button>
                 <button type="button" onClick={() => setEditingPoint(false)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"><X size={15} /> Annuler</button>
@@ -344,7 +358,7 @@ export default function Sales() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p></div>
+              <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p><p className="mt-1 text-xs text-slate-500">Caisse : {selectedPos.openingTime || "08:00"} – {selectedPos.closingTime || "20:00"}</p></div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => beginEditPoint(selectedPos)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"><Pencil size={15} /> Modifier</button>
                 <button type="button" onClick={() => handleToggle(selectedPos)} disabled={busy} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">{selectedPos.status === "ACTIVE" ? "Désactiver" : "Réactiver"}</button>
