@@ -133,6 +133,8 @@ export async function findPointOfSales(
     name: string;
     type: "INTERNAL" | "EXTERNAL";
     status: "ACTIVE" | "INACTIVE";
+    openingTime: string;
+    closingTime: string;
   }>
 > {
   const result = await pool.query(
@@ -143,7 +145,9 @@ export async function findPointOfSales(
         code,
         name,
         type,
-        status
+        status,
+        TO_CHAR(opening_time, 'HH24:MI') AS "openingTime",
+        TO_CHAR(closing_time, 'HH24:MI') AS "closingTime"
       FROM point_of_sale
       ${organizationId ? "WHERE organization_id = $1" : ""}
       ORDER BY
@@ -177,7 +181,9 @@ export async function insertPointOfSale(data: {
         code,
         name,
         type,
-        status
+        status,
+        TO_CHAR(opening_time, 'HH24:MI') AS "openingTime",
+        TO_CHAR(closing_time, 'HH24:MI') AS "closingTime"
     `,
     [data.organizationId, data.code, data.name, data.type]
   );
