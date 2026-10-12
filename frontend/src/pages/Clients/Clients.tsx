@@ -267,7 +267,7 @@ export default function Clients() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Téléphone
+                  Voucher MikroTik
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -279,11 +279,11 @@ export default function Clients() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Achats
+                  Forfait / prix
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Total acheté
+                  Sessions
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -309,7 +309,7 @@ export default function Clients() {
               ) : filteredClients.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-5 py-12 text-center"
                   >
                     <div className="text-sm font-semibold text-slate-600">
@@ -525,18 +525,24 @@ function ClientRow({
   const active =
     client.status === "ACTIVE";
 
-  const name =
-    client.displayName ||
-    client.username ||
-    "Client sans nom";
-
-  const username =
-    client.username ||
-    "—";
-
-  const phone =
-    client.phone ||
-    "—";
+  const name = client.displayName || "Client non renseigné";
+  const username = client.voucherCode || client.username || "—";
+  const paymentStatus = client.paymentStatus;
+  const paymentLabel = paymentStatus
+    ? ({
+        PAID: "Payé",
+        PENDING: "En attente",
+        CANCELLED: "Annulé",
+        UNPAID: "Impayé",
+      } as Record<string, string>)[paymentStatus] ?? paymentStatus
+    : "Non enregistré";
+  const paymentTone = paymentStatus === "PAID"
+    ? "bg-emerald-50 text-emerald-700"
+    : paymentStatus === "PENDING"
+      ? "bg-amber-50 text-amber-700"
+      : paymentStatus === "CANCELLED"
+        ? "bg-slate-100 text-slate-500"
+        : "bg-slate-50 text-slate-500";
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
@@ -558,8 +564,9 @@ function ClientRow({
         </div>
       </td>
 
-      <td className="px-5 py-4 text-sm text-slate-600">
-        {phone}
+      <td className="px-5 py-4">
+        <span className="text-sm font-semibold text-slate-700">{username}</span>
+        <p className="mt-0.5 text-xs text-slate-400">Utilisateur MikroTik</p>
       </td>
 
       <td className="px-5 py-4">
@@ -569,41 +576,23 @@ function ClientRow({
       </td>
 
       <td className="px-5 py-4">
+        <p className="text-sm font-medium text-slate-700">{client.planName || "Forfait non identifié"}</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          {client.planPrice === null
+            ? "Prix non configuré"
+            : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(client.planPrice)} ${client.planCurrency || "Ar"}`}
+        </p>
+      </td>
+
+      <td className="px-5 py-4">
         <span className="rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
           {client.sessionsCount}
         </span>
       </td>
 
       <td className="px-5 py-4">
-        <span className="rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
-          {client.purchasesCount}
-        </span>
-      </td>
-
-      <td className="px-5 py-4 text-sm font-medium text-slate-700">
-        {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(client.purchasesTotal)} Ar
-      </td>
-
-      <td className="px-5 py-4">
-        <span
-          className={[
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
-            "text-[10px] font-bold tracking-wide",
-            active
-              ? "bg-emerald-50 text-emerald-600"
-              : "bg-slate-100 text-slate-500",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "h-1.5 w-1.5 rounded-full",
-              active
-                ? "bg-emerald-500"
-                : "bg-slate-400",
-            ].join(" ")}
-          />
-
-          {client.status}
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${paymentTone}`}>
+          {paymentLabel}
         </span>
       </td>
 
