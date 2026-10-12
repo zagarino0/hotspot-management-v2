@@ -591,17 +591,22 @@ function ClientRow({
 
       <td className="px-5 py-4">
         {(() => {
+          const normalize = (value: string | null | undefined) =>
+            (value ?? "").trim().toLocaleLowerCase();
+          const voucherUsername = client.username ?? client.voucherCode ?? "";
           const linkedVoucher = mikrotikVouchers.find(v =>
             v.siteId === client.siteId &&
-            v.code.toLowerCase() === (client.username ?? "").toLowerCase()
+            normalize(v.code) === normalize(voucherUsername)
           );
-          const profileCode = linkedVoucher?.profile ?? null;
+          const profileCode = linkedVoucher?.profile?.trim() || null;
           const configuredPrice = profileCode
-            ? (pricesBySite[client.siteId] ?? []).find(p => p.code.toLowerCase() === profileCode.toLowerCase())
+            ? (pricesBySite[client.siteId] ?? []).find(p => normalize(p.code) === normalize(profileCode))
             : null;
-          const planName = client.planName ?? configuredPrice?.name ?? profileCode;
-          const planPrice = client.planPrice ?? configuredPrice?.price ?? null;
-          const currency = client.planCurrency ?? configuredPrice?.currency ?? "Ar";
+          // Le tarif du profil configuré sur le site est prioritaire :
+          // il doit correspondre au profil du voucher MikroTik, pas à une valeur client obsolète.
+          const planName = configuredPrice?.name ?? profileCode ?? client.planName;
+          const planPrice = configuredPrice?.price ?? client.planPrice ?? null;
+          const currency = configuredPrice?.currency ?? client.planCurrency ?? "Ar";
           return <>
             <p className="text-sm font-medium text-slate-700">{planName || "Forfait non identifié"}</p>
             <p className="mt-0.5 text-xs text-slate-500">
