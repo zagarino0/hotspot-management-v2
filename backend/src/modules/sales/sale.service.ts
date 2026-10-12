@@ -126,7 +126,7 @@ export async function createPointOfSale(
 export async function updatePointOfSale(
   userId: string,
   id: string,
-  data: { code: string; name: string }
+  data: { code: string; name: string; openingTime: string; closingTime: string }
 ) {
   await assertSuperAdmin(userId);
   const existing = await pool.query<{
@@ -148,6 +148,9 @@ export async function updatePointOfSale(
   const nextCode = data.code.trim().toUpperCase();
   const nextName = data.name.trim();
   if (!nextCode || !nextName) throw badRequest("Le code et le nom sont obligatoires.");
+  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(data.openingTime) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(data.closingTime)) {
+    throw badRequest("Les heures d'ouverture et de fermeture doivent être au format HH:mm.");
+  }
 
   if (nextCode !== point.code) {
     const references = await pool.query(
@@ -168,10 +171,12 @@ export async function updatePointOfSale(
   try {
     const updated = await pool.query(
       `UPDATE point_of_sale
-          SET code = $3, name = $4, updated_at = NOW()
+          SET code = $3, name = $4, opening_time = $5::time, closing_time = $6::time, updated_at = NOW()
         WHERE id = $1 AND organization_id = $2
-        RETURNING id, organization_id AS "organizationId", code, name, type, status`,
-      [id, point.organizationId, nextCode, nextName],
+        RETURNING id, organization_id AS "organizationId", code, name, type, status,
+          TO_CHAR(opening_time, 'HH24:MI') AS "openingTime",
+          TO_CHAR(closing_time, 'HH24:MI') AS "closingTime"`,
+      [id, point.organizationId, nextCode, nextName, data.openingTime, data.closingTime],
     );
     return updated.rows[0];
   } catch (error: any) {
