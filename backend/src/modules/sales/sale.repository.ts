@@ -26,6 +26,7 @@ const SALE_SELECT = `
     pos.type AS "pointOfSaleType",
 
     sa.voucher_id AS "voucherId",
+    sa.client_id AS "clientId",
     v.code AS "voucherCode",
 
     sa.plan_id AS "planId",
@@ -247,12 +248,61 @@ export async function insertSale(
     throw new Error("Point de vente introuvable pour ce site.");
   }
 
+  // Resolve the client by a normalized phone number within this site.
+  // Names alone are not treated as identity keys: homonyms must not merge.
+  let clientId: string | null = null;
+  const customerName = data.customerName?.trim() || null;
+  const customerPhone = data.customerPhone?.trim() || null;
+  const normalizedPhone = customerPhone?.replace(/\\D/g, "") ?? "";
+
+  if (customerName || normalizedPhone) {
+    if (normalizedPhone) {
+      const existingClient = await pool.query<{ id: string }>(
+        `
+          SELECT id
+          FROM client
+          WHERE site_id = $1
+            AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = $2
+            AND $2 <> ''
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `,
+        [data.siteId, normalizedPhone]
+      );
+      clientId = existingClient.rows[0]?.id ?? null;
+    }
+
+    if (!clientId) {
+      const createdClient = await pool.query<{ id: string }>(
+        `
+          INSERT INTO client (site_id, display_name, phone, status)
+          VALUES ($1, $2, $3, 'ACTIVE')
+          RETURNING id
+        `,
+        [data.siteId, customerName, customerPhone]
+      );
+      clientId = createdClient.rows[0]?.id ?? null;
+    } else {
+      await pool.query(
+        `
+          UPDATE client
+          SET display_name = COALESCE(NULLIF($2, ''), display_name),
+              phone = COALESCE(NULLIF($3, ''), phone),
+              updated_at = NOW()
+          WHERE id = $1
+        `,
+        [clientId, customerName, customerPhone]
+      );
+    }
+  }
+
   const result = await pool.query<{ id: string }>(
     `
       INSERT INTO sale (
         site_id,
         point_of_sale_id,
         voucher_id,
+        client_id,
         plan_id,
         profile_code,
         profile_name,
@@ -266,7 +316,7 @@ export async function insertSale(
         created_by
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', $13
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDING', $14
       )
       RETURNING id
     `,
@@ -274,11 +324,12 @@ export async function insertSale(
       data.siteId,
       pointOfSaleId,
       data.voucherId ?? null,
+      clientId,
       data.planId ?? null,
       plan.profileCode,
       plan.profileName,
-      data.customerName ?? null,
-      data.customerPhone ?? null,
+      customerName,
+      customerPhone,
       quantity,
       unitPrice,
       totalAmount,
