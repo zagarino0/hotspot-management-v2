@@ -296,7 +296,7 @@ export async function updateClient(
     }
     if (data.paymentDate !== undefined) {
       paymentValues.push(data.paymentDate);
-      paymentFields.push(`sold_at = ${paymentValues.length}::timestamptz`);
+      paymentFields.push("sold_at = $" + paymentValues.length + "::timestamptz");
     }
     paymentValues.push(id);
     await pool.query(
