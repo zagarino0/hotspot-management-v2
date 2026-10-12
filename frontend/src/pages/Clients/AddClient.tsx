@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
 import { createClient } from "../../services/clientService";
+import { getMikrotikVouchers, type MikrotikVoucher } from "../../services/voucherService";
+import { getSiteProfilePrices, type SiteProfilePrice } from "../../services/sitePricingService";
 import { getSites, type Site } from "../../services/siteService";
 
 interface ClientForm {
@@ -13,6 +15,8 @@ interface ClientForm {
   displayName: string;
   phone: string;
   email: string;
+  paymentStatus: "PAID" | "PENDING" | "UNPAID";
+  paymentDate: string;
 }
 
 const INITIAL_FORM: ClientForm = {
@@ -21,6 +25,8 @@ const INITIAL_FORM: ClientForm = {
   displayName: "",
   phone: "",
   email: "",
+  paymentStatus: "PENDING",
+  paymentDate: "",
 };
 
 export default function AddClient() {
@@ -32,6 +38,12 @@ export default function AddClient() {
 
   const [sites, setSites] = useState<Site[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
+  const [vouchers, setVouchers] = useState<MikrotikVoucher[]>([]);
+  const [profilePrices, setProfilePrices] = useState<SiteProfilePrice[]>([]);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [voucherError, setVoucherError] = useState("");
+  const selectedVoucher = vouchers.find(v => v.siteId === form.siteId && v.code.toLowerCase() === form.username.trim().toLowerCase());
+  const selectedPrice = selectedVoucher?.profile ? profilePrices.find(p => p.code.toLowerCase() === selectedVoucher.profile?.toLowerCase()) : undefined;
 
   useEffect(() => {
     let mounted = true;
@@ -61,6 +73,18 @@ export default function AddClient() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!form.siteId) { setVouchers([]); setProfilePrices([]); return; }
+    let mounted = true;
+    setVoucherLoading(true);
+    setVoucherError("");
+    Promise.all([getMikrotikVouchers(), getSiteProfilePrices(form.siteId)])
+      .then(([allVouchers, prices]) => { if (mounted) { setVouchers(allVouchers.filter(v => v.siteId === form.siteId)); setProfilePrices(prices); } })
+      .catch((err) => { if (mounted) setVoucherError(err?.response?.data?.message ?? "Impossible de charger les vouchers et tarifs du site."); })
+      .finally(() => { if (mounted) setVoucherLoading(false); });
+    return () => { mounted = false; };
+  }, [form.siteId]);
 
   function updateField(field: keyof ClientForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -101,6 +125,8 @@ export default function AddClient() {
         displayName: form.displayName.trim() || undefined,
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
+        paymentStatus: form.paymentStatus,
+        paymentDate: form.paymentStatus === "PAID" ? (form.paymentDate || new Date().toISOString().slice(0, 10)) : null,
       });
 
       navigate("/clients");
@@ -206,12 +232,15 @@ export default function AddClient() {
             }
           />
 
-          <Field
-            label="Identifiant (facultatif)"
-            value={form.username}
-            placeholder="jrakoto"
-            onChange={(value) => updateField("username", value)}
-          />
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Voucher / ticket MikroTik</span>
+            <input list="client-voucher-options" value={form.username} placeholder={voucherLoading ? "Chargement des vouchers..." : "Saisir ou sélectionner un voucher"} onChange={event => updateField("username", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100" />
+            <datalist id="client-voucher-options">
+              {vouchers.map(v => <option key={v.id} value={v.code}>{v.profile ?? "Profil inconnu"}</option>)}
+            </datalist>
+            {selectedVoucher && <p className="mt-2 text-xs text-emerald-700">Profil : <strong>{selectedVoucher.profile ?? "non renseigné"}</strong> · Forfait : <strong>{selectedPrice?.name ?? selectedVoucher.profile ?? "non identifié"}</strong> · Prix : <strong>{selectedPrice ? new Intl.NumberFormat("fr-FR").format(selectedPrice.price) + " " + selectedPrice.currency : "tarif du profil non configuré"}</strong></p>}
+            {voucherError && <p className="mt-1 text-xs text-amber-600">{voucherError}</p>}
+          </label>
 
           <Field
             label="Téléphone"
@@ -226,6 +255,16 @@ export default function AddClient() {
             placeholder="jean@example.com"
             onChange={(value) => updateField("email", value)}
           />
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Statut de paiement</span>
+            <select value={form.paymentStatus} onChange={event => updateField("paymentStatus", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+              <option value="PENDING">En attente</option><option value="PAID">Payé</option><option value="UNPAID">Non payé</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Date de paiement</span>
+            <input type="date" value={form.paymentDate} disabled={form.paymentStatus !== "PAID"} onChange={event => updateField("paymentDate", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:bg-slate-50 disabled:text-slate-400" />
+          </label>
         </div>
 
         {error && (
