@@ -474,8 +474,9 @@ export async function upsertActiveSession(
              ORDER BY sa.sold_at DESC LIMIT 1),
             (SELECT c.id FROM client c
              WHERE c.site_id = $13
-               AND $3 IS NOT NULL
-               AND LOWER(c.username) = LOWER($3)
+               AND $3::text IS NOT NULL
+
+               AND LOWER(c.username) = LOWER($3::text)
              ORDER BY c.created_at DESC
              LIMIT 1),
             client_id
@@ -551,8 +552,9 @@ export async function upsertActiveSession(
            ORDER BY sa.sold_at DESC LIMIT 1),
           (SELECT c.id FROM client c
            WHERE c.site_id = $1
-             AND $4 IS NOT NULL
-             AND LOWER(c.username) = LOWER($4)
+             AND $4::text IS NOT NULL
+
+             AND LOWER(c.username) = LOWER($4::text)
            ORDER BY c.created_at DESC
            LIMIT 1)
         ),
