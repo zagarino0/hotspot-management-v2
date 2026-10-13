@@ -24,6 +24,7 @@ interface RouterForm {
   username: string;
   password: string;
   siteId: string;
+  dnsName: string;
 }
 
 /* ============================================================
@@ -34,6 +35,7 @@ interface TestResult {
   success: boolean;
   message: string;
   identity?: string | null;
+  dnsName?: string | null;
   model?: string | null;
   routerOsVersion?: string | null;
   uptime?: string | null;
@@ -54,6 +56,7 @@ export default function AddRouter() {
     username: "admin",
     password: "",
     siteId: "",
+    dnsName: "",
   });
 
   const [testing, setTesting] = useState(false);
@@ -217,6 +220,7 @@ export default function AddRouter() {
 
         identity:
           result.identity ?? null,
+        dnsName: result.dnsName ?? null,
 
         model:
           result.model ?? null,
@@ -263,6 +267,7 @@ export default function AddRouter() {
     try {
       const payload = {
         siteId: form.siteId.trim(),
+        dnsName: testResult?.success ? testResult.dnsName ?? null : null,
 
         name: form.name.trim(),
 
@@ -387,6 +392,13 @@ export default function AddRouter() {
           />
 
           <Field
+            label="DNS Name détecté"
+            value={testResult?.dnsName ?? "Non configuré"}
+            placeholder="Détecté automatiquement après le test"
+            onChange={() => undefined}
+          />
+
+          <Field
             label="Port API"
             value={String(form.port)}
             placeholder="8728"
@@ -497,6 +509,10 @@ export default function AddRouter() {
               <p className="text-sm text-emerald-600">
                 {testResult.message}
               </p>
+
+              {testResult.dnsName && (
+                <p className="text-xs text-emerald-600">DNS Name : <strong>{testResult.dnsName}</strong></p>
+              )}
 
               {testResult.identity && (
                 <p className="text-xs text-emerald-600">
