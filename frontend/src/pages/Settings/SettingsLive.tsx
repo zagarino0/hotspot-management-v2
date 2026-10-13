@@ -113,7 +113,7 @@ export default function SettingsLive() {
       });
     }).catch(() => {
       if (active) setTemplateError("Impossible de charger le modèle. Vérifiez que la migration 018 est appliquée.");
-    }).finally(() => { if (active) setTemplateLoading(false); });
+    }).then(() => { if (active) setTemplateLoading(false); }, () => { if (active) setTemplateLoading(false); });
     return () => { active = false; };
   }, []);
 
@@ -545,7 +545,7 @@ export default function SettingsLive() {
           <div>
             <h3 className="mb-2 text-sm font-semibold text-slate-800">Aperçu du ticket ({printTemplate.widthMm} × {printTemplate.heightMm} mm)</h3>
             <div className="overflow-auto rounded-lg border border-dashed border-slate-300 bg-slate-100 p-4">
-              <iframe title="Aperçu du ticket" sandbox="" srcDoc={printTemplate.html.replaceAll("{{hotspotname}}","WIFI MAHAVOKY").replaceAll("{{username}}","WMK-8JXC").replaceAll("{{password}}","8JXC-F3TM").replaceAll("{{validity}}","2 jours").replaceAll("{{profile}}","test02").replaceAll("{{price}}","1 000 Ar").replaceAll("{{datalimit}}","Illimité")} style={{width: `${Math.min(printTemplate.widthMm * 3.78, 600)}px`, height: `${Math.min(printTemplate.heightMm * 3.78, 800)}px`, maxWidth:"100%", background:"white", border:0}}/>
+              <iframe title="Aperçu du ticket" sandbox="" srcDoc={printTemplate.html.replace(/\{\{hotspotname\}\}/g,"WIFI MAHAVOKY").replace(/\{\{username\}\}/g,"WMK-8JXC").replace(/\{\{password\}\}/g,"8JXC-F3TM").replace(/\{\{validity\}\}/g,"2 jours").replace(/\{\{profile\}\}/g,"test02").replace(/\{\{price\}\}/g,"1 000 Ar").replace(/\{\{datalimit\}\}/g,"Illimité")} style={{width: `${Math.min(printTemplate.widthMm * 3.78, 600)}px`, height: `${Math.min(printTemplate.heightMm * 3.78, 800)}px`, maxWidth:"100%", background:"white", border:0}}/>
             </div>
             <p className="mt-2 text-xs text-slate-500">L’aperçu utilise des valeurs d’exemple uniquement. Elles ne sont pas enregistrées comme vouchers.</p>
           </div>
