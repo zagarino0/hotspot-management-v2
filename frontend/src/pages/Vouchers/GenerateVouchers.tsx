@@ -592,6 +592,7 @@ export default function GenerateVouchers() {
                 )}
               </div>
             ) : (
+              <>
               <div className="mb-4">
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-slate-600">Profil MikroTik réel à associer au nouveau forfait</span>
@@ -643,6 +644,7 @@ export default function GenerateVouchers() {
                   </label>
                 </div>
               </div>
+              </>
             )}
 
             {/* GÉNÉRATION */}
