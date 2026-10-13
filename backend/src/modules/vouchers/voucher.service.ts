@@ -413,6 +413,9 @@ export async function issueMikrotikVoucherBatch(data: IssueMikrotikVouchersData)
   const comment = `${batchReference} - ${selected.posCode}`;
 
   try {
+    const profiles = await api.write("/ip/hotspot/user/profile/print");
+    const profileExists = profiles.some((row: Record<string, unknown>) => typeof row.name === "string" && row.name.trim().toLowerCase() === selected.profileCode.trim().toLowerCase());
+    if (!profileExists) throw badRequest("Le profil MikroTik associé au forfait n'existe pas sur le routeur cible.");
     const routerUsers = await fetchHotspotUsers(api);
     const usedNames = new Set(routerUsers.map((user) => user.username.toLowerCase()));
     for (let i = 0; i < data.quantity; i++) {
