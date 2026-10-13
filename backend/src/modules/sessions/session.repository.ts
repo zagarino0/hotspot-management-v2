@@ -25,7 +25,7 @@ const SESSION_SELECT = `
     s.username,
 
     s.mac_address AS "macAddress",
-    s.ip_address::text AS "ipAddress",
+    host(s.ip_address) AS "ipAddress",
 
     s.started_at AS "startedAt",
     s.ended_at AS "endedAt",
