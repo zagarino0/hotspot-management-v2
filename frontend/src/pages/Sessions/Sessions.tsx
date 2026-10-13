@@ -547,7 +547,7 @@ export default function Sessions() {
                   Déconnexion
                 </th>
 
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[9rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Restant après
                 </th>
 
@@ -1067,10 +1067,10 @@ function SessionRow({
         )}
       </td>
 
-      <td className="px-5 py-4">
+      <td className="w-[9rem] px-3 py-4">
         {session.status === "ACTIVE" ? (
           <>
-            <div className="text-sm font-semibold text-emerald-600">
+            <div className="whitespace-normal text-sm font-semibold leading-5 text-emerald-600">
               {remainingSeconds !== null
                 ? formatDuration(remainingSeconds)
                 : "—"}
