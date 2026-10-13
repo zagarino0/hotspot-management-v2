@@ -19,6 +19,7 @@ import {
   type Plan,
 } from "../../services/planService";
 import {
+  createHotspotProfile,
   getHotspotProfiles,
   type HotspotProfile,
 } from "../../services/mikrotikService";
@@ -87,6 +88,9 @@ export default function GenerateVouchers() {
   // Nouveau forfait
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanPrice, setNewPlanPrice] = useState("");
+  const [newProfileDuration, setNewProfileDuration] = useState("1h");
+  const [newProfileRateLimit, setNewProfileRateLimit] = useState("");
+  const [profileCreatedMessage, setProfileCreatedMessage] = useState("");
   // Génération
   const [quantity, setQuantity] = useState("10");
   const [prefix, setPrefix] = useState("");
@@ -240,69 +244,47 @@ export default function GenerateVouchers() {
       return;
     }
 
-    const numericQuantity = Number(quantity);
-
-    if (
-      !Number.isInteger(numericQuantity) ||
-      numericQuantity < 1
-    ) {
-      setError(
-        "La quantité doit être un nombre entier positif."
-      );
-      return;
+    if (mode === "existing") {
+      const numericQuantity = Number(quantity);
+      if (!Number.isInteger(numericQuantity) || numericQuantity < 1) {
+        setError("La quantité doit être un nombre entier positif.");
+        return;
+      }
     }
 
     setSaving(true);
 
     try {
-      let finalPlanId = planId;
+      if (mode === "new") {
+        if (!newPlanName.trim()) {
+          setError("Le nom du nouveau profil MikroTik est obligatoire.");
+          return;
+        }
+        if (!/^\d+[wdhms](?:\s*\d+[wdhms])*$/.test(newProfileDuration.trim())) {
+          setError("Saisissez une durée RouterOS valide, par exemple 1h, 12h ou 1d.");
+          return;
+        }
+        const createdProfile = await createHotspotProfile(siteId.trim(), {
+          routerId: routerId.trim(),
+          name: newPlanName.trim(),
+          sessionTimeout: newProfileDuration.trim(),
+          rateLimit: newProfileRateLimit.trim() || undefined,
+        });
+        setHotspotProfiles((current) => [...current.filter((profile) => profile.name !== createdProfile.name), createdProfile]);
+        setMikrotikProfile(createdProfile.name);
+        setProfileCreatedMessage(`Le profil MikroTik « ${createdProfile.name} » a été créé et vérifié sur le routeur. Aucun voucher n’a été généré.`);
+        return;
+      }
 
       if (!mikrotikProfile.trim()) {
-        setError("Le User Profile MikroTik réel est obligatoire pour ce routeur.");
+        setError("Sélectionnez un profil MikroTik existant.");
         return;
       }
       if (!selectedPointOfSale) {
         setError("Sélectionnez un point de vente actif appartenant à l’organisation du site.");
         return;
       }
-
-      if (mode === "new") {
-        if (!newPlanName.trim()) {
-          setError("Le nom du forfait est obligatoire.");
-          setSaving(false);
-          return;
-        }
-        if (!parseProfileDurationSeconds(selectedProfile?.["session-timeout"])) {
-          setError("Le profil MikroTik sélectionné ne définit pas de session-timeout valide. Configurez sa durée réelle sur le routeur.");
-          return;
-        }
-
-        const price = Number(newPlanPrice);
-
-        if (!Number.isFinite(price) || price < 0) {
-          setError(
-            "Le prix du forfait doit être un nombre positif."
-          );
-          setSaving(false);
-          return;
-        }
-
-        const createdPlan = await createPlan({
-          siteId: siteId.trim(),
-          name: newPlanName.trim(),
-          code: newPlanName
-            .trim()
-            .toUpperCase()
-            .replace(/\s+/g, "-")
-            .slice(0, 40),
-          price,
-          durationSeconds: parseProfileDurationSeconds(selectedProfile?.["session-timeout"]) ?? 0,
-          mikrotikProfileCode: mikrotikProfile,
-        });
-
-        finalPlanId = createdPlan.id;
-        setPlans((current) => [createdPlan, ...current]);
-      }
+      const finalPlanId = planId;
 
       if (!finalPlanId) {
         setError(
@@ -319,13 +301,14 @@ export default function GenerateVouchers() {
         planId: finalPlanId,
         routerId: routerId.trim(),
         pointOfSaleId: pointOfSaleId.trim(),
-        quantity: numericQuantity,
+        quantity: Number(quantity),
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
         mikrotikProfile,
       });
 
       setResult(generated);
+      setProfileCreatedMessage("");
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -640,54 +623,19 @@ export default function GenerateVouchers() {
               </div>
             ) : (
               <>
-              <div className="mb-4">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">Profil MikroTik réel à associer au nouveau forfait</span>
-                  <select value={mikrotikProfile} onChange={(event) => setMikrotikProfile(event.target.value)} disabled={profilesLoading}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100">
-                    <option value="">{profilesLoading ? "Chargement des profils..." : "Sélectionnez un User Profile MikroTik"}</option>
-                    {hotspotProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
-                  </select>
-                </label>
-              </div>
-              <div className="mb-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 sm:grid-cols-2">
-                <Field
-                  label="Nom du forfait"
-                  value={newPlanName}
-                  placeholder="Forfait 1 jour"
-                  onChange={setNewPlanName}
-                />
-
-                <Field
-                  label="Prix"
-                  value={newPlanPrice}
-                  placeholder="1000"
-                  type="number"
-                  onChange={setNewPlanPrice}
-                />
-
+              <div className="mb-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Nom du nouveau profil MikroTik" value={newPlanName} placeholder="profil_1J" onChange={setNewPlanName} />
+                <Field label="Durée (session-timeout)" value={newProfileDuration} placeholder="1h ou 1d" onChange={setNewProfileDuration} />
                 <div className="sm:col-span-2">
-                  <label className="block">
-                    <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-                      Durée réelle du profil MikroTik
-                    </span>
-                    <input
-                      value={formatProfileDuration(parseProfileDurationSeconds(selectedProfile?.["session-timeout"]))}
-                      readOnly
-                      aria-readonly="true"
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700"
-                    />
-                    <span className="mt-1 block text-xs text-slate-500">
-                      Cette durée est lue depuis le session-timeout du profil réel. Elle ne peut pas être modifiée ici.
-                    </span>
-                  </label>
+                  <Field label="Limite de débit (facultatif)" value={newProfileRateLimit} placeholder="ex. 2M/2M" onChange={setNewProfileRateLimit} />
                 </div>
               </div>
+              <p className="mb-5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Cette action crée uniquement le profil sur le routeur sélectionné. Elle ne crée ni forfait commercial ni voucher.</p>
               </>
             )}
 
-            {/* GÉNÉRATION */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* GÉNÉRATION : uniquement pour un forfait existant */}
+            {mode === "existing" && <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Quantité"
                 value={quantity}
@@ -710,9 +658,11 @@ export default function GenerateVouchers() {
                   onChange={setBatchName}
                 />
               </div>
-            </div>
+            </div>}
           </>
         )}
+
+        {profileCreatedMessage && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{profileCreatedMessage}</div>}
 
         {error && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -730,7 +680,7 @@ export default function GenerateVouchers() {
               <Loader2 size={16} className="animate-spin" />
             )}
 
-            {saving ? "Génération..." : "Générer les vouchers"}
+            {saving ? (mode === "new" ? "Création du profil..." : "Génération...") : (mode === "new" ? "Créer le profil MikroTik" : "Générer les vouchers")}
           </button>
         </div>
       </form>
