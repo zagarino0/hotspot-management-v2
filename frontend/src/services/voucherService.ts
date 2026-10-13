@@ -22,6 +22,14 @@ export interface Voucher {
   batchId: string | null;
 
   code: string;
+  mikrotikUsername?: string | null;
+  mikrotikComment?: string | null;
+  password?: string | null;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+  routerId?: string | null;
+  routerName?: string | null;
+  batchReference?: string | null;
 
   status: VoucherStatus;
 
@@ -41,6 +49,8 @@ export interface Voucher {
 export interface GenerateVouchersPayload {
   siteId: string;
   planId: string;
+  routerId: string;
+  pointOfSaleId: string;
   quantity: number;
   batchName?: string;
   prefix?: string;
