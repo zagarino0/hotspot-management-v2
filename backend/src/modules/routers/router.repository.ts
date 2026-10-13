@@ -23,7 +23,7 @@ const ROUTER_SELECT = `
     serial_number AS "serialNumber",
     mac_address AS "macAddress",
 
-    management_ip::text AS "managementIp",
+    host(management_ip) AS "managementIp",
 
     api_port AS "apiPort",
     api_protocol AS "apiProtocol",
@@ -137,7 +137,7 @@ export async function findRoutersForSync(): Promise<
         r.site_id AS "siteId",
         s.organization_id AS "organizationId",
         r.name,
-        r.management_ip::text AS "managementIp",
+        r.host(management_ip) AS "managementIp",
         r.api_port AS "apiPort"
       FROM router r
       JOIN site s ON s.id = r.site_id
@@ -482,7 +482,7 @@ export async function insertRouter(
             serial_number AS "serialNumber",
             mac_address AS "macAddress",
 
-            management_ip::text AS "managementIp",
+            host(management_ip) AS "managementIp",
 
             api_port AS "apiPort",
             api_protocol AS "apiProtocol",
