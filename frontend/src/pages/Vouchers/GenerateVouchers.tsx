@@ -53,6 +53,12 @@ export default function GenerateVouchers() {
   const [newPlanName, setNewPlanName] = useState("");
   const [newProfileDuration, setNewProfileDuration] = useState("1h");
   const [newProfileRateLimit, setNewProfileRateLimit] = useState("");
+  const [newIdleTimeout, setNewIdleTimeout] = useState("none");
+  const [newKeepaliveTimeout, setNewKeepaliveTimeout] = useState("2m");
+  const [newSharedUsers, setNewSharedUsers] = useState("1");
+  const [newMacCookieTimeout, setNewMacCookieTimeout] = useState("3d");
+  const [newAddMacCookie, setNewAddMacCookie] = useState(true);
+  const [newAddressPool, setNewAddressPool] = useState<"none" | "dhcp" | "vpn">("none");
   const [profileCreatedMessage, setProfileCreatedMessage] = useState("");
   // Génération
   const [quantity, setQuantity] = useState("10");
@@ -231,6 +237,12 @@ export default function GenerateVouchers() {
           routerId: routerId.trim(),
           name: newPlanName.trim(),
           sessionTimeout: newProfileDuration.trim(),
+          idleTimeout: newIdleTimeout,
+          keepaliveTimeout: newKeepaliveTimeout,
+          sharedUsers: Number(newSharedUsers),
+          macCookieTimeout: newMacCookieTimeout,
+          addMacCookie: newAddMacCookie,
+          addressPool: newAddressPool,
           rateLimit: newProfileRateLimit.trim() || undefined,
         });
         setHotspotProfiles((current) => [...current.filter((profile) => profile.name !== createdProfile.name), createdProfile]);
@@ -587,10 +599,39 @@ export default function GenerateVouchers() {
             ) : (
               <>
               <div className="mb-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Nom du nouveau profil MikroTik" value={newPlanName} placeholder="profil_1J" onChange={setNewPlanName} />
-                <Field label="Durée (session-timeout)" value={newProfileDuration} placeholder="1h ou 1d" onChange={setNewProfileDuration} />
+                <Field label="Nom du nouveau profil MikroTik" value={newPlanName} placeholder="test02" onChange={setNewPlanName} />
+                <Field label="Session Timeout" value={newProfileDuration} placeholder="2d" onChange={setNewProfileDuration} />
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">Idle Timeout</span>
+                  <select value={newIdleTimeout} onChange={e => setNewIdleTimeout(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                    <option value="none">none</option><option value="5m">5 min</option><option value="10m">10 min</option><option value="30m">30 min</option><option value="1h">1 heure</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">Keepalive Timeout</span>
+                  <select value={newKeepaliveTimeout} onChange={e => setNewKeepaliveTimeout(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                    <option value="1m">1 min</option><option value="2m">2 min</option><option value="5m">5 min</option><option value="10m">10 min</option>
+                  </select>
+                </label>
+                <Field label="Shared Users" value={newSharedUsers} type="number" onChange={setNewSharedUsers} />
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">MAC Cookie Timeout</span>
+                  <select value={newMacCookieTimeout} onChange={e => setNewMacCookieTimeout(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                    <option value="3d">3 jours</option><option value="1d">1 jour</option><option value="7d">7 jours</option><option value="none">Aucun (none)</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
+                  <input type="checkbox" checked={newAddMacCookie} onChange={e => setNewAddMacCookie(e.target.checked)} />
+                  Add MAC Cookie
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">Address Pool</span>
+                  <select value={newAddressPool} onChange={e => setNewAddressPool(e.target.value as "none" | "dhcp" | "vpn")} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                    <option value="none">none</option><option value="dhcp">dhcp</option><option value="vpn">vpn</option>
+                  </select>
+                </label>
                 <div className="sm:col-span-2">
-                  <Field label="Limite de débit (facultatif)" value={newProfileRateLimit} placeholder="ex. 2M/2M" onChange={setNewProfileRateLimit} />
+                  <Field label="Rate Limit (facultatif)" value={newProfileRateLimit} placeholder="ex. 2M/2M" onChange={setNewProfileRateLimit} />
                 </div>
               </div>
               <p className="mb-5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Cette action crée uniquement le profil sur le routeur sélectionné. Elle ne crée ni forfait commercial ni voucher.</p>
