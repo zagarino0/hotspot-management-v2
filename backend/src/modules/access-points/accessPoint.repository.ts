@@ -28,7 +28,7 @@ const ACCESS_POINT_SELECT = `
     ap.serial_number AS "serialNumber",
     ap.mac_address AS "macAddress",
 
-    ap.management_ip::text AS "managementIp",
+    host(ap.management_ip) AS "managementIp",
 
     ap.status,
 
