@@ -382,9 +382,10 @@ export default function GenerateVouchers() {
         }
       />
 
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -622,6 +623,30 @@ export default function GenerateVouchers() {
           </button>
         </div>
       </form>
+      <aside className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg font-semibold text-slate-700">i</div>
+          <h2 className="text-base font-semibold text-slate-900">Générer des vouchers correctement</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">Un voucher est un ticket d’accès Wi‑Fi généré pour un site et un profil MikroTik.</p>
+          <ul className="mt-5 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Site et routeur : sélectionnez l’infrastructure sur laquelle les tickets seront créés.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Profil/forfait : choisissez un profil existant réellement disponible sur le MikroTik.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Quantité : vérifiez le nombre de tickets à générer avant de lancer l’opération.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Préfixe/commentaire : utilisez-les pour identifier un lot ou une campagne, si ces champs sont proposés.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Durée et quota : ils doivent correspondre aux règles du profil sélectionné.</span></li>
+          </ul>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-base font-semibold text-slate-900">Conditions avant validation</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Sélectionnez le site et le routeur cible avant de générer.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le profil doit exister sur le MikroTik sélectionné ; ne supposez pas qu’un profil similaire existe ailleurs.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Vérifiez la quantité et les paramètres du lot avant validation : la génération crée de vrais tickets.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le prix commercial doit être configuré pour le profil et le site dans les tarifs applicables ; le prix ne se déduit pas uniquement du nom du voucher.</span></li>
+          </ul>
+        </section>
+      </aside>
+      </div>
     </div>
   );
 }
