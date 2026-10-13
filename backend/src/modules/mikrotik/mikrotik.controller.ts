@@ -18,7 +18,8 @@ export async function getHotspotProfiles(
       });
     }
 
-    const profiles = await getSiteHotspotProfiles(siteId);
+    const routerId = typeof req.query.routerId === "string" ? req.query.routerId.trim() : undefined;
+    const profiles = await getSiteHotspotProfiles(siteId, routerId);
 
     return res.json({
       success: true,
