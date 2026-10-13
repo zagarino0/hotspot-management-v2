@@ -238,8 +238,8 @@ export default function GenerateVouchers() {
         setPlans((current) => [createdPlan, ...current]);
       }
 
-      if (mode === "existing" && !mikrotikProfile) {
-        setError("Le User Profile MikroTik est obligatoire.");
+      if (!mikrotikProfile) {
+        setError("Le profil MikroTik réel est obligatoire pour créer les comptes sur le routeur.");
         setSaving(false);
         return;
       }
@@ -262,8 +262,7 @@ export default function GenerateVouchers() {
         quantity: numericQuantity,
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
-        mikrotikProfile:
-          mode === "existing" ? mikrotikProfile : undefined,
+        mikrotikProfile,
       });
 
       setResult(generated);
@@ -587,6 +586,7 @@ export default function GenerateVouchers() {
               </div>
             ) : (
               <div className="mb-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-slate-600">Profil MikroTik réel</span><select value={mikrotikProfile} onChange={(event) => setMikrotikProfile(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"><option value="">Sélectionner un profil du routeur</option>{hotspotProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}</select></label>
                 <Field
                   label="Nom du forfait"
                   value={newPlanName}
