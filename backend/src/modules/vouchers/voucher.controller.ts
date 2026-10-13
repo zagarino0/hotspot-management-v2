@@ -7,6 +7,7 @@ import type {
 import {
   changeVoucherStatus,
   createVoucherBatch,
+  issueMikrotikVoucherBatch,
   deleteVoucherById,
   getVouchers,
   getVoucherStats,
@@ -164,6 +165,8 @@ export async function generateVouchers(
       batchName,
       prefix,
       mikrotikProfile,
+      routerId,
+      pointOfSaleId,
     } = req.body;
 
     if (typeof siteId !== "string" || !siteId.trim()) {
@@ -193,23 +196,25 @@ export async function generateVouchers(
       });
     }
 
-    const result = await createVoucherBatch({
+    if (typeof routerId !== "string" || !routerId.trim()) {
+      return res.status(400).json({ success: false, message: "Le routeur MikroTik est obligatoire." });
+    }
+    if (typeof pointOfSaleId !== "string" || !pointOfSaleId.trim()) {
+      return res.status(400).json({ success: false, message: "Le point de vente est obligatoire." });
+    }
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+
+    const result = await issueMikrotikVoucherBatch({
       siteId: siteId.trim(),
       planId: planId.trim(),
+      routerId: routerId.trim(),
+      pointOfSaleId: pointOfSaleId.trim(),
       quantity: numericQuantity,
-      batchName:
-        typeof batchName === "string" && batchName.trim()
-          ? batchName.trim()
-          : `Lot du ${new Date().toLocaleDateString("fr-FR")}`,
-      prefix:
-        typeof prefix === "string" && prefix.trim()
-          ? prefix.trim()
-          : null,
-      mikrotikProfile:
-        typeof mikrotikProfile === "string" && mikrotikProfile.trim()
-          ? mikrotikProfile.trim()
-          : null,
-      createdBy: req.auth?.sub ?? null,
+      batchName: typeof batchName === "string" && batchName.trim()
+        ? batchName.trim()
+        : `Lot du ${new Date().toLocaleDateString("fr-FR")}`,
+      createdBy: userId,
     });
 
     return res.status(201).json({
