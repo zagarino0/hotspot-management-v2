@@ -293,21 +293,26 @@ export default function Sessions() {
 
     const query = search.trim().toLowerCase();
 
-    if (!query) {
-      return rows;
+    if (query) {
+      rows = rows.filter((session) => {
+        return [
+          session.username,
+          session.ipAddress,
+          session.macAddress,
+          session.routerName,
+        ]
+          .filter(Boolean)
+          .some((value) =>
+            String(value).toLowerCase().includes(query)
+          );
+      });
     }
 
-    return rows.filter((session) => {
-      return [
-        session.username,
-        session.ipAddress,
-        session.macAddress,
-        session.routerName,
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value).toLowerCase().includes(query)
-        );
+    // Afficher les sessions réellement actives en tête du tableau.
+    return [...rows].sort((a, b) => {
+      const aActive = getRealStatus(a) === "ACTIVE" ? 1 : 0;
+      const bActive = getRealStatus(b) === "ACTIVE" ? 1 : 0;
+      return bActive - aActive;
     });
   }, [sessionRows, statusFilter, search]);
 
