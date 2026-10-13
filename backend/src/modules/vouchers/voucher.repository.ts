@@ -155,6 +155,24 @@ export async function deleteVoucher(id: string): Promise<void> {
   await pool.query(`DELETE FROM voucher WHERE id = $1`, [id]);
 }
 
+export async function deleteGeneratedVoucherBatch(batchId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "DELETE FROM voucher WHERE batch_id = $1 AND status = 'UNUSED'",
+      [batchId]
+    );
+    await client.query("DELETE FROM voucher_batch WHERE id = $1", [batchId]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 /* ============================================================
    FIND BY BATCH ID
 ============================================================ */
@@ -224,6 +242,8 @@ export async function generateVoucherBatch(
         INSERT INTO voucher_batch (
           site_id,
           plan_id,
+          router_id,
+          point_of_sale_id,
           name,
           prefix,
           mikrotik_profile,
@@ -232,13 +252,15 @@ export async function generateVoucherBatch(
           status
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE'
         )
         RETURNING id
       `,
       [
         data.siteId,
         data.planId,
+        data.routerId,
+        data.pointOfSaleId,
         data.batchName,
         data.prefix ?? null,
         data.mikrotikProfile ?? null,
@@ -257,6 +279,9 @@ export async function generateVoucherBatch(
           siteId: data.siteId,
           planId: plan.id,
           batchId,
+          routerId: data.routerId,
+          pointOfSaleId: data.pointOfSaleId,
+          mikrotikComment: data.pointOfSaleId,
           prefix: data.prefix,
           mikrotikProfile: data.mikrotikProfile,
           durationSeconds: plan.durationSeconds,
@@ -293,6 +318,9 @@ async function insertVoucherWithRetry(
     siteId: string;
     planId: string;
     batchId: string;
+    routerId: string;
+    pointOfSaleId: string;
+    mikrotikComment: string;
     prefix?: string | null;
     mikrotikProfile?: string | null;
     durationSeconds: number | null;
@@ -319,6 +347,10 @@ async function insertVoucherWithRetry(
             site_id,
             plan_id,
             batch_id,
+            router_id,
+            point_of_sale_id,
+            mikrotik_username,
+            mikrotik_comment,
             code,
             mikrotik_profile,
             price_snapshot,
@@ -330,7 +362,7 @@ async function insertVoucherWithRetry(
             status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'UNUSED'
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'UNUSED'
           )
           RETURNING id
         `,
@@ -338,6 +370,10 @@ async function insertVoucherWithRetry(
           input.siteId,
           input.planId,
           input.batchId,
+          input.routerId,
+          input.pointOfSaleId,
+          code,
+          input.mikrotikComment,
           code,
           input.mikrotikProfile ?? null,
           input.priceSnapshot,
