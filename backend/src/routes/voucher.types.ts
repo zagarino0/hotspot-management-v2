@@ -41,6 +41,7 @@ export interface GenerateVouchersData {
   planId: string;
   routerId: string;
   pointOfSaleId: string;
+  pointOfSaleCode?: string;
 
   quantity: number;
 
