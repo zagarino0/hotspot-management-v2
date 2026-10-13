@@ -25,6 +25,7 @@ import {
 } from "../../services/mikrotikService";
 import {
   generateVouchers,
+  getVoucherBatchForPrint,
   type Voucher,
 } from "../../services/voucherService";
 
@@ -77,6 +78,7 @@ export default function GenerateVouchers() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
+    batchId: string;
     quantity: number;
     vouchers: Voucher[];
   } | null>(null);
@@ -312,7 +314,7 @@ export default function GenerateVouchers() {
           }
         />
 
-        <div className="print:hidden flex justify-end"><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><Printer size={16} /> Imprimer les tickets A4</button></div>
+        <div className="print:hidden flex flex-wrap justify-end gap-2"><button type="button" onClick={async () => { try { setResult(await getVoucherBatchForPrint(result.batchId)); } catch (err: any) { setError(err?.response?.data?.message ?? "Impossible de recharger le lot."); } }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">Recharger pour réimpression</button><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><Printer size={16} /> Imprimer les tickets A4</button></div>
         <style>{`@media print { @page { size: A4; margin: 10mm; } body * { visibility: hidden; } .voucher-print, .voucher-print * { visibility: visible; } .voucher-print { position: absolute; left: 0; top: 0; width: 100%; } .voucher-card { break-inside: avoid; border: 1px dashed #555; padding: 10px; } }`}</style>
         <div className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5 print:hidden">
           <div className="flex items-center gap-3">
