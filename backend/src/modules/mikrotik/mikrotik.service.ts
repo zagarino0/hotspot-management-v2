@@ -148,6 +148,12 @@ export async function createHotspotUser(
 export interface CreateSiteHotspotProfileInput {
   name: string;
   sessionTimeout: string;
+  idleTimeout: "none" | string;
+  keepaliveTimeout: string;
+  sharedUsers: number;
+  macCookieTimeout: "none" | string;
+  addMacCookie: boolean;
+  addressPool: "none" | "dhcp" | "vpn";
   rateLimit?: string;
 }
 
@@ -168,7 +174,16 @@ export async function createSiteHotspotProfile(
     if (existing.some((profile) => profile.name.toLowerCase() === name.toLowerCase())) {
       throw new Error(`Le profil MikroTik "${name}" existe déjà sur ce routeur.`);
     }
-    const args = [`=name=${name}`, `=session-timeout=${sessionTimeout}`];
+    const args = [
+      `=name=${name}`,
+      `=session-timeout=${sessionTimeout}`,
+      `=idle-timeout=${input.idleTimeout}`,
+      `=keepalive-timeout=${input.keepaliveTimeout}`,
+      `=shared-users=${input.sharedUsers}`,
+      `=mac-cookie-timeout=${input.macCookieTimeout}`,
+      `=add-mac-cookie=${input.addMacCookie ? "yes" : "no"}`,
+      `=address-pool=${input.addressPool}`,
+    ];
     if (input.rateLimit?.trim()) args.push(`=rate-limit=${input.rateLimit.trim()}`);
     await api.write("/ip/hotspot/user/profile/add", args);
     const verified = await fetchHotspotProfiles(api);
