@@ -5,15 +5,14 @@ import { isValidClosureTime } from "./posOperations.rules.js";
 const TIME_ZONE = "Indian/Antananarivo";
 
 async function assertPermission(userId: string, organizationId: string, code: string) {
-  // Les comptes responsables n'étant pas encore créés/affectés, les historiques,
-  // versements et paramètres de vente restent exclusivement administrateur.
+  // L'autorisation dépend de la permission dédiée et du périmètre organisationnel.
   const result = await pool.query(
     `SELECT 1
        FROM user_role ur
        JOIN role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
        JOIN role_permission rp ON rp.role_id = r.id
        JOIN permission p ON p.id = rp.permission_id
-      WHERE ur.user_id = $1 AND UPPER(r.code) = 'SUPER_ADMIN' AND p.code = $2
+      WHERE ur.user_id = $1 AND p.code = $2
         AND (r.organization_id = $3 OR r.organization_id IS NULL)
       LIMIT 1`,
     [userId, code, organizationId],
