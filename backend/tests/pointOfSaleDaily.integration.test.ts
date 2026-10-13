@@ -56,7 +56,8 @@ test("PostgreSQL POS integration: permissions, duplicate sales, refunds, closure
   await pool.query("INSERT INTO organization (id,name,code) VALUES ($1,$2,$3)", [orgId, "POS integration test", `IT-${suffix}`]);
   seeded = true;
   await pool.query("INSERT INTO site (id,organization_id,name,code) VALUES ($1,$2,$3,$4)", [siteId, orgId, "POS test site", `SITE-${suffix}`]);
-  await pool.query("INSERT INTO point_of_sale (id,organization_id,code,name,type) VALUES ($1,$2,$3,$4,'EXTERNAL')", [posId, orgId, `POS-${suffix}`, "CASHPOINTWIFI integration"]);
+  // Heure de clôture explicite : les événements du test appartiennent à la date métier courante.
+  await pool.query("INSERT INTO point_of_sale (id,organization_id,code,name,type,closing_time) VALUES ($1,$2,$3,$4,'EXTERNAL','23:59')", [posId, orgId, `POS-${suffix}`, "CASHPOINTWIFI integration"]);
   await pool.query("INSERT INTO \"user\" (id,organization_id,username,password_hash,status) VALUES ($1,$2,$3,'test-only-hash','ACTIVE')", [userId, orgId, `it-${suffix}`]);
   await pool.query("INSERT INTO role (id,organization_id,name,code,status) VALUES ($1,$2,'POS integration role',$3,'ACTIVE')", [roleId, orgId, `POS_IT_${suffix}`]);
   await pool.query("INSERT INTO \"user\" (id,organization_id,username,password_hash,status) VALUES ($1,$2,$3,'test-only-hash','ACTIVE')", [noPermissionUserId, orgId, `it-no-perm-${suffix}`]);
