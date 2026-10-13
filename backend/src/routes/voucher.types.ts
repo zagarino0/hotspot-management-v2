@@ -18,6 +18,10 @@ export interface VoucherRow {
   planCurrency: string | null;
 
   batchId: string | null;
+  routerId?: string | null;
+  pointOfSaleId?: string | null;
+  mikrotikUsername?: string | null;
+  mikrotikComment?: string | null;
 
   code: string;
 
