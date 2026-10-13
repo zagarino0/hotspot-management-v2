@@ -12,6 +12,7 @@ export interface Plan {
   code: string;
 
   description: string | null;
+  mikrotikProfileCode?: string | null;
 
   price: number;
   currency: string;
@@ -37,6 +38,7 @@ export interface CreatePlanPayload {
   name: string;
   code: string;
   description?: string;
+  mikrotikProfileCode?: string | null;
   price: number;
   currency?: string;
   durationSeconds?: number;
