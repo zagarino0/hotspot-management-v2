@@ -345,6 +345,7 @@ export interface IssueMikrotikVouchersData {
   pointOfSaleId: string;
   quantity: number;
   batchName: string;
+  mikrotikProfile?: string | null;
   createdBy: string;
 }
 
@@ -369,7 +370,7 @@ export async function issueMikrotikVoucherBatch(data: IssueMikrotikVouchersData)
             host(r.management_ip) AS "managementIp", r.api_port AS "apiPort",
             s.organization_id AS "organizationId", pos.id AS "posId",
             pos.code AS "posCode", pos.name AS "posName",
-            COALESCE(p.mikrotik_profile_code, p.code) AS "profileCode",
+            COALESCE($6, p.mikrotik_profile_code, p.code) AS "profileCode",
             p.id AS "planId", p.name AS "planName", p.price::float8 AS price,
             p.currency, p.duration_seconds AS "durationSeconds",
             p.data_limit_bytes AS "dataLimitBytes",
@@ -384,7 +385,7 @@ export async function issueMikrotikVoucherBatch(data: IssueMikrotikVouchersData)
          AND pos.id = $5 AND pos.status = 'ACTIVE'
          AND r.management_ip IS NOT NULL
        LIMIT 1`,
-    [data.siteId, data.planId, data.routerId, data.createdBy, data.pointOfSaleId]
+    [data.siteId, data.planId, data.routerId, data.createdBy, data.pointOfSaleId, data.mikrotikProfile?.trim() || null]
   );
   const selected = target.rows[0];
   if (!selected) throw notFoundError("Site, forfait, routeur ou point de vente actif introuvable pour votre organisation.");
