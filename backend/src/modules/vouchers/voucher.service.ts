@@ -432,7 +432,7 @@ export async function createVoucherBatch(
       month: "2-digit", day: "2-digit", year: "2-digit",
     }).replaceAll("/", ".");
     for (const voucher of vouchers) {
-      const comment = `${voucher.code}-${dateCode} - ${pointOfSale.code}`;
+      const comment = voucher.mikrotikComment ?? `${voucher.code}-${dateCode} - ${pointOfSale.code}`;
       await createHotspotUser(api, {
         username: voucher.code,
         password: voucher.code,
