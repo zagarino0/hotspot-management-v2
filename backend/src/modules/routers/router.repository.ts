@@ -29,6 +29,7 @@ const ROUTER_SELECT = `
     api_protocol AS "apiProtocol",
 
     identity,
+    hotspot_dns_name AS "dnsName",
     router_os_version AS "routerOsVersion",
 
     status,
@@ -62,6 +63,7 @@ export interface InsertRouterData
   identity?: string | null;
   model?: string | null;
   routerOsVersion?: string | null;
+  dnsName?: string | null;
   uptimeSeconds?: number | null;
 }
 /* ============================================================
@@ -434,6 +436,7 @@ export async function insertRouter(
             last_seen_at,
             last_check_at,
             uptime_seconds,
+            hotspot_dns_name,
             sync_status
           )
           VALUES (
@@ -451,6 +454,7 @@ export async function insertRouter(
             NOW(),
             NOW(),
             $9,
+            $10,
             'SUCCESS'
           )
 
@@ -471,6 +475,7 @@ export async function insertRouter(
             api_protocol AS "apiProtocol",
 
             identity,
+            hotspot_dns_name AS "dnsName",
             router_os_version AS "routerOsVersion",
 
             status,
@@ -502,6 +507,7 @@ export async function insertRouter(
           data.identity ?? null,
           data.routerOsVersion ?? null,
           data.uptimeSeconds ?? null,
+          data.dnsName ?? null,
         ]
       );
 
