@@ -272,6 +272,10 @@ export default function Routers() {
                 </th>
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  DNS Name
+                </th>
+
+                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Statut
                 </th>
 
@@ -285,7 +289,7 @@ export default function Routers() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-5 py-12 text-center text-sm text-slate-400"
                   >
                     Chargement des routeurs...
@@ -529,6 +533,9 @@ function RouterRow({
 
       <td className="px-5 py-4 text-sm font-medium text-slate-600">
         {siteName}
+      </td>
+      <td className="px-5 py-4 text-sm text-slate-600">
+        {router.dnsName || <span className="text-slate-400">Non configuré</span>}
       </td>
 
       <td className="px-5 py-4">
