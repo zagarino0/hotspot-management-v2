@@ -16,10 +16,12 @@ export interface HotspotProfilesResponse {
 }
 
 export async function getHotspotProfiles(
-  siteId: string
+  siteId: string,
+  routerId?: string
 ): Promise<HotspotProfile[]> {
   const response = await api.get<HotspotProfilesResponse>(
-    `/api/mikrotik/profiles/${siteId}`
+    `/api/mikrotik/profiles/${siteId}`,
+    { params: routerId ? { routerId } : undefined }
   );
   return response.data.profiles;
 }
