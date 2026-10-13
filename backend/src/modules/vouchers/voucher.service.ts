@@ -372,11 +372,12 @@ export async function createVoucherBatch(
     `SELECT pos.id, pos.code
        FROM point_of_sale pos
        JOIN site s ON s.id = $2
+       JOIN "user" u ON u.organization_id = s.organization_id AND u.id = $3
       WHERE pos.id = $1
         AND pos.organization_id = s.organization_id
         AND pos.status = 'ACTIVE'
       LIMIT 1`,
-    [data.pointOfSaleId, data.siteId]
+    [data.pointOfSaleId, data.siteId, data.createdBy ?? ""]
   );
   const pointOfSale = posResult.rows[0];
   if (!pointOfSale) {
