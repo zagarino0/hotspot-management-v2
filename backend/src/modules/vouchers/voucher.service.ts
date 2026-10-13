@@ -509,6 +509,42 @@ export async function issueMikrotikVoucherBatch(data: IssueMikrotikVouchersData)
   }
 }
 
+export async function getVoucherBatchForPrint(batchId: string, userId: string) {
+  const result = await pool.query<{
+    id: string; siteId: string; siteName: string; planName: string | null;
+    planPrice: number | null; planCurrency: string | null; code: string;
+    mikrotikUsername: string | null; mikrotikComment: string | null;
+    pointOfSaleId: string | null; pointOfSaleName: string | null;
+    routerId: string | null; routerName: string | null;
+    encryptedPassword: string | null; createdAt: Date;
+  }>(
+    `SELECT v.id, v.site_id AS "siteId", s.name AS "siteName",
+            p.name AS "planName", v.price_snapshot::float8 AS "planPrice",
+            v.currency_snapshot AS "planCurrency", v.code,
+            v.mikrotik_username AS "mikrotikUsername",
+            v.mikrotik_comment AS "mikrotikComment",
+            v.point_of_sale_id AS "pointOfSaleId", pos.name AS "pointOfSaleName",
+            v.router_id AS "routerId", r.name AS "routerName",
+            v.mikrotik_password_encrypted AS "encryptedPassword",
+            v.created_at AS "createdAt"
+       FROM voucher v
+       JOIN site s ON s.id = v.site_id
+       JOIN "user" u ON u.organization_id = s.organization_id AND u.id = $2
+       LEFT JOIN plan p ON p.id = v.plan_id
+       LEFT JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
+       LEFT JOIN router r ON r.id = v.router_id
+       WHERE v.batch_id = $1
+       ORDER BY v.created_at ASC`,
+    [batchId, userId]
+  );
+  if (result.rows.length === 0) throw notFoundError("Lot introuvable ou inaccessible.");
+  return result.rows.map((row) => ({
+    ...row,
+    password: row.encryptedPassword ? decryptSecret(row.encryptedPassword) : null,
+    encryptedPassword: undefined,
+  }));
+}
+
 export async function createVoucherBatch(
   data: GenerateVouchersData
 ) {
