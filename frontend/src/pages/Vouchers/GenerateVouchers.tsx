@@ -14,7 +14,6 @@ import { getSites, type Site } from "../../services/siteService";
 import { getRouters, type Router } from "../../services/routerService";
 import { getPointOfSales, type PointOfSale } from "../../services/saleService";
 import {
-  createPlan,
   getPlans,
   type Plan,
 } from "../../services/planService";
@@ -27,41 +26,6 @@ import {
   generateVouchers,
   type Voucher,
 } from "../../services/voucherService";
-
-function parseProfileDurationSeconds(value: string | undefined): number | null {
-  if (!value?.trim()) return null;
-  const raw = value.trim().toLowerCase();
-  if (raw === "0" || raw === "0s") return null;
-  const clock = raw.match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2})$/);
-  if (clock) {
-    const hours = Number(clock[1] ?? 0);
-    const minutes = Number(clock[2]);
-    const seconds = Number(clock[3]);
-    return minutes < 60 && seconds < 60 ? hours * 3600 + minutes * 60 + seconds : null;
-  }
-  const units = raw.match(/^(?:(\d+)w)?\s*(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?$/);
-  if (!units || !units.slice(1).some((part) => part !== undefined)) return null;
-  const seconds = Number(units[1] ?? 0) * 604800 + Number(units[2] ?? 0) * 86400 +
-    Number(units[3] ?? 0) * 3600 + Number(units[4] ?? 0) * 60 + Number(units[5] ?? 0);
-  return Number.isSafeInteger(seconds) && seconds > 0 ? seconds : null;
-}
-
-function formatProfileDuration(seconds: number | null): string {
-  if (!seconds) return "Durée non définie dans le profil";
-  const units = [
-    [86400, "j"], [3600, "h"], [60, "min"], [1, "s"],
-  ] as const;
-  let remaining = seconds;
-  const parts: string[] = [];
-  for (const [size, label] of units) {
-    const count = Math.floor(remaining / size);
-    if (count > 0) {
-      parts.push(`${count}${label}`);
-      remaining %= size;
-    }
-  }
-  return parts.join(" ");
-}
 
 export default function GenerateVouchers() {
   const navigate = useNavigate();
@@ -87,7 +51,6 @@ export default function GenerateVouchers() {
 
   // Nouveau forfait
   const [newPlanName, setNewPlanName] = useState("");
-  const [newPlanPrice, setNewPlanPrice] = useState("");
   const [newProfileDuration, setNewProfileDuration] = useState("1h");
   const [newProfileRateLimit, setNewProfileRateLimit] = useState("");
   const [profileCreatedMessage, setProfileCreatedMessage] = useState("");
@@ -239,8 +202,8 @@ export default function GenerateVouchers() {
       setError("Le routeur MikroTik est obligatoire.");
       return;
     }
-    if (!pointOfSaleId.trim()) {
-      setError("Le point de vente actif est obligatoire.");
+    if (mode === "existing" && !pointOfSaleId.trim()) {
+      setError("Le point de vente actif est obligatoire pour générer des vouchers.");
       return;
     }
 
