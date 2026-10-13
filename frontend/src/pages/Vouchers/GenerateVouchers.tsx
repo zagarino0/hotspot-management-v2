@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import api from "../../services/api";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -65,12 +66,27 @@ export default function GenerateVouchers() {
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
 
+  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article style="font-family:Arial,sans-serif;text-align:center;border:1px solid #222;padding:3mm"><strong>{{hotspotname}}</strong><hr><p>Identifiant : <b>{{username}}</b></p><p>Mot de passe : <b>{{password}}</b></p><small>Profil : {{profile}}</small></article>', widthMm: 55, heightMm: 30 });
+  const [templateLoaded, setTemplateLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
     quantity: number;
     vouchers: Voucher[];
   } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    api.get("/api/voucher-template").then(({ data }) => {
+      if (mounted && data?.template) setPrintTemplate({
+        name: data.template.name, html: data.template.html,
+        widthMm: Number(data.template.widthMm), heightMm: Number(data.template.heightMm),
+      });
+    }).catch(() => {
+      // Le modèle par défaut reste disponible si la configuration n'a pas encore été migrée.
+    }).then(() => { if (mounted) setTemplateLoaded(true); });
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
