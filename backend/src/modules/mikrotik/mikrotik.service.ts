@@ -143,3 +143,39 @@ export async function createHotspotUser(
     api.close();
   }
 }
+
+
+export interface CreateSiteHotspotProfileInput {
+  name: string;
+  sessionTimeout: string;
+  rateLimit?: string;
+}
+
+export async function createSiteHotspotProfile(
+  siteId: string,
+  routerId: string,
+  input: CreateSiteHotspotProfileInput
+): Promise<HotspotProfile> {
+  const name = input.name.trim();
+  const sessionTimeout = input.sessionTimeout.trim();
+  if (!name || name.length > 50) throw new Error("Le nom du profil est obligatoire et limité à 50 caractères.");
+  if (!sessionTimeout || !/^(?:(?:\d+w)?\s*(?:\d+d)?\s*(?:\d+h)?\s*(?:\d+m)?\s*(?:\d+s)?)$/.test(sessionTimeout) || !/[1-9]/.test(sessionTimeout)) {
+    throw new Error("La durée doit être un intervalle RouterOS valide, par exemple 1h ou 1d.");
+  }
+  const api = await openSiteMikroTikConnection(siteId, routerId);
+  try {
+    const existing = await fetchHotspotProfiles(api);
+    if (existing.some((profile) => profile.name.toLowerCase() === name.toLowerCase())) {
+      throw new Error(`Le profil MikroTik "${name}" existe déjà sur ce routeur.`);
+    }
+    const args = [`=name=${name}`, `=session-timeout=${sessionTimeout}`];
+    if (input.rateLimit?.trim()) args.push(`=rate-limit=${input.rateLimit.trim()}`);
+    await api.write("/ip/hotspot/user/profile/add", args);
+    const verified = await fetchHotspotProfiles(api);
+    const created = verified.find((profile) => profile.name === name);
+    if (!created) throw new Error("Le profil a été envoyé à MikroTik mais sa création n'a pas pu être vérifiée.");
+    return created;
+  } finally {
+    api.close();
+  }
+}
