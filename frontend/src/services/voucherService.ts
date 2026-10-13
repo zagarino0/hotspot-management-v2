@@ -22,6 +22,14 @@ export interface Voucher {
   batchId: string | null;
 
   code: string;
+  mikrotikUsername?: string | null;
+  mikrotikComment?: string | null;
+  password?: string | null;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+  routerId?: string | null;
+  routerName?: string | null;
+  batchReference?: string | null;
 
   status: VoucherStatus;
 
@@ -41,6 +49,8 @@ export interface Voucher {
 export interface GenerateVouchersPayload {
   siteId: string;
   planId: string;
+  routerId: string;
+  pointOfSaleId: string;
   quantity: number;
   batchName?: string;
   prefix?: string;
@@ -123,6 +133,13 @@ export async function getVoucherStats(): Promise<VoucherStats> {
     "/api/vouchers/stats"
   );
 
+  return response.data.data;
+}
+
+export async function getVoucherBatchForPrint(batchId: string): Promise<GenerateVouchersResult> {
+  const response = await api.get<ApiEnvelope<GenerateVouchersResult>>(
+    `/api/vouchers/batch/${encodeURIComponent(batchId)}/print`
+  );
   return response.data.data;
 }
 

@@ -6,11 +6,14 @@ import {
   Copy,
   Loader2,
   Ticket,
+  Printer,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
 import { getSites, type Site } from "../../services/siteService";
+import { getPointOfSales, type PointOfSale } from "../../services/saleService";
+import { getRouters, type Router } from "../../services/routerService";
 import {
   createPlan,
   getPlans,
@@ -22,6 +25,7 @@ import {
 } from "../../services/mikrotikService";
 import {
   generateVouchers,
+  getVoucherBatchForPrint,
   type Voucher,
 } from "../../services/voucherService";
 
@@ -42,6 +46,10 @@ export default function GenerateVouchers() {
 
   const [sites, setSites] = useState<Site[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [pointOfSales, setPointOfSales] = useState<PointOfSale[]>([]);
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [routerId, setRouterId] = useState("");
+  const [pointOfSaleId, setPointOfSaleId] = useState("");
   const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>([]);
   const [refLoading, setRefLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
@@ -70,6 +78,7 @@ export default function GenerateVouchers() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
+    batchId: string;
     quantity: number;
     vouchers: Voucher[];
   } | null>(null);
@@ -79,14 +88,15 @@ export default function GenerateVouchers() {
 
     async function loadRefs() {
       try {
-        const [sitesData, plansData] = await Promise.all([
-          getSites(),
-          getPlans(),
+        const [sitesData, plansData, posData, routerData] = await Promise.all([
+          getSites(), getPlans(), getPointOfSales(), getRouters(),
         ]);
 
         if (mounted) {
           setSites(sitesData);
           setPlans(plansData);
+          setPointOfSales(posData.filter((pos) => pos.status === "ACTIVE"));
+          setRouters(routerData);
         }
       } catch (err) {
         console.error(
@@ -107,6 +117,7 @@ export default function GenerateVouchers() {
     };
   }, []);
 
+  const routersForSite = useMemo(() => routers.filter((router) => router.siteId === siteId), [routers, siteId]);
   const plansForSite = useMemo(
     () => plans.filter((plan) => plan.siteId === siteId),
     [plans, siteId]
@@ -160,6 +171,8 @@ export default function GenerateVouchers() {
 
   function resetPlanSelection(nextSiteId: string) {
     setSiteId(nextSiteId);
+    setRouterId("");
+    setPointOfSaleId("");
     setPlanId("");
     setMikrotikProfile("");
   }
@@ -171,10 +184,9 @@ export default function GenerateVouchers() {
 
     setError("");
 
-    if (!siteId.trim()) {
-      setError("Le site est obligatoire.");
-      return;
-    }
+    if (!siteId.trim()) { setError("Le site est obligatoire."); return; }
+    if (!routerId) { setError("Le routeur MikroTik est obligatoire."); return; }
+    if (!pointOfSaleId) { setError("Le point de vente est obligatoire."); return; }
 
     const numericQuantity = Number(quantity);
 
@@ -226,8 +238,8 @@ export default function GenerateVouchers() {
         setPlans((current) => [createdPlan, ...current]);
       }
 
-      if (mode === "existing" && !mikrotikProfile) {
-        setError("Le User Profile MikroTik est obligatoire.");
+      if (!mikrotikProfile) {
+        setError("Le profil MikroTik réel est obligatoire pour créer les comptes sur le routeur.");
         setSaving(false);
         return;
       }
@@ -245,11 +257,12 @@ export default function GenerateVouchers() {
       const generated = await generateVouchers({
         siteId: siteId.trim(),
         planId: finalPlanId,
+        routerId,
+        pointOfSaleId,
         quantity: numericQuantity,
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
-        mikrotikProfile:
-          mode === "existing" ? mikrotikProfile : undefined,
+        mikrotikProfile,
       });
 
       setResult(generated);
@@ -300,7 +313,9 @@ export default function GenerateVouchers() {
           }
         />
 
-        <div className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <div className="print:hidden flex flex-wrap justify-end gap-2"><button type="button" onClick={async () => { try { setResult(await getVoucherBatchForPrint(result.batchId)); } catch (err: any) { setError(err?.response?.data?.message ?? "Impossible de recharger le lot."); } }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">Recharger pour réimpression</button><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><Printer size={16} /> Imprimer les tickets A4</button></div>
+        <style>{`@media print { @page { size: A4; margin: 10mm; } body * { visibility: hidden; } .voucher-print, .voucher-print * { visibility: visible; } .voucher-print { position: absolute; left: 0; top: 0; width: 100%; } .voucher-card { break-inside: avoid; border: 1px dashed #555; padding: 10px; } }`}</style>
+        <div className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5 print:hidden">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="text-emerald-600" size={22} />
 
@@ -311,7 +326,27 @@ export default function GenerateVouchers() {
           </div>
         </div>
 
-        <div className="max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="voucher-print grid grid-cols-2 gap-3">
+          {result.vouchers.map((voucher) => (
+            <article key={voucher.id} className="voucher-card rounded-xl border border-slate-300 bg-white p-4 text-slate-900">
+              <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-2">
+                <div><p className="text-xs uppercase tracking-widest text-slate-500">Accès Wi‑Fi</p><h2 className="text-base font-bold">{voucher.siteName}</h2></div>
+                <span className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold">{voucher.planName}</span>
+              </div>
+              <div className="my-3 grid grid-cols-2 gap-2">
+                <div><p className="text-[10px] uppercase text-slate-500">Utilisateur</p><p className="font-mono text-xl font-bold">{voucher.mikrotikUsername ?? voucher.code}</p></div>
+                <div><p className="text-[10px] uppercase text-slate-500">Mot de passe</p><p className="font-mono text-xl font-bold">{voucher.password ?? "—"}</p></div>
+              </div>
+              <div className="space-y-1 border-t border-slate-200 pt-2 text-[10px]">
+                <p>Prix : <strong>{voucher.planPrice ?? "—"} {voucher.planCurrency ?? ""}</strong></p>
+                <p>Point de vente : <strong>{voucher.pointOfSaleName ?? pointOfSales.find((pos) => pos.id === pointOfSaleId)?.name ?? "—"}</strong></p>
+                <p>Routeur : <strong>{voucher.routerName ?? routersForSite.find((router) => router.id === routerId)?.name ?? "—"}</strong></p>
+                <p className="break-words">Référence : {voucher.mikrotikComment ?? voucher.batchReference ?? "—"}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="print:hidden max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between border-b border-slate-100 p-4">
             <h2 className="text-sm font-semibold text-slate-900">
               Codes générés
@@ -447,6 +482,24 @@ export default function GenerateVouchers() {
           )}
         </div>
 
+        {siteId && (
+          <div className="mb-5 grid gap-4 sm:grid-cols-2">
+            <label className="block"><span className="mb-1.5 block text-xs font-semibold text-slate-600">Routeur MikroTik</span>
+              <select value={routerId} onChange={(event) => setRouterId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+                <option value="">Sélectionner un routeur</option>
+                {routersForSite.map((router) => <option key={router.id} value={router.id}>{router.name} — {router.status}</option>)}
+              </select>
+              {routersForSite.length === 0 && <p className="mt-1 text-xs text-amber-600">Aucun routeur associé à ce site.</p>}
+            </label>
+            <label className="block"><span className="mb-1.5 block text-xs font-semibold text-slate-600">Point de vente</span>
+              <select value={pointOfSaleId} onChange={(event) => setPointOfSaleId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+                <option value="">Sélectionner un point de vente</option>
+                {pointOfSales.map((pos) => <option key={pos.id} value={pos.id}>{pos.name} ({pos.code})</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+
         {/* MODE FORFAIT */}
         {siteId && (
           <>
@@ -533,6 +586,7 @@ export default function GenerateVouchers() {
               </div>
             ) : (
               <div className="mb-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-slate-600">Profil MikroTik réel</span><select value={mikrotikProfile} onChange={(event) => setMikrotikProfile(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"><option value="">Sélectionner un profil du routeur</option>{hotspotProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}</select></label>
                 <Field
                   label="Nom du forfait"
                   value={newPlanName}

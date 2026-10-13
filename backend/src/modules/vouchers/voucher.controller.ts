@@ -7,6 +7,8 @@ import type {
 import {
   changeVoucherStatus,
   createVoucherBatch,
+  issueMikrotikVoucherBatch,
+  getVoucherBatchForPrint,
   deleteVoucherById,
   getVouchers,
   getVoucherStats,
@@ -151,6 +153,17 @@ export async function listVouchers(
   }
 }
 
+export async function printVoucherBatchController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.auth?.sub;
+    const batchId = String(req.params.batchId ?? "").trim();
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    if (!batchId) return res.status(400).json({ success: false, message: "Le lot est obligatoire." });
+    const vouchers = await getVoucherBatchForPrint(batchId, userId);
+    return res.status(200).json({ success: true, data: { batchId, quantity: vouchers.length, vouchers } });
+  } catch (error) { return next(error); }
+}
+
 export async function generateVouchers(
   req: Request,
   res: Response,
@@ -164,6 +177,8 @@ export async function generateVouchers(
       batchName,
       prefix,
       mikrotikProfile,
+      routerId,
+      pointOfSaleId,
     } = req.body;
 
     if (typeof siteId !== "string" || !siteId.trim()) {
@@ -193,23 +208,26 @@ export async function generateVouchers(
       });
     }
 
-    const result = await createVoucherBatch({
+    if (typeof routerId !== "string" || !routerId.trim()) {
+      return res.status(400).json({ success: false, message: "Le routeur MikroTik est obligatoire." });
+    }
+    if (typeof pointOfSaleId !== "string" || !pointOfSaleId.trim()) {
+      return res.status(400).json({ success: false, message: "Le point de vente est obligatoire." });
+    }
+    const userId = req.auth?.sub;
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+
+    const result = await issueMikrotikVoucherBatch({
       siteId: siteId.trim(),
       planId: planId.trim(),
+      routerId: routerId.trim(),
+      pointOfSaleId: pointOfSaleId.trim(),
       quantity: numericQuantity,
-      batchName:
-        typeof batchName === "string" && batchName.trim()
-          ? batchName.trim()
-          : `Lot du ${new Date().toLocaleDateString("fr-FR")}`,
-      prefix:
-        typeof prefix === "string" && prefix.trim()
-          ? prefix.trim()
-          : null,
-      mikrotikProfile:
-        typeof mikrotikProfile === "string" && mikrotikProfile.trim()
-          ? mikrotikProfile.trim()
-          : null,
-      createdBy: req.auth?.sub ?? null,
+      mikrotikProfile: typeof mikrotikProfile === "string" && mikrotikProfile.trim() ? mikrotikProfile.trim() : null,
+      batchName: typeof batchName === "string" && batchName.trim()
+        ? batchName.trim()
+        : `Lot du ${new Date().toLocaleDateString("fr-FR")}`,
+      createdBy: userId,
     });
 
     return res.status(201).json({
