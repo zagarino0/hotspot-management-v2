@@ -543,7 +543,7 @@ export default function Sessions() {
                   Durée
                 </th>
 
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[8.5rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 whitespace-nowrap">
                   Déconnexion
                 </th>
 
@@ -553,7 +553,7 @@ export default function Sessions() {
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit RX</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit TX</th>
-                <th className="w-[8rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[9rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 whitespace-nowrap">
                   Routeur
                 </th>
 
@@ -1047,14 +1047,14 @@ function SessionRow({
         )}
       </td>
 
-      <td className="px-5 py-4">
+      <td className="w-[8.5rem] px-3 py-4">
         {session.endedAt ? (
           <>
-            <div className="text-xs font-semibold text-slate-600">
+            <div className="whitespace-nowrap text-xs font-semibold text-slate-600">
               {formatDateTime(session.endedAt)}
             </div>
 
-            <div className="mt-0.5 text-[10px] text-slate-400">
+            <div className="mt-0.5 whitespace-nowrap text-[10px] text-slate-400">
               {session.terminationReason
                 ? session.terminationReason
                 : "Déconnexion détectée"}
@@ -1107,12 +1107,12 @@ function SessionRow({
         <div className="mt-0.5 text-[10px] text-slate-400">envoyé par le client</div>
       </td>
 
-      <td className="w-[8rem] px-3 py-4">
-        <div className="break-words text-sm font-medium text-slate-600">
+      <td className="w-[9rem] px-3 py-4">
+        <div className="whitespace-nowrap text-sm font-medium text-slate-600">
           {session.routerName || "—"}
         </div>
 
-        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
+        <div className="mt-0.5 flex items-center gap-2 whitespace-nowrap text-[10px] text-slate-400">
           {session.macAddress || "MAC inconnue"}
 
           {loginLabel && (
