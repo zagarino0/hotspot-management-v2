@@ -320,9 +320,10 @@ export default function AddRouter() {
         }
       />
 
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
         {/* =====================================================
             HEADER
@@ -576,6 +577,30 @@ export default function AddRouter() {
           </button>
         </div>
       </form>
+      <aside className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg font-semibold text-slate-700">i</div>
+          <h2 className="text-base font-semibold text-slate-900">Préparer la connexion MikroTik</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">Le routeur permet à l’application de lire les sessions, profils et tickets réels de l’équipement.</p>
+          <ul className="mt-5 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Site : rattachez le routeur au site où il est installé.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Nom et code : choisissez un nom identifiable et un code unique.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Adresse IP/hostname et port API : saisissez les paramètres d’accès du MikroTik.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Utilisateur et mot de passe : utilisez un compte MikroTik autorisé à accéder à l’API.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Tester la connexion : vérifiez l’accès avant l’enregistrement.</span></li>
+          </ul>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-base font-semibold text-slate-900">Conditions avant validation</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Un site doit exister et être sélectionné.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le nom, le code, l’adresse/hostname, le port, l’utilisateur et le mot de passe sont requis.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le port doit être compris entre 1 et 65535.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le test de connexion doit réussir pour confirmer que les identifiants et l’accès réseau fonctionnent.</span></li>
+          </ul>
+        </section>
+      </aside>
+      </div>
     </div>
   );
 }
