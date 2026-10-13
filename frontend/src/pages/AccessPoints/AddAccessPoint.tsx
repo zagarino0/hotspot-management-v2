@@ -271,7 +271,7 @@ export default function AddAccessPoint() {
 
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-              Routeur (facultatif)
+              Routeur
             </span>
 
             <select
