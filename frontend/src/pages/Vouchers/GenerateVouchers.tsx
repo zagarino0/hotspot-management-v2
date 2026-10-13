@@ -49,16 +49,16 @@ function formatVoucherDuration(seconds: number | null): string {
 function prepareVoucherTemplate(template: string, values: Record<string, string>): string {
   let html = template;
   for (const [key, value] of Object.entries(values)) {
-    html = html.replace(new RegExp("\\\\{\\\\{\\\\s*" + key + "\\\\s*\\\\}\\\\}", "gi"), escapePrintValue(value));
+    html = html.replace(new RegExp("\\{\\{\\s*" + key + "\\s*\\}\\}", "gi"), escapePrintValue(value));
   }
   return html;
 }
 
 function extractTemplateDocument(template: string): { head: string; body: string } {
-  const head = template.match(/<head[^>]*>([\\s\\S]*?)<\\/head>/i)?.[1] ?? "";
-  const body = template.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i)?.[1] ?? template
+  const head = template.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? "";
+  const body = template.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? template
     .replace(/<!doctype[^>]*>/gi, "")
-    .replace(/<\\/?(?:html|head|body)[^>]*>/gi, "");
+    .replace(/<\/?(?:html|head|body)[^>]*>/gi, "");
   return { head, body };
 }
 export default function GenerateVouchers() {
