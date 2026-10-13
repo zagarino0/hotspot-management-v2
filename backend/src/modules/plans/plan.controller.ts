@@ -58,6 +58,7 @@ export async function createPlanController(
       name,
       code,
       description,
+      mikrotikProfileCode,
       price,
       currency,
       durationSeconds,
@@ -104,6 +105,10 @@ export async function createPlanController(
       description:
         typeof description === "string" && description.trim()
           ? description.trim()
+          : null,
+      mikrotikProfileCode:
+        typeof mikrotikProfileCode === "string" && mikrotikProfileCode.trim()
+          ? mikrotikProfileCode.trim()
           : null,
       price: numericPrice,
       currency:
