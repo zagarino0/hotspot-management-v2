@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, UserPlus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Info, Loader2, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
@@ -169,9 +169,10 @@ export default function AddClient() {
         }
       />
 
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -298,6 +299,40 @@ export default function AddClient() {
           </button>
         </div>
       </form>
+
+      <aside className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+              <Info size={20} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Guide de saisie</h2>
+              <p className="text-sm text-slate-400">À quoi sert chaque information ?</p>
+            </div>
+          </div>
+          <div className="space-y-4 text-sm">
+            <div><p className="font-semibold text-slate-800">Site</p><p className="mt-1 leading-5 text-slate-500">Obligatoire. Choisissez le site auquel le client et son ticket MikroTik sont rattachés.</p></div>
+            <div><p className="font-semibold text-slate-800">Nom affiché</p><p className="mt-1 leading-5 text-slate-500">Nom de la personne à retrouver dans la liste des clients. Renseignez-le si vous le connaissez.</p></div>
+            <div><p className="font-semibold text-slate-800">Voucher / ticket MikroTik</p><p className="mt-1 leading-5 text-slate-500">Saisissez ou sélectionnez le nom exact du ticket existant sur le site choisi. Son profil et son prix sont détectés à partir des données MikroTik et du tarif configuré pour ce site.</p></div>
+            <div><p className="font-semibold text-slate-800">Téléphone et email</p><p className="mt-1 leading-5 text-slate-500">Facultatifs, mais utiles pour identifier le client et faciliter le suivi.</p></div>
+            <div><p className="font-semibold text-slate-800">Statut et date de paiement</p><p className="mt-1 leading-5 text-slate-500">Choisissez « Payé » uniquement si le paiement a été reçu. La date est activée pour ce statut ; si elle reste vide, la date du jour sera utilisée à l’enregistrement.</p></div>
+          </div>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <div className="mb-3 flex items-center gap-2"><CheckCircle2 size={19} className="text-emerald-600" /><h2 className="text-base font-semibold text-slate-900">Conditions avant l’enregistrement</h2></div>
+          <ul className="space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Un site doit être sélectionné.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Renseignez au moins le nom affiché ou l’identifiant du voucher.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Pour détecter automatiquement le forfait et le prix, le voucher doit correspondre à un ticket connu du site et son profil doit disposer d’un tarif configuré.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le statut de paiement décrit le règlement du client ; il ne modifie pas le profil ni le prix du ticket MikroTik.</span></li>
+          </ul>
+          {form.username.trim() && !selectedVoucher && !voucherLoading && <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">Ce voucher n’a pas été reconnu parmi les tickets chargés pour le site sélectionné. Vérifiez son orthographe et sa disponibilité avant de continuer.</p>}
+          {selectedVoucher && <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800"><p className="font-semibold">Voucher reconnu : {selectedVoucher.code}</p><p className="mt-1">Profil : {selectedVoucher.profile ?? "non renseigné"}</p><p>Forfait : {selectedPrice?.name ?? selectedVoucher.profile ?? "non identifié"}</p><p>Prix : {selectedPrice ? new Intl.NumberFormat("fr-FR").format(selectedPrice.price) + " " + selectedPrice.currency : "tarif non configuré"}</p></div>}
+          {voucherError && <p className="mt-3 text-xs text-amber-700">{voucherError}</p>}
+        </section>
+      </aside>
+      </div>
     </div>
   );
 }
