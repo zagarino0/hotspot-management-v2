@@ -39,6 +39,8 @@ export interface VoucherRow {
 export interface GenerateVouchersData {
   siteId: string;
   planId: string;
+  routerId: string;
+  pointOfSaleId: string;
 
   quantity: number;
 
