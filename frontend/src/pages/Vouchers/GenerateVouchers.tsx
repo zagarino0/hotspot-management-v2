@@ -127,9 +127,24 @@ export default function GenerateVouchers() {
     [routers, siteId]
   );
 
+  const selectedSite = useMemo(
+    () => sites.find((site) => site.id === siteId) ?? null,
+    [sites, siteId]
+  );
+
   const activePointOfSales = useMemo(
-    () => pointOfSales.filter((point) => point.status === "ACTIVE"),
-    [pointOfSales]
+    () =>
+      pointOfSales.filter(
+        (point) =>
+          point.status === "ACTIVE" &&
+          (!selectedSite || point.organizationId === selectedSite.organizationId)
+      ),
+    [pointOfSales, selectedSite]
+  );
+
+  const selectedPointOfSale = useMemo(
+    () => activePointOfSales.find((point) => point.id === pointOfSaleId) ?? null,
+    [activePointOfSales, pointOfSaleId]
   );
 
   const selectedProfile = useMemo(
@@ -225,6 +240,10 @@ export default function GenerateVouchers() {
 
       if (!mikrotikProfile.trim()) {
         setError("Le User Profile MikroTik réel est obligatoire pour ce routeur.");
+        return;
+      }
+      if (!selectedPointOfSale) {
+        setError("Sélectionnez un point de vente actif appartenant à l’organisation du site.");
         return;
       }
 
@@ -498,12 +517,17 @@ export default function GenerateVouchers() {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">Point de vente actif</span>
-            <select value={pointOfSaleId} onChange={(event) => setPointOfSaleId(event.target.value)} disabled={refLoading}
+            <select value={pointOfSaleId} onChange={(event) => setPointOfSaleId(event.target.value)} disabled={!siteId || refLoading}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100">
               <option value="">Sélectionnez un point de vente</option>
               {activePointOfSales.map((point) => <option key={point.id} value={point.id}>{point.code} — {point.name}</option>)}
             </select>
-            {pointOfSales.length > 0 && activePointOfSales.length === 0 && <span className="mt-1 block text-xs text-amber-600">Aucun point de vente actif disponible.</span>}
+            {selectedPointOfSale && (
+              <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                Code unique du point de vente : <span className="font-semibold text-slate-900">{selectedPointOfSale.code}</span>
+              </div>
+            )}
+            {siteId && pointOfSales.length > 0 && activePointOfSales.length === 0 && <span className="mt-1 block text-xs text-amber-600">Aucun point de vente actif pour l’organisation de ce site.</span>}
           </label>
         </div>
 
