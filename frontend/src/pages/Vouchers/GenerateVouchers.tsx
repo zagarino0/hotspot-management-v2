@@ -28,6 +28,39 @@ import {
   type Voucher,
 } from "../../services/voucherService";
 
+function escapePrintValue(value: unknown): string {
+  return String(value ?? "").replace(/[&<>\"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  })[character] ?? character);
+}
+
+function formatVoucherDuration(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) return "Non précisée";
+  const units: Array<[number, string]> = [[86400, "j"], [3600, "h"], [60, "min"], [1, "s"]];
+  let remaining = Math.floor(seconds);
+  const parts: string[] = [];
+  for (const [unitSeconds, label] of units) {
+    const amount = Math.floor(remaining / unitSeconds);
+    if (amount > 0) { parts.push(String(amount) + label); remaining %= unitSeconds; }
+  }
+  return parts.join(" ") || "0 s";
+}
+
+function prepareVoucherTemplate(template: string, values: Record<string, string>): string {
+  let html = template;
+  for (const [key, value] of Object.entries(values)) {
+    html = html.replace(new RegExp("\\\\{\\\\{\\\\s*" + key + "\\\\s*\\\\}\\\\}", "gi"), escapePrintValue(value));
+  }
+  return html;
+}
+
+function extractTemplateDocument(template: string): { head: string; body: string } {
+  const head = template.match(/<head[^>]*>([\\s\\S]*?)<\\/head>/i)?.[1] ?? "";
+  const body = template.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i)?.[1] ?? template
+    .replace(/<!doctype[^>]*>/gi, "")
+    .replace(/<\\/?(?:html|head|body)[^>]*>/gi, "");
+  return { head, body };
+}
 export default function GenerateVouchers() {
   const navigate = useNavigate();
 
@@ -348,7 +381,35 @@ export default function GenerateVouchers() {
         />
 
         <div className="flex flex-wrap gap-2 print:hidden">
-          <button type="button" onClick={() => window.print()} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+          <button
+            type="button"
+            onClick={() => {
+              const siteName = sites.find((site) => site.id === siteId)?.name ?? siteId;
+              const routerName = routers.find((router) => router.id === routerId)?.name ?? routerId;
+              const pointOfSaleCode = selectedPointOfSale?.code ?? pointOfSaleId;
+              const tickets = result.vouchers.map((voucher) => {
+                const values: Record<string, string> = {
+                  hotspotname: siteName, username: voucher.code, password: voucher.code,
+                  validity: formatVoucherDuration(voucher.durationSeconds),
+                  profile: voucher.mikrotikProfile ?? mikrotikProfile,
+                  price: voucher.planPrice == null ? "Non précisé" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "Ar"),
+                  datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Illimité" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
+                };
+                return { ...extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values)), code: voucher.code };
+              });
+              const printWindow = window.open("", "_blank");
+              if (!printWindow) { setError("La fenêtre d’impression a été bloquée. Autorisez les fenêtres pop-up puis réessayez."); return; }
+              const templateHead = [...new Set(tickets.map((ticket) => ticket.head).filter(Boolean))].join("\n");
+              const ticketMarkup = tickets.map((ticket) => '<section class="voucher-ticket" data-voucher-code="' + escapePrintValue(ticket.code) + '">' + ticket.body + '</section>').join("\n");
+              printWindow.document.open();
+              printWindow.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vouchers - ' + escapePrintValue(siteName) + '</title>' + templateHead +
+                '<style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.print-header{margin:0 0 5mm;font-size:9pt}.voucher-sheet{display:grid;grid-template-columns:repeat(auto-fill,' + Number(printTemplate.widthMm) + 'mm);align-content:start;gap:2mm}.voucher-ticket{width:' + Number(printTemplate.widthMm) + 'mm;height:' + Number(printTemplate.heightMm) + 'mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.voucher-ticket>*{max-width:100%}@media screen{body{padding:8mm}}</style></head><body>' +
+                '<div class="print-header">Site : ' + escapePrintValue(siteName) + ' · Routeur : ' + escapePrintValue(routerName) + ' · Point de vente : ' + escapePrintValue(pointOfSaleCode) + ' · Lot : ' + result.quantity + ' ticket(s)</div><main class="voucher-sheet">' + ticketMarkup + '</main><script>window.addEventListener("load",function(){window.focus();window.print();});<\\/script></body></html>');
+              printWindow.document.close();
+            }}
+            disabled={!templateLoaded}
+            className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+          >
             Imprimer en A4
           </button>
         </div>
