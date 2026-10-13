@@ -211,7 +211,6 @@ export async function generateVouchers(
       routerId: routerId.trim(),
       pointOfSaleId: pointOfSaleId.trim(),
       quantity: numericQuantity,
-      mikrotikProfile: typeof mikrotikProfile === "string" && mikrotikProfile.trim() ? mikrotikProfile.trim() : null,
       batchName: typeof batchName === "string" && batchName.trim()
         ? batchName.trim()
         : `Lot du ${new Date().toLocaleDateString("fr-FR")}`,
