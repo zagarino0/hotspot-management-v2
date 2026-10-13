@@ -27,18 +27,6 @@ import {
   type Voucher,
 } from "../../services/voucherService";
 
-/* ============================================================
-   DURÉES PRÉDÉFINIES (en secondes)
-============================================================ */
-
-const DURATION_PRESETS = [
-  { label: "1 heure", seconds: 3600 },
-  { label: "3 heures", seconds: 10800 },
-  { label: "24 heures", seconds: 86400 },
-  { label: "7 jours", seconds: 604800 },
-  { label: "30 jours", seconds: 2592000 },
-];
-
 function parseProfileDurationSeconds(value: string | undefined): number | null {
   if (!value?.trim()) return null;
   const raw = value.trim().toLowerCase();
@@ -99,10 +87,6 @@ export default function GenerateVouchers() {
   // Nouveau forfait
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanPrice, setNewPlanPrice] = useState("");
-  const [newPlanDuration, setNewPlanDuration] = useState(
-    String(DURATION_PRESETS[0].seconds)
-  );
-
   // Génération
   const [quantity, setQuantity] = useState("10");
   const [prefix, setPrefix] = useState("");
