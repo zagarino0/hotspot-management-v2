@@ -136,6 +136,13 @@ export async function getVoucherStats(): Promise<VoucherStats> {
   return response.data.data;
 }
 
+export async function getVoucherBatchForPrint(batchId: string): Promise<GenerateVouchersResult> {
+  const response = await api.get<ApiEnvelope<GenerateVouchersResult>>(
+    `/api/vouchers/batch/${encodeURIComponent(batchId)}/print`
+  );
+  return response.data.data;
+}
+
 export async function generateVouchers(
   payload: GenerateVouchersPayload
 ): Promise<GenerateVouchersResult> {
