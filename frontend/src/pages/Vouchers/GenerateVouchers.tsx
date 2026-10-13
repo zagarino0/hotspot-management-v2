@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../components/ui/PageHeader";
 import { getSites, type Site } from "../../services/siteService";
+import { getRouters, type Router } from "../../services/routerService";
+import { getPointOfSales, type PointOfSale } from "../../services/saleService";
 import {
   createPlan,
   getPlans,
@@ -41,12 +43,16 @@ export default function GenerateVouchers() {
   const navigate = useNavigate();
 
   const [sites, setSites] = useState<Site[]>([]);
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [pointOfSales, setPointOfSales] = useState<PointOfSale[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>([]);
   const [refLoading, setRefLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
 
   const [siteId, setSiteId] = useState("");
+  const [routerId, setRouterId] = useState("");
+  const [pointOfSaleId, setPointOfSaleId] = useState("");
   const [mode, setMode] = useState<"existing" | "new">(
     "existing"
   );
@@ -79,14 +85,18 @@ export default function GenerateVouchers() {
 
     async function loadRefs() {
       try {
-        const [sitesData, plansData] = await Promise.all([
+        const [sitesData, plansData, routersData, pointOfSalesData] = await Promise.all([
           getSites(),
           getPlans(),
+          getRouters(),
+          getPointOfSales(),
         ]);
 
         if (mounted) {
           setSites(sitesData);
           setPlans(plansData);
+          setRouters(routersData);
+          setPointOfSales(pointOfSalesData);
         }
       } catch (err) {
         console.error(
@@ -110,6 +120,16 @@ export default function GenerateVouchers() {
   const plansForSite = useMemo(
     () => plans.filter((plan) => plan.siteId === siteId),
     [plans, siteId]
+  );
+
+  const routersForSite = useMemo(
+    () => routers.filter((router) => router.siteId === siteId && router.syncEnabled && Boolean(router.managementIp)),
+    [routers, siteId]
+  );
+
+  const activePointOfSales = useMemo(
+    () => pointOfSales.filter((point) => point.status === "ACTIVE"),
+    [pointOfSales]
   );
 
   const selectedProfile = useMemo(
@@ -160,6 +180,8 @@ export default function GenerateVouchers() {
 
   function resetPlanSelection(nextSiteId: string) {
     setSiteId(nextSiteId);
+    setRouterId("");
+    setPointOfSaleId("");
     setPlanId("");
     setMikrotikProfile("");
   }
@@ -173,6 +195,14 @@ export default function GenerateVouchers() {
 
     if (!siteId.trim()) {
       setError("Le site est obligatoire.");
+      return;
+    }
+    if (!routerId.trim()) {
+      setError("Le routeur MikroTik est obligatoire.");
+      return;
+    }
+    if (!pointOfSaleId.trim()) {
+      setError("Le point de vente actif est obligatoire.");
       return;
     }
 
@@ -245,6 +275,8 @@ export default function GenerateVouchers() {
       const generated = await generateVouchers({
         siteId: siteId.trim(),
         planId: finalPlanId,
+        routerId: routerId.trim(),
+        pointOfSaleId: pointOfSaleId.trim(),
         quantity: numericQuantity,
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
@@ -300,7 +332,13 @@ export default function GenerateVouchers() {
           }
         />
 
-        <div className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button type="button" onClick={() => window.print()} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+            Imprimer en A4
+          </button>
+        </div>
+
+        <div id="voucher-print-area" className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="text-emerald-600" size={22} />
 
@@ -327,7 +365,7 @@ export default function GenerateVouchers() {
             </button>
           </div>
 
-          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto print:voucher-print-list">
             {result.vouchers.map((voucher) => (
               <div
                 key={voucher.id}
@@ -445,6 +483,28 @@ export default function GenerateVouchers() {
               </button>
             </p>
           )}
+        </div>
+
+        {/* ROUTEUR ET POINT DE VENTE */}
+        <div className="mb-5 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Routeur MikroTik</span>
+            <select value={routerId} onChange={(event) => setRouterId(event.target.value)} disabled={!siteId || refLoading}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100">
+              <option value="">Sélectionnez un routeur</option>
+              {routersForSite.map((router) => <option key={router.id} value={router.id}>{router.name} — {router.status}</option>)}
+            </select>
+            {siteId && routersForSite.length === 0 && <span className="mt-1 block text-xs text-amber-600">Aucun routeur avec synchronisation active et adresse de gestion pour ce site.</span>}
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Point de vente actif</span>
+            <select value={pointOfSaleId} onChange={(event) => setPointOfSaleId(event.target.value)} disabled={refLoading}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100">
+              <option value="">Sélectionnez un point de vente</option>
+              {activePointOfSales.map((point) => <option key={point.id} value={point.id}>{point.code} — {point.name}</option>)}
+            </select>
+            {pointOfSales.length > 0 && activePointOfSales.length === 0 && <span className="mt-1 block text-xs text-amber-600">Aucun point de vente actif disponible.</span>}
+          </label>
         </div>
 
         {/* MODE FORFAIT */}
