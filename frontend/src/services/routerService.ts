@@ -29,6 +29,7 @@ export interface Router {
   apiProtocol: string;
 
   identity: string | null;
+  dnsName: string | null;
   routerOsVersion: string | null;
 
   status: RouterStatus;
@@ -56,11 +57,13 @@ export interface RouterTestPayload {
   port: number;
   username: string;
   password: string;
+  dnsName?: string | null;
 }
 
 export interface RouterTestResult {
   connected: boolean;
   identity: string | null;
+  dnsName: string | null;
   model: string | null;
   routerOsVersion: string | null;
   uptime: string | null;
