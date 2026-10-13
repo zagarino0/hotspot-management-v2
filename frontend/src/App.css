@@ -182,3 +182,54 @@
     border-right-color: var(--border);
   }
 }
+
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  #voucher-print-root,
+  #voucher-print-root * {
+    visibility: visible !important;
+  }
+
+  #voucher-print-root {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+  }
+
+  #voucher-print-root .max-h-96 {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  #voucher-print-root button,
+  #voucher-print-root .print\\:hidden {
+    display: none !important;
+  }
+
+  #voucher-print-root .print\\:grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  #voucher-print-root .print\\:border {
+    border: 1px solid #d1d5db !important;
+  }
+
+  #voucher-print-root .print\\:break-inside-avoid {
+    break-inside: avoid;
+  }
+}
