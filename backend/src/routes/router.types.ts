@@ -30,6 +30,7 @@ export interface Router {
   apiProtocol: string;
 
   identity: string | null;
+  dnsName: string | null;
 
   routerOsVersion: string | null;
 
@@ -64,6 +65,7 @@ export interface CreateRouterData {
 
   username: string;
   password: string;
+  dnsName?: string | null;
 }
 
 export type RouterListRow = Router;
