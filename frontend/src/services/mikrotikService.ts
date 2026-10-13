@@ -31,6 +31,12 @@ export interface CreateHotspotProfilePayload {
   routerId: string;
   name: string;
   sessionTimeout: string;
+  idleTimeout: "none" | string;
+  keepaliveTimeout: string;
+  sharedUsers: number;
+  macCookieTimeout: "none" | string;
+  addMacCookie: boolean;
+  addressPool: "none" | "dhcp" | "vpn";
   rateLimit?: string;
 }
 
