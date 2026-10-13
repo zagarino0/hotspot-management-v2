@@ -115,10 +115,19 @@ export async function testRouterConnection(
     const uptime =
       resource.uptime ?? null;
 
+    const hotspotProfiles = await api.write(
+      "/ip/hotspot/profile/print"
+    );
+    const dnsNames = hotspotProfiles
+      .map((profile: Record<string, unknown>) => profile["dns-name"])
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+    const dnsName = dnsNames[0] ?? null;
+
     return {
       connected: true,
 
       identity,
+      dnsName,
 
       model:
         resource["board-name"] ??
@@ -159,6 +168,8 @@ export async function createRouter(
 
     routerOsVersion:
       mikrotik.routerOsVersion,
+
+    dnsName: mikrotik.dnsName,
 
     uptimeSeconds:
       mikrotik.uptimeSeconds,
