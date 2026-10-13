@@ -527,7 +527,7 @@ function RouterRow({
 
       <td className="px-5 py-4">
         <code className="rounded-md bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600">
-          {router.managementIp || "—"}
+          {router.managementIp?.split("/")[0] || "—"}
         </code>
       </td>
 
