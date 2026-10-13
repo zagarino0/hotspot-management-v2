@@ -281,7 +281,7 @@ export async function generateVoucherBatch(
           batchId,
           routerId: data.routerId,
           pointOfSaleId: data.pointOfSaleId,
-          mikrotikComment: data.pointOfSaleId,
+          pointOfSaleCode: data.pointOfSaleCode ?? data.pointOfSaleId,
           prefix: data.prefix,
           mikrotikProfile: data.mikrotikProfile,
           durationSeconds: plan.durationSeconds,
@@ -320,7 +320,7 @@ async function insertVoucherWithRetry(
     batchId: string;
     routerId: string;
     pointOfSaleId: string;
-    mikrotikComment: string;
+    pointOfSaleCode: string;
     prefix?: string | null;
     mikrotikProfile?: string | null;
     durationSeconds: number | null;
@@ -373,7 +373,7 @@ async function insertVoucherWithRetry(
           input.routerId,
           input.pointOfSaleId,
           code,
-          input.mikrotikComment,
+          `${code}-${new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }).replaceAll("/", ".")} - ${input.pointOfSaleCode}`,
           code,
           input.mikrotikProfile ?? null,
           input.priceSnapshot,
