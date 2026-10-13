@@ -38,6 +38,30 @@ export async function createPlan(data: CreatePlanData) {
   }
 
   try {
+    if (data.mikrotikProfileCode?.trim()) {
+      if (data.mikrotikProfileCode.trim().length > 50) {
+        throw badRequest("Le nom du profil MikroTik ne peut pas dépasser 50 caractères.");
+      }
+
+      // Les profils lus directement depuis RouterOS peuvent ne pas exister
+      // encore dans le catalogue local. On les référence sans écraser les
+      // tarifs déjà configurés pour un profil connu.
+      const { pool } = await import("../../database/pool.js");
+      await pool.query(
+        `INSERT INTO hotspot_profile (
+           code, name, duration_seconds, default_price, currency
+         )
+         VALUES ($1, $1, $2, $3, $4)
+         ON CONFLICT (code) DO NOTHING`,
+        [
+          data.mikrotikProfileCode.trim(),
+          data.durationSeconds ?? null,
+          data.price,
+          data.currency ?? "MGA",
+        ]
+      );
+    }
+
     return await insertPlan(data);
   } catch (error) {
     if (
