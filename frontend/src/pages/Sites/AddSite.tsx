@@ -127,9 +127,10 @@ export default function AddSite() {
         }
       />
 
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -241,6 +242,30 @@ export default function AddSite() {
           </button>
         </div>
       </form>
+      <aside className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg font-semibold text-slate-700">i</div>
+          <h2 className="text-base font-semibold text-slate-900">Bien renseigner le site</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">Le site est le point de rattachement principal des routeurs, points d’accès, vouchers et clients.</p>
+          <ul className="mt-5 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Nom du site : utilisez un nom clair et unique, par exemple WIFI MAHAVOKY.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Code du site : choisissez un code court et unique pour le retrouver facilement.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Ville, région, district et adresse : renseignez la localisation réelle pour distinguer les installations.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Fuseau horaire : utilisez Indian/Antananarivo pour les opérations locales à Madagascar.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Description : facultative, réservée aux notes internes.</span></li>
+          </ul>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-base font-semibold text-slate-900">Conditions avant validation</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le nom du site est obligatoire.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le code du site est obligatoire.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Vérifiez que le site n’existe pas déjà avant de le créer.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Créez le site avant d’y rattacher un routeur ou un point d’accès.</span></li>
+          </ul>
+        </section>
+      </aside>
+      </div>
     </div>
   );
 }
