@@ -33,7 +33,7 @@ export async function getRouters() {
     let api: Awaited<ReturnType<typeof connectMikroTik>> | null = null;
     try {
       const credential = await findRouterCredential(router.id);
-      if (!credential) return;
+      if (!credential || !router.managementIp) return;
       api = await connectMikroTik({
         host: router.managementIp,
         port: router.apiPort,
@@ -220,19 +220,19 @@ function parseRouterOSUptime(
   let seconds = 0;
 
   const weeks =
-    uptime.match(/(\d+)w/);
+    uptime.match(/(\\d+)w/);
 
   const days =
-    uptime.match(/(\d+)d/);
+    uptime.match(/(\\d+)d/);
 
   const hours =
-    uptime.match(/(\d+)h/);
+    uptime.match(/(\\d+)h/);
 
   const minutes =
-    uptime.match(/(\d+)m/);
+    uptime.match(/(\\d+)m/);
 
   const secs =
-    uptime.match(/(\d+)s/);
+    uptime.match(/(\\d+)s/);
 
   if (weeks) {
     seconds +=
