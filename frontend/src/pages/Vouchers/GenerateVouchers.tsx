@@ -552,7 +552,7 @@ export default function GenerateVouchers() {
                       setMikrotikProfile(profileName);
 
                       const matchingPlan = plansForSite.find(
-                        (plan) => plan.name === profileName
+                        (plan) => plan.mikrotikProfileCode === profileName || plan.name === profileName
                       );
 
                       setPlanId(matchingPlan?.id ?? "");
@@ -592,6 +592,16 @@ export default function GenerateVouchers() {
                 )}
               </div>
             ) : (
+              <div className="mb-4">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-slate-600">Profil MikroTik réel à associer au nouveau forfait</span>
+                  <select value={mikrotikProfile} onChange={(event) => setMikrotikProfile(event.target.value)} disabled={profilesLoading}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100">
+                    <option value="">{profilesLoading ? "Chargement des profils..." : "Sélectionnez un User Profile MikroTik"}</option>
+                    {hotspotProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
+                  </select>
+                </label>
+              </div>
               <div className="mb-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 sm:grid-cols-2">
                 <Field
                   label="Nom du forfait"
