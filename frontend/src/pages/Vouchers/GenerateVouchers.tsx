@@ -223,6 +223,11 @@ export default function GenerateVouchers() {
     try {
       let finalPlanId = planId;
 
+      if (!mikrotikProfile.trim()) {
+        setError("Le User Profile MikroTik réel est obligatoire pour ce routeur.");
+        return;
+      }
+
       if (mode === "new") {
         if (!newPlanName.trim()) {
           setError("Le nom du forfait est obligatoire.");
@@ -250,16 +255,11 @@ export default function GenerateVouchers() {
             .slice(0, 40),
           price,
           durationSeconds: Number(newPlanDuration),
+          mikrotikProfileCode: mikrotikProfile,
         });
 
         finalPlanId = createdPlan.id;
         setPlans((current) => [createdPlan, ...current]);
-      }
-
-      if (mode === "existing" && !mikrotikProfile) {
-        setError("Le User Profile MikroTik est obligatoire.");
-        setSaving(false);
-        return;
       }
 
       if (!finalPlanId) {
@@ -280,8 +280,7 @@ export default function GenerateVouchers() {
         quantity: numericQuantity,
         batchName: batchName.trim() || undefined,
         prefix: prefix.trim() || undefined,
-        mikrotikProfile:
-          mode === "existing" ? mikrotikProfile : undefined,
+        mikrotikProfile,
       });
 
       setResult(generated);
