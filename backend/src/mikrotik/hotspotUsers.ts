@@ -143,6 +143,66 @@ function parseCreationDate(comment: string): string | null {
 }
 
 
+export interface CreateHotspotUserInput {
+  username: string;
+  password?: string;
+  profile: string;
+  limitUptimeSeconds?: number | null;
+  comment: string;
+}
+
+export async function createHotspotUser(
+  api: RouterOSAPI,
+  input: CreateHotspotUserInput
+): Promise<void> {
+  const username = input.username.trim();
+  const existing = await api.write("/ip/hotspot/user/print");
+  if (existing.some((row: Record<string, unknown>) =>
+    typeof row.name === "string" &&
+    row.name.trim().toLowerCase() === username.toLowerCase()
+  )) {
+    throw new Error(`L'utilisateur MikroTik "${username}" existe déjà.`);
+  }
+
+  const args = [
+    `=name=${username}`,
+    `=password=${(input.password ?? username).trim()}`,
+    `=profile=${input.profile.trim()}`,
+    `=comment=${input.comment.trim()}`,
+  ];
+  if (input.limitUptimeSeconds && input.limitUptimeSeconds > 0) {
+    args.push(`=limit-uptime=${formatRouterOsDuration(input.limitUptimeSeconds)}`);
+  }
+  await api.write("/ip/hotspot/user/add", args);
+}
+
+export async function deleteHotspotUser(
+  api: RouterOSAPI,
+  username: string
+): Promise<void> {
+  const rows = await api.write("/ip/hotspot/user/print");
+  const target = rows.find((row: Record<string, unknown>) =>
+    typeof row.name === "string" &&
+    row.name.trim().toLowerCase() === username.trim().toLowerCase()
+  );
+  if (!target) return;
+  if (typeof target[".id"] !== "string") {
+    throw new Error(`Impossible d'identifier l'utilisateur MikroTik "${username}".`);
+  }
+  await api.write("/ip/hotspot/user/remove", [`=.id=${target[".id"]}`]);
+}
+
+function formatRouterOsDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return [days ? `${days}d` : "", hours ? `${hours}h` : "",
+    minutes ? `${minutes}m` : "", remainder ? `${remainder}s` : ""]
+    .filter(Boolean).join("") || "0s";
+}
+
 export async function updateHotspotUserComment(
   api: RouterOSAPI,
   username: string,
