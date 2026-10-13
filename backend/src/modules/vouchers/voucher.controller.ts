@@ -8,6 +8,7 @@ import {
   changeVoucherStatus,
   createVoucherBatch,
   issueMikrotikVoucherBatch,
+  getVoucherBatchForPrint,
   deleteVoucherById,
   getVouchers,
   getVoucherStats,
@@ -150,6 +151,17 @@ export async function listVouchers(
   } catch (error) {
     return next(error);
   }
+}
+
+export async function printVoucherBatchController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.auth?.sub;
+    const batchId = String(req.params.batchId ?? "").trim();
+    if (!userId) return res.status(401).json({ success: false, message: "Utilisateur non authentifié." });
+    if (!batchId) return res.status(400).json({ success: false, message: "Le lot est obligatoire." });
+    const vouchers = await getVoucherBatchForPrint(batchId, userId);
+    return res.status(200).json({ success: true, data: { batchId, quantity: vouchers.length, vouchers } });
+  } catch (error) { return next(error); }
 }
 
 export async function generateVouchers(
