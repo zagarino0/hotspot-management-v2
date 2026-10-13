@@ -23,6 +23,7 @@ import roleRoutes from "./modules/roles/role.routes.js";
 import statisticsRoutes from "./modules/statistics/statistics.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import posOperationsRoutes from "./modules/sales/posOperations.routes.js";
+import voucherTemplateRoutes from "./modules/vouchers/voucherTemplate.routes.js";
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use("/api/access-points", authenticate, accessPointRoutes);
 app.use("/api/plans", authenticate, sitePricingRoutes);
 app.use("/api/plans", authenticate, planRoutes);
 app.use("/api/vouchers", authenticate, voucherRoutes);
+app.use("/api/voucher-template", authenticate, voucherTemplateRoutes);
 app.use("/api/mikrotik", authenticate, mikrotikRoutes);
 app.use("/api/sales", authenticate, saleRoutes);
 app.use("/api/users", authenticate, userRoutes);
