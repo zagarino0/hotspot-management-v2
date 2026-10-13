@@ -29,6 +29,32 @@ import type {
 
 const MAX_BATCH_QUANTITY = 1000;
 
+function parseRouterOsDurationSeconds(value: unknown): number | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const raw = value.trim().toLowerCase();
+  if (raw === "0" || raw === "0s") return null;
+
+  const clock = raw.match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2})$/);
+  if (clock) {
+    const hours = Number(clock[1] ?? 0);
+    const minutes = Number(clock[2]);
+    const seconds = Number(clock[3]);
+    if (minutes < 60 && seconds < 60) return hours * 3600 + minutes * 60 + seconds;
+    return null;
+  }
+
+  const units = raw.match(/^(?:(\d+)w)?\s*(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?$/);
+  if (!units || !units.slice(1).some((part) => part !== undefined)) return null;
+
+  const seconds =
+    Number(units[1] ?? 0) * 7 * 86400 +
+    Number(units[2] ?? 0) * 86400 +
+    Number(units[3] ?? 0) * 3600 +
+    Number(units[4] ?? 0) * 60 +
+    Number(units[5] ?? 0);
+  return Number.isSafeInteger(seconds) && seconds > 0 ? seconds : null;
+}
+
 
 export interface MikrotikVoucherRow {
   id: string;
@@ -405,11 +431,20 @@ export async function createVoucherBatch(
   const createdUsernames: string[] = [];
   try {
     const profileRows = await api.write("/ip/hotspot/user/profile/print");
-    const profileExists = profileRows.some((row: Record<string, unknown>) =>
+    const selectedProfile = profileRows.find((row: Record<string, unknown>) =>
       typeof row.name === "string" && row.name.trim().toLowerCase() === profile.toLowerCase()
-    );
-    if (!profileExists) {
+    ) as Record<string, unknown> | undefined;
+    if (!selectedProfile) {
       throw badRequest(`Le profil MikroTik "${profile}" n'existe pas sur le routeur sélectionné.`);
+    }
+
+    // RouterOS expose la durée de session du profil via session-timeout.
+    // On refuse une durée commerciale inventée si le profil ne définit pas de durée exploitable.
+    const profileDurationSeconds = parseRouterOsDurationSeconds(selectedProfile["session-timeout"]);
+    if (profileDurationSeconds === null || profileDurationSeconds <= 0) {
+      throw badRequest(
+        `Le profil MikroTik "${profile}" ne définit pas de session-timeout valide. Configurez la durée réelle dans MikroTik avant de générer les vouchers.`
+      );
     }
 
     const batch = await generateVoucherBatch(
@@ -419,7 +454,7 @@ export async function createVoucherBatch(
         siteId: plan.siteId,
         price: plan.price,
         currency: plan.currency,
-        durationSeconds: plan.durationSeconds,
+        durationSeconds: profileDurationSeconds,
         dataLimitBytes: plan.dataLimitBytes,
         downloadSpeedBps: plan.downloadSpeedBps,
         uploadSpeedBps: plan.uploadSpeedBps,
@@ -437,7 +472,7 @@ export async function createVoucherBatch(
         username: voucher.code,
         password: voucher.code,
         profile,
-        limitUptimeSeconds: plan.durationSeconds,
+        limitUptimeSeconds: profileDurationSeconds,
         comment,
       });
       createdUsernames.push(voucher.code);
