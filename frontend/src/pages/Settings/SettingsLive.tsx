@@ -28,6 +28,7 @@ import {
   type NotificationSettingsPayload,
 } from "../../services/notificationService";
 import { getDashboardOverview } from "../../services/statisticsService";
+import api from "../../services/api";
 
 interface ConfigurationData {
   sites: Site[];
@@ -47,6 +48,11 @@ export default function SettingsLive() {
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article style="font-family:Arial,sans-serif;text-align:center;border:1px solid #222;padding:4mm"><strong>{{hotspotname}}</strong><hr><p>Utilisateur : <b>{{username}}</b></p><p>Mot de passe : <b>{{password}}</b></p><small>Durée : {{validity}}</small></article>', widthMm: 55, heightMm: 30 });
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +101,32 @@ export default function SettingsLive() {
       active = false;
     };
   }, [retry]);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/api/voucher-template").then(({ data }) => {
+      if (active && data?.template) setPrintTemplate({
+        name: data.template.name,
+        html: data.template.html,
+        widthMm: Number(data.template.widthMm),
+        heightMm: Number(data.template.heightMm),
+      });
+    }).catch(() => {
+      if (active) setTemplateError("Impossible de charger le modèle. Vérifiez que la migration 018 est appliquée.");
+    }).finally(() => { if (active) setTemplateLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  async function savePrintTemplate() {
+    setTemplateSaving(true); setTemplateMessage(null); setTemplateError(null);
+    try {
+      const { data } = await api.put("/api/voucher-template", printTemplate);
+      setPrintTemplate({ ...data.template, widthMm: Number(data.template.widthMm), heightMm: Number(data.template.heightMm) });
+      setTemplateMessage("Modèle enregistré dans PostgreSQL.");
+    } catch (reason) {
+      setTemplateError(reason instanceof Error ? reason.message : "Échec de l'enregistrement du modèle.");
+    } finally { setTemplateSaving(false); }
+  }
 
   function patchNotificationSettings(
     patch: Partial<NotificationSettingsPayload>,
@@ -490,6 +522,36 @@ export default function SettingsLive() {
             {notificationMessage}
           </p>
         ) : null}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-900">Modèle d’impression des vouchers</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">Modifiez le HTML du ticket, définissez sa taille en millimètres et contrôlez l’aperçu avant impression. Le modèle est partagé via PostgreSQL.</p>
+          </div>
+          <button type="button" onClick={() => void savePrintTemplate()} disabled={templateSaving || templateLoading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{templateSaving ? "Enregistrement…" : "Enregistrer le modèle"}</button>
+        </div>
+        {templateLoading ? <p className="mt-4 text-sm text-slate-500">Chargement du modèle…</p> : <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <div className="space-y-4">
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Nom du modèle</span><input value={printTemplate.name} onChange={e => setPrintTemplate(v => ({...v, name:e.target.value}))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" maxLength={120}/></label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Largeur (mm)</span><input type="number" min={20} max={300} value={printTemplate.widthMm} onChange={e => setPrintTemplate(v => ({...v,widthMm:Number(e.target.value)}))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label>
+              <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Hauteur (mm)</span><input type="number" min={10} max={300} value={printTemplate.heightMm} onChange={e => setPrintTemplate(v => ({...v,heightMm:Number(e.target.value)}))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"/></label>
+            </div>
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Template HTML / CSS</span><textarea value={printTemplate.html} onChange={e => setPrintTemplate(v => ({...v,html:e.target.value}))} rows={15} spellCheck={false} className="w-full rounded-lg border border-slate-300 bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-100"/></label>
+            <p className="text-xs leading-5 text-slate-500">Variables disponibles : <code>{"{{hotspotname}}"}</code>, <code>{"{{username}}"}</code>, <code>{"{{password}}"}</code>, <code>{"{{validity}}"}</code>, <code>{"{{profile}}"}</code>, <code>{"{{price}}"}</code>, <code>{"{{datalimit}}"}</code>.</p>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Aperçu du ticket ({printTemplate.widthMm} × {printTemplate.heightMm} mm)</h3>
+            <div className="overflow-auto rounded-lg border border-dashed border-slate-300 bg-slate-100 p-4">
+              <iframe title="Aperçu du ticket" sandbox="" srcDoc={printTemplate.html.replaceAll("{{hotspotname}}","WIFI MAHAVOKY").replaceAll("{{username}}","WMK-8JXC").replaceAll("{{password}}","8JXC-F3TM").replaceAll("{{validity}}","2 jours").replaceAll("{{profile}}","test02").replaceAll("{{price}}","1 000 Ar").replaceAll("{{datalimit}}","Illimité")} style={{width: `${Math.min(printTemplate.widthMm * 3.78, 600)}px`, height: `${Math.min(printTemplate.heightMm * 3.78, 800)}px`, maxWidth:"100%", background:"white", border:0}}/>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">L’aperçu utilise des valeurs d’exemple uniquement. Elles ne sont pas enregistrées comme vouchers.</p>
+          </div>
+        </div>}
+        {templateError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{templateError}</p>}
+        {templateMessage && <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{templateMessage}</p>}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
