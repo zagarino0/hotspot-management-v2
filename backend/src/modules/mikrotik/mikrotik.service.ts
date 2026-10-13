@@ -14,7 +14,7 @@ interface SiteRouterRow {
   domain_name: string | null;
 }
 
-async function findSiteRouter(siteId: string): Promise<SiteRouterRow> {
+async function findSiteRouter(siteId: string, routerId?: string): Promise<SiteRouterRow> {
   const result = await pool.query<SiteRouterRow>(
     `
       SELECT
@@ -25,10 +25,11 @@ async function findSiteRouter(siteId: string): Promise<SiteRouterRow> {
       FROM router
       WHERE site_id = $1
         AND sync_enabled = true
+        AND ($2::uuid IS NULL OR id = $2::uuid)
       ORDER BY created_at ASC
       LIMIT 1
     `,
-    [siteId]
+    [siteId, routerId || null]
   );
 
   const router = result.rows[0];
@@ -49,9 +50,10 @@ async function findSiteRouter(siteId: string): Promise<SiteRouterRow> {
 }
 
 async function openSiteMikroTikConnection(
-  siteId: string
+  siteId: string,
+  routerId?: string
 ): Promise<RouterOSAPI> {
-  const router = await findSiteRouter(siteId);
+  const router = await findSiteRouter(siteId, routerId);
 
   const credentialResult = await pool.query<{
     username: string;
@@ -101,9 +103,10 @@ async function openSiteMikroTikConnection(
 }
 
 export async function getSiteHotspotProfiles(
-  siteId: string
+  siteId: string,
+  routerId?: string
 ): Promise<HotspotProfile[]> {
-  const api = await openSiteMikroTikConnection(siteId);
+  const api = await openSiteMikroTikConnection(siteId, routerId);
 
   try {
     return await fetchHotspotProfiles(api);
