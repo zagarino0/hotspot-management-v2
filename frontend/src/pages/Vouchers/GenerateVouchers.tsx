@@ -315,7 +315,7 @@ export default function GenerateVouchers() {
 
   if (result) {
     return (
-      <div className="space-y-6">
+      <div id="voucher-print-root" className="space-y-6">
         <PageHeader
           eyebrow="Gestion hotspot"
           title="Vouchers générés"
@@ -338,7 +338,7 @@ export default function GenerateVouchers() {
           </button>
         </div>
 
-        <div id="voucher-print-area" className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <div id="voucher-print-area" className="max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5 print:hidden">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="text-emerald-600" size={22} />
 
@@ -349,11 +349,12 @@ export default function GenerateVouchers() {
           </div>
         </div>
 
-        <div className="max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div className="flex items-center justify-between border-b border-slate-100 p-4">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Codes générés
-            </h2>
+        <div className="max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] print:max-w-none print:overflow-visible print:border-0 print:shadow-none">
+          <div className="flex items-center justify-between border-b border-slate-100 p-4 print:border-b-2 print:border-slate-900">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Codes générés</h2>
+              <p className="mt-1 text-xs text-slate-500">Site : {sites.find((site) => site.id === siteId)?.name ?? siteId} · Routeur : {routers.find((router) => router.id === routerId)?.name ?? routerId} · Point de vente : {activePointOfSales.find((point) => point.id === pointOfSaleId)?.code ?? pointOfSaleId}</p>
+            </div>
 
             <button
               type="button"
@@ -365,11 +366,11 @@ export default function GenerateVouchers() {
             </button>
           </div>
 
-          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto print:voucher-print-list">
+          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto print:grid print:grid-cols-3 print:gap-2 print:overflow-visible">
             {result.vouchers.map((voucher) => (
               <div
                 key={voucher.id}
-                className="flex items-center justify-between px-5 py-3"
+                className="flex items-center justify-between px-5 py-3 print:break-inside-avoid print:rounded print:border print:border-slate-200 print:px-3 print:py-2"
               >
                 <span className="font-mono text-sm font-semibold text-slate-800">
                   {voucher.code}
