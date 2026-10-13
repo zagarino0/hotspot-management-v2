@@ -137,7 +137,7 @@ export async function findRoutersForSync(): Promise<
         r.site_id AS "siteId",
         s.organization_id AS "organizationId",
         r.name,
-        r.host(management_ip) AS "managementIp",
+        host(r.management_ip) AS "managementIp",
         r.api_port AS "apiPort"
       FROM router r
       JOIN site s ON s.id = r.site_id
