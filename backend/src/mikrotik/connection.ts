@@ -49,12 +49,29 @@ export async function connectMikroTik(
     port: config.port,
     user: config.user,
     password: config.password,
-    timeout: 5,
+    timeout: 10,
   });
 
-  await api.connect();
+  // RouterOSAPI emits asynchronous "error" events; without a listener,
+  // Node.js can terminate the backend even when the caller has a try/catch.
+  api.on("error", (error: Error) => {
+    console.error(
+      `[mikrotik] API error ${config.host}:${config.port}: ${error.message}`
+    );
+  });
 
-  return api;
+  try {
+    await api.connect();
+    return api;
+  } catch (error) {
+    try {
+      api.close();
+    } catch {
+      // The socket may already be closed after a connection failure.
+    }
+
+    throw error;
+  }
 }
 
 /* ============================================================
