@@ -242,8 +242,6 @@ export async function generateVoucherBatch(
         INSERT INTO voucher_batch (
           site_id,
           plan_id,
-          router_id,
-          point_of_sale_id,
           name,
           prefix,
           mikrotik_profile,
@@ -252,15 +250,13 @@ export async function generateVoucherBatch(
           status
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE'
+          $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
         )
         RETURNING id
       `,
       [
         data.siteId,
         data.planId,
-        data.routerId,
-        data.pointOfSaleId,
         data.batchName,
         data.prefix ?? null,
         data.mikrotikProfile ?? null,
