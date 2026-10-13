@@ -215,21 +215,21 @@
   }
 
   #voucher-print-root button,
-  #voucher-print-root .print\\:hidden {
+  #voucher-print-root [class~="print:hidden"] {
     display: none !important;
   }
 
-  #voucher-print-root .print\\:grid {
+  #voucher-print-root [class~="print:grid"] {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px !important;
   }
 
-  #voucher-print-root .print\\:border {
+  #voucher-print-root [class~="print:border"] {
     border: 1px solid #d1d5db !important;
   }
 
-  #voucher-print-root .print\\:break-inside-avoid {
+  #voucher-print-root [class~="print:break-inside-avoid"] {
     break-inside: avoid;
   }
 }
