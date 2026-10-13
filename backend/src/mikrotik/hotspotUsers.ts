@@ -187,3 +187,54 @@ export async function setHotspotUserDisabled(
     `=disabled=${disabled ? "yes" : "no"}`,
   ]);
 }
+
+
+/** Creates a real Hotspot user on the selected MikroTik router. */
+export async function createHotspotUser(
+  api: RouterOSAPI,
+  input: {
+    username: string;
+    password: string;
+    profile: string;
+    comment: string;
+    limitUptime?: string | null;
+  }
+): Promise<void> {
+  if (!/^[a-z]{4}$/.test(input.username)) {
+    throw new Error("Le nom d'utilisateur Hotspot doit contenir exactement 4 lettres minuscules.");
+  }
+  if (!/^\\d{4}$/.test(input.password)) {
+    throw new Error("Le mot de passe Hotspot doit contenir exactement 4 chiffres.");
+  }
+  if (!input.profile.trim()) {
+    throw new Error("Le profil MikroTik est obligatoire.");
+  }
+
+  const existing = await api.write("/ip/hotspot/user/print");
+  if (existing.some((row: Record<string, unknown>) =>
+    typeof row.name === "string" &&
+    row.name.trim().toLowerCase() === input.username.toLowerCase()
+  )) {
+    throw new Error(`Le nom d'utilisateur MikroTik "${input.username}" existe déjà.`);
+  }
+
+  const args = [
+    `=name=${input.username}`,
+    `=password=${input.password}`,
+    `=profile=${input.profile.trim()}`,
+    `=comment=${input.comment}`,
+  ];
+  if (input.limitUptime?.trim()) args.push(`=limit-uptime=${input.limitUptime.trim()}`);
+
+  await api.write("/ip/hotspot/user/add", args);
+
+  const created = await api.write("/ip/hotspot/user/print");
+  const verified = created.some((row: Record<string, unknown>) =>
+    typeof row.name === "string" &&
+    row.name.trim() === input.username &&
+    (typeof row.profile !== "string" || row.profile.trim() === input.profile.trim())
+  );
+  if (!verified) {
+    throw new Error(`La création du compte "${input.username}" n'a pas pu être vérifiée sur MikroTik.`);
+  }
+}
