@@ -41,6 +41,8 @@ export interface Voucher {
 export interface GenerateVouchersPayload {
   siteId: string;
   planId: string;
+  routerId: string;
+  pointOfSaleId: string;
   quantity: number;
   batchName?: string;
   prefix?: string;
