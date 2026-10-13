@@ -4,6 +4,7 @@ import {
   findVouchers,
   findVouchersByBatchId,
   generateVoucherBatch,
+  deleteGeneratedVoucherBatch,
   updateVoucherStatus,
 } from "./voucher.repository.js";
 
@@ -15,7 +16,8 @@ import {
 } from "../routers/router.repository.js";
 
 import { connectMikroTik } from "../../mikrotik/connection.js";
-import { fetchHotspotUsers, updateHotspotUserComment } from "../../mikrotik/hotspotUsers.js";
+import { createHotspotUser, deleteHotspotUser, fetchHotspotUsers, updateHotspotUserComment } from "../../mikrotik/hotspotUsers.js";
+import { pool } from "../../database/pool.js";
 import { decryptSecret } from "../../lib/crypto.js";
 
 import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
@@ -355,32 +357,113 @@ export async function createVoucherBatch(
   if (!plan) {
     throw notFoundError("Forfait introuvable.");
   }
-
   if (plan.siteId !== data.siteId) {
-    throw badRequest(
-      "Ce forfait n'appartient pas au site sélectionné."
-    );
+    throw badRequest("Ce forfait n'appartient pas au site sélectionné.");
   }
 
-  const { batchId, voucherIds } = await generateVoucherBatch(
-    data,
-    {
-      id: plan.id,
-      siteId: plan.siteId,
-      price: plan.price,
-      currency: plan.currency,
-      durationSeconds: plan.durationSeconds,
-      dataLimitBytes: plan.dataLimitBytes,
-      downloadSpeedBps: plan.downloadSpeedBps,
-      uploadSpeedBps: plan.uploadSpeedBps,
-    }
+  const router = (await findRoutersForSync()).find(
+    (item) => item.id === data.routerId && item.siteId === data.siteId
   );
+  if (!router) {
+    throw badRequest("Le routeur sélectionné doit être actif, synchronisé et rattaché au site choisi.");
+  }
 
-  const vouchers = await findVouchersByBatchId(batchId);
+  const posResult = await pool.query<{ id: string; code: string }>(
+    `SELECT pos.id, pos.code
+       FROM point_of_sale pos
+       JOIN site s ON s.id = $2
+      WHERE pos.id = $1
+        AND pos.organization_id = s.organization_id
+        AND pos.status = 'ACTIVE'
+      LIMIT 1`,
+    [data.pointOfSaleId, data.siteId]
+  );
+  const pointOfSale = posResult.rows[0];
+  if (!pointOfSale) {
+    throw badRequest("Le point de vente est introuvable, inactif ou n'appartient pas à l'organisation du site.");
+  }
 
-  return {
-    batchId,
-    quantity: voucherIds.length,
-    vouchers,
-  };
+  const credential = await findRouterCredential(router.id);
+  if (!credential) {
+    throw conflict(`Aucun identifiant MikroTik actif pour le routeur "${router.name}".`);
+  }
+
+  const profile = (data.mikrotikProfile?.trim() || plan.mikrotikProfileCode?.trim() || "").trim();
+  if (!profile) {
+    throw badRequest("Le profil MikroTik est obligatoire pour générer les vouchers.");
+  }
+
+  const api = await connectMikroTik({
+    host: router.managementIp.split("/")[0].trim(),
+    port: router.apiPort,
+    user: credential.username,
+    password: decryptSecret(credential.encryptedSecret),
+  });
+
+  let batchId: string | null = null;
+  const createdUsernames: string[] = [];
+  try {
+    const profileRows = await api.write("/ip/hotspot/user/profile/print");
+    const profileExists = profileRows.some((row: Record<string, unknown>) =>
+      typeof row.name === "string" && row.name.trim().toLowerCase() === profile.toLowerCase()
+    );
+    if (!profileExists) {
+      throw badRequest(`Le profil MikroTik "${profile}" n'existe pas sur le routeur sélectionné.`);
+    }
+
+    const batch = await generateVoucherBatch(
+      { ...data, pointOfSaleCode: pointOfSale.code, mikrotikProfile: profile },
+      {
+        id: plan.id,
+        siteId: plan.siteId,
+        price: plan.price,
+        currency: plan.currency,
+        durationSeconds: plan.durationSeconds,
+        dataLimitBytes: plan.dataLimitBytes,
+        downloadSpeedBps: plan.downloadSpeedBps,
+        uploadSpeedBps: plan.uploadSpeedBps,
+      }
+    );
+    batchId = batch.batchId;
+
+    const vouchers = await findVouchersByBatchId(batch.batchId);
+    const dateCode = new Date().toLocaleDateString("en-US", {
+      month: "2-digit", day: "2-digit", year: "2-digit",
+    }).replaceAll("/", ".");
+    for (const voucher of vouchers) {
+      const comment = `${voucher.code}-${dateCode} - ${pointOfSale.code}`;
+      await createHotspotUser(api, {
+        username: voucher.code,
+        password: voucher.code,
+        profile,
+        limitUptimeSeconds: plan.durationSeconds,
+        comment,
+      });
+      createdUsernames.push(voucher.code);
+    }
+
+    return { batchId: batch.batchId, quantity: batch.voucherIds.length, vouchers };
+  } catch (error) {
+    const cleanupErrors: string[] = [];
+    for (const username of createdUsernames.reverse()) {
+      try {
+        await deleteHotspotUser(api, username);
+      } catch (cleanupError) {
+        cleanupErrors.push(`${username}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+      }
+    }
+    if (batchId) {
+      try {
+        await deleteGeneratedVoucherBatch(batchId);
+      } catch (cleanupError) {
+        cleanupErrors.push(`PostgreSQL lot ${batchId}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+      }
+    }
+    if (cleanupErrors.length) {
+      throw new Error(`La génération a échoué et le nettoyage est incomplet : ${cleanupErrors.join("; ")}`);
+    }
+    throw error;
+  } finally {
+    await api.close();
+  }
 }
