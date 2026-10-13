@@ -1,12 +1,15 @@
 import {
   connectMikroTik,
 } from "../../mikrotik/connection.js";
+import { decryptSecret } from "../../lib/crypto.js";
 
 import {
   deleteRouter,
   findRouterById,
   findRouters,
   insertRouter,
+  saveRouterDnsName,
+  findRouterCredential,
   updateRouter,
   type UpdateRouterData,
 } from "./router.repository.js";
@@ -23,6 +26,33 @@ import type {
 ============================================================ */
 
 export async function getRouters() {
+  const routers = await findRouters();
+
+  // Répare les anciens enregistrements sans DNS, à partir du vrai profil MikroTik.
+  await Promise.all(routers.filter((router) => !router.dnsName && router.managementIp).map(async (router) => {
+    let api: Awaited<ReturnType<typeof connectMikroTik>> | null = null;
+    try {
+      const credential = await findRouterCredential(router.id);
+      if (!credential) return;
+      api = await connectMikroTik({
+        host: router.managementIp,
+        port: router.apiPort,
+        user: credential.username,
+        password: decryptSecret(credential.encryptedSecret),
+      });
+      const profiles = await api.write("/ip/hotspot/profile/print");
+      const dnsName = profiles
+        .map((profile: Record<string, unknown>) => profile["dns-name"])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+      if (dnsName) await saveRouterDnsName(router.id, dnsName.trim());
+    } catch (error) {
+      // La liste des routeurs reste disponible même si un équipement est injoignable.
+      console.warn("[routers] Détection DNS ignorée pour", router.name, error);
+    } finally {
+      if (api) await api.close().catch(() => undefined);
+    }
+  }));
+
   return findRouters();
 }
 
