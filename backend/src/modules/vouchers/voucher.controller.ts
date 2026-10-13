@@ -160,6 +160,8 @@ export async function generateVouchers(
     const {
       siteId,
       planId,
+      routerId,
+      pointOfSaleId,
       quantity,
       batchName,
       prefix,
@@ -180,6 +182,20 @@ export async function generateVouchers(
       });
     }
 
+    if (typeof routerId !== "string" || !routerId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Le routeur MikroTik est obligatoire.",
+      });
+    }
+
+    if (typeof pointOfSaleId !== "string" || !pointOfSaleId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Le point de vente est obligatoire.",
+      });
+    }
+
     const numericQuantity = Number(quantity);
 
     if (
@@ -196,6 +212,8 @@ export async function generateVouchers(
     const result = await createVoucherBatch({
       siteId: siteId.trim(),
       planId: planId.trim(),
+      routerId: routerId.trim(),
+      pointOfSaleId: pointOfSaleId.trim(),
       quantity: numericQuantity,
       batchName:
         typeof batchName === "string" && batchName.trim()
