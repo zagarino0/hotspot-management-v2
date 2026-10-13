@@ -138,7 +138,7 @@ export default function GenerateVouchers() {
   );
 
   useEffect(() => {
-    if (!siteId) {
+    if (!siteId || !routerId) {
       setHotspotProfiles([]);
       setMikrotikProfile("");
       return;
@@ -152,7 +152,7 @@ export default function GenerateVouchers() {
       setError("");
 
       try {
-        const profiles = await getHotspotProfiles(siteId);
+        const profiles = await getHotspotProfiles(siteId, routerId);
         if (mounted) {
           setHotspotProfiles(profiles);
         }
@@ -176,7 +176,7 @@ export default function GenerateVouchers() {
     return () => {
       mounted = false;
     };
-  }, [siteId]);
+  }, [siteId, routerId]);
 
   function resetPlanSelection(nextSiteId: string) {
     setSiteId(nextSiteId);
