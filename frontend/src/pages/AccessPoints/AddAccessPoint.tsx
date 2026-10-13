@@ -202,9 +202,10 @@ export default function AddAccessPoint() {
         }
       />
 
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+        className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -433,6 +434,30 @@ export default function AddAccessPoint() {
           </button>
         </div>
       </form>
+      <aside className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg font-semibold text-slate-700">i</div>
+          <h2 className="text-base font-semibold text-slate-900">Configurer le point d’accès</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">Le point d’accès décrit l’équipement Wi‑Fi et son rattachement au site et, si disponible, au routeur.</p>
+          <ul className="mt-5 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Site : choisissez l’emplacement où le point d’accès est installé.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Routeur : sélectionnez le routeur associé au site pour activer la détection de l’adresse MAC.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Nom et code : utilisez des valeurs permettant d’identifier cet équipement sans confusion.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>Adresse IP de gestion : saisissez l’IP accessible depuis le réseau du routeur pour tenter la détection MAC.</span></li>
+            <li className="flex gap-2"><span className="mt-0.5 font-bold text-slate-400">•</span><span>SSID et bande : facultatifs ; renseignez-les si vous souhaitez documenter le réseau Wi‑Fi diffusé.</span></li>
+          </ul>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-base font-semibold text-slate-900">Conditions avant validation</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-5 text-slate-600">
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le site, le nom et le code sont obligatoires.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Choisissez d’abord un site, puis le routeur correspondant.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>L’adresse IP de gestion doit être valide et accessible pour que la détection MAC puisse fonctionner.</span></li>
+            <li className="flex gap-2"><span className="font-bold text-emerald-600">✓</span><span>Le SSID est facultatif ; la bande n’est utile que si un SSID est renseigné.</span></li>
+          </ul>
+        </section>
+      </aside>
+      </div>
     </div>
   );
 }
