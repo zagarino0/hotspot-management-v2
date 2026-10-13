@@ -539,7 +539,7 @@ export default function Sessions() {
                   Dernière connexion
                 </th>
 
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[8.5rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Durée
                 </th>
 
@@ -557,7 +557,7 @@ export default function Sessions() {
                   Routeur
                 </th>
 
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[7rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Statut
                 </th>
 
@@ -1026,8 +1026,8 @@ function SessionRow({
         </div>
       </td>
 
-      <td className="px-5 py-4">
-        <div className="text-sm font-semibold text-slate-700">
+      <td className="w-[8.5rem] px-3 py-4">
+        <div className="whitespace-normal text-sm font-semibold leading-5 text-slate-700">
           {formatDuration(liveDuration ?? 0)}
         </div>
 
@@ -1124,10 +1124,10 @@ function SessionRow({
         </div>
       </td>
 
-      <td className="px-5 py-4">
+      <td className="w-[7rem] px-3 py-4">
         <span
           className={[
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
+            "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1",
             "text-[10px] font-bold tracking-wide",
             statusInfo.className,
           ].join(" ")}
