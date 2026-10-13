@@ -39,6 +39,41 @@ const DURATION_PRESETS = [
   { label: "30 jours", seconds: 2592000 },
 ];
 
+function parseProfileDurationSeconds(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const raw = value.trim().toLowerCase();
+  if (raw === "0" || raw === "0s") return null;
+  const clock = raw.match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2})$/);
+  if (clock) {
+    const hours = Number(clock[1] ?? 0);
+    const minutes = Number(clock[2]);
+    const seconds = Number(clock[3]);
+    return minutes < 60 && seconds < 60 ? hours * 3600 + minutes * 60 + seconds : null;
+  }
+  const units = raw.match(/^(?:(\d+)w)?\s*(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?$/);
+  if (!units || !units.slice(1).some((part) => part !== undefined)) return null;
+  const seconds = Number(units[1] ?? 0) * 604800 + Number(units[2] ?? 0) * 86400 +
+    Number(units[3] ?? 0) * 3600 + Number(units[4] ?? 0) * 60 + Number(units[5] ?? 0);
+  return Number.isSafeInteger(seconds) && seconds > 0 ? seconds : null;
+}
+
+function formatProfileDuration(seconds: number | null): string {
+  if (!seconds) return "Durée non définie dans le profil";
+  const units = [
+    [86400, "j"], [3600, "h"], [60, "min"], [1, "s"],
+  ] as const;
+  let remaining = seconds;
+  const parts: string[] = [];
+  for (const [size, label] of units) {
+    const count = Math.floor(remaining / size);
+    if (count > 0) {
+      parts.push(`${count}${label}`);
+      remaining %= size;
+    }
+  }
+  return parts.join(" ");
+}
+
 export default function GenerateVouchers() {
   const navigate = useNavigate();
 
@@ -253,6 +288,10 @@ export default function GenerateVouchers() {
           setSaving(false);
           return;
         }
+        if (!parseProfileDurationSeconds(selectedProfile?.["session-timeout"])) {
+          setError("Le profil MikroTik sélectionné ne définit pas de session-timeout valide. Configurez sa durée réelle sur le routeur.");
+          return;
+        }
 
         const price = Number(newPlanPrice);
 
@@ -273,7 +312,7 @@ export default function GenerateVouchers() {
             .replace(/\s+/g, "-")
             .slice(0, 40),
           price,
-          durationSeconds: Number(newPlanDuration),
+          durationSeconds: parseProfileDurationSeconds(selectedProfile?.["session-timeout"]) ?? 0,
           mikrotikProfileCode: mikrotikProfile,
         });
 
@@ -646,25 +685,17 @@ export default function GenerateVouchers() {
                 <div className="sm:col-span-2">
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-                      Durée
+                      Durée réelle du profil MikroTik
                     </span>
-
-                    <select
-                      value={newPlanDuration}
-                      onChange={(event) =>
-                        setNewPlanDuration(event.target.value)
-                      }
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                    >
-                      {DURATION_PRESETS.map((preset) => (
-                        <option
-                          key={preset.seconds}
-                          value={preset.seconds}
-                        >
-                          {preset.label}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      value={formatProfileDuration(parseProfileDurationSeconds(selectedProfile?.["session-timeout"]))}
+                      readOnly
+                      aria-readonly="true"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700"
+                    />
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Cette durée est lue depuis le session-timeout du profil réel. Elle ne peut pas être modifiée ici.
+                    </span>
                   </label>
                 </div>
               </div>
