@@ -25,3 +25,22 @@ export async function getHotspotProfiles(
   );
   return response.data.profiles;
 }
+
+
+export interface CreateHotspotProfilePayload {
+  routerId: string;
+  name: string;
+  sessionTimeout: string;
+  rateLimit?: string;
+}
+
+export async function createHotspotProfile(
+  siteId: string,
+  payload: CreateHotspotProfilePayload
+): Promise<HotspotProfile> {
+  const response = await api.post<{ success: boolean; profile: HotspotProfile }>(
+    `/api/mikrotik/profiles/${siteId}`,
+    payload
+  );
+  return response.data.profile;
+}
