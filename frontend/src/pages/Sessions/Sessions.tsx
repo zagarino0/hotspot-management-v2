@@ -553,7 +553,7 @@ export default function Sessions() {
 
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit RX</th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Débit TX</th>
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <th className="w-[8rem] px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Routeur
                 </th>
 
@@ -1107,8 +1107,8 @@ function SessionRow({
         <div className="mt-0.5 text-[10px] text-slate-400">envoyé par le client</div>
       </td>
 
-      <td className="px-5 py-4">
-        <div className="text-sm font-medium text-slate-600">
+      <td className="w-[8rem] px-3 py-4">
+        <div className="break-words text-sm font-medium text-slate-600">
           {session.routerName || "—"}
         </div>
 
