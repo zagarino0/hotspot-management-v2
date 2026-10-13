@@ -85,6 +85,19 @@ export async function findRouters(): Promise<RouterListRow[]> {
    FIND BY ID
 ============================================================ */
 
+export async function saveRouterDnsName(
+  id: string,
+  dnsName: string
+): Promise<void> {
+  await pool.query(
+    `UPDATE router
+     SET hotspot_dns_name = $2,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [id, dnsName]
+  );
+}
+
 export async function findRouterById(
   id: string
 ): Promise<RouterListRow | null> {
