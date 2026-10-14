@@ -22,6 +22,7 @@ export interface Voucher {
   batchId: string | null;
 
   code: string;
+  mikrotikUsername?: string | null;
 
   status: VoucherStatus;
 
