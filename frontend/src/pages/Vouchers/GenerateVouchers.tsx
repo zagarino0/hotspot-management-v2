@@ -46,6 +46,17 @@ function formatVoucherDuration(seconds: number | null): string {
   return parts.join(" ") || "0 s";
 }
 
+function formatRouterOsDuration(value: string | undefined): string {
+  const raw = value?.trim().toLowerCase();
+  if (!raw || raw === "none" || raw === "0s") return "Non précisée";
+  const match = raw.match(/^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (!match || !match.slice(1).some(Boolean)) return raw;
+  const parts: string[] = [];
+  const labels = ["sem", "j", "h", "min", "s"];
+  match.slice(1).forEach((part, index) => { if (part) parts.push(part + labels[index]); });
+  return parts.join(" ");
+}
+
 function prepareVoucherTemplate(template: string, values: Record<string, string>): string {
   let html = template;
   for (const key in values) {
@@ -395,12 +406,19 @@ export default function GenerateVouchers() {
                 const values: Record<string, string> = {
                   hotspotname: siteName, index: String(result.vouchers.indexOf(voucher) + 1), username: voucher.mikrotikUsername ?? voucher.code, password: voucher.code,
                   pointofsale: pointOfSaleCode, pointofsalecode: pointOfSaleCode,
-                  validity: formatVoucherDuration(voucher.durationSeconds),
+                  validity: voucher.durationSeconds && voucher.durationSeconds > 0
+                    ? formatVoucherDuration(voucher.durationSeconds)
+                    : formatRouterOsDuration(selectedProfile?.["session-timeout"]),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
                   price: voucher.planPrice == null ? "Prix non défini" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "MGA"),
                   datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Illimité" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
                 };
-                return { ...extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values)), code: voucher.code };
+                const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
+                const body = rendered.body
+                  .replace(/<header(?![^>]*\bstyle=)/i, '<header style="position:relative;text-align:center;padding-right:9mm"')
+                  .replace(/<header([^>]*)>/i, (tag) => tag.includes("position:relative") ? tag : tag.replace("<header", '<header style="position:relative;text-align:center;padding-right:9mm"'))
+                  .replace(/<span(\s*\[)/i, '<span style="position:absolute;right:0;top:0;text-align:right" $1');
+                return { ...rendered, body, code: voucher.code };
               });
               const printWindow = window.open("", "_blank");
               if (!printWindow) { setError("La fenêtre d’impression a été bloquée. Autorisez les fenêtres pop-up puis réessayez."); return; }
@@ -408,7 +426,7 @@ export default function GenerateVouchers() {
               const ticketMarkup = tickets.map((ticket) => '<section class="voucher-ticket" data-voucher-code="' + escapePrintValue(ticket.code) + '">' + ticket.body + '</section>').join("\n");
               printWindow.document.open();
               printWindow.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vouchers - ' + escapePrintValue(siteName) + '</title>' + templateHead +
-                '<style>@page{size:A4 portrait;margin:4mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.voucher-sheet{display:grid;grid-template-columns:repeat(4,48mm);grid-auto-rows:22mm;align-content:start;justify-content:start;column-gap:2mm;row-gap:1.5mm}.voucher-ticket{width:48mm;height:22mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;border:1.5px solid #111;padding:0.7mm}.voucher-ticket>*{max-width:100%}.dw-voucher{height:100%;width:100%;display:flex;flex-direction:column;justify-content:space-between;text-align:center;font-family:Arial,sans-serif;font-size:7pt;line-height:1.05}.dw-voucher header{position:relative;display:block;text-align:center;font-size:8pt;font-weight:800;border-bottom:1px solid #111;padding:0 8mm 0.5mm 0;white-space:nowrap}.dw-voucher header span{position:absolute;right:0;top:0;text-align:right;font-size:7pt}.dw-voucher table{width:100%;border-collapse:collapse;table-layout:fixed}.dw-voucher th{font-size:6pt;font-weight:400}.dw-voucher th,.dw-voucher td{border:0.5px solid #555;padding:0.5mm 1mm}.dw-voucher td{font-size:8pt;font-weight:700}.dw-voucher footer{border:0.5px solid #555;font-size:7pt;font-weight:700;padding:0.5mm}@media screen{body{padding:4mm}}</style></head><body>' +
+                '<style>@page{size:A4 portrait;margin:4mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.voucher-sheet{display:grid;grid-template-columns:repeat(4,48mm);grid-auto-rows:22mm;align-content:start;justify-content:center;column-gap:2mm;row-gap:1.5mm;width:100%;}.voucher-ticket{display:block;width:48mm;height:22mm;min-width:48mm;min-height:22mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;border:1.5px solid #111;padding:0.7mm;outline:0.5px solid #111;outline-offset:-1px}.voucher-ticket>*{max-width:100%}.dw-voucher{height:100%;width:100%;display:flex;flex-direction:column;justify-content:space-between;text-align:center;font-family:Arial,sans-serif;font-size:7pt;line-height:1.05}.dw-voucher header{position:relative;display:block;text-align:center;font-size:8pt;font-weight:800;border-bottom:1px solid #111;padding:0 8mm 0.5mm 0;white-space:nowrap}.dw-voucher header span{position:absolute;right:0;top:0;text-align:right;font-size:7pt}.dw-voucher table{width:100%;border-collapse:collapse;table-layout:fixed}.dw-voucher th{font-size:6pt;font-weight:400}.dw-voucher th,.dw-voucher td{border:0.5px solid #555;padding:0.5mm 1mm}.dw-voucher td{font-size:8pt;font-weight:700}.dw-voucher footer{border:0.5px solid #555;font-size:7pt;font-weight:700;padding:0.5mm}@media screen{body{padding:4mm}}</style></head><body>' +
                 '<main class="voucher-sheet">' + ticketMarkup + '</main><script>window.addEventListener("load",function(){window.focus();window.print();});<\\/script></body></html>');
               printWindow.document.close();
             }}
