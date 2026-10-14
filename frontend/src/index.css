@@ -136,3 +136,75 @@
 .dark .bg-sky-50 { background-color: #082f49 !important; }
 .dark .text-sky-800 { color: #bae6fd !important; }
 .dark .bg-slate-950\\/30 { background-color: rgb(2 6 23 / 0.6) !important; }
+
+/* Contraste renforcé du thème Monokai Dimmed : tableaux, textes et graphiques. */
+.dark {
+  color-scheme: dark;
+}
+
+.dark table {
+  color: #d8dee9;
+}
+
+.dark thead,
+.dark thead.bg-slate-50,
+.dark th {
+  background-color: #22262a !important;
+  color: #a9b1bc !important;
+}
+
+.dark tbody tr {
+  background-color: #2b3036;
+}
+
+.dark tbody tr:nth-child(even) {
+  background-color: #30363d;
+}
+
+.dark tbody tr:hover {
+  background-color: #383f47 !important;
+}
+
+.dark td,
+.dark th {
+  border-color: #454c54 !important;
+}
+
+.dark .text-slate-300 {
+  color: #cdd3dc !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #a9b1bc !important;
+}
+
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-label {
+  fill: #a9b1bc !important;
+}
+
+.dark .recharts-cartesian-grid line {
+  stroke: #454c54 !important;
+}
+
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #22262a !important;
+  border: 1px solid #515963 !important;
+  border-radius: 8px;
+  color: #d8dee9 !important;
+}
+
+.dark .recharts-tooltip-item,
+.dark .recharts-tooltip-label {
+  color: #d8dee9 !important;
+}
+
+.dark .recharts-active-dot circle {
+  stroke: #a5b4fc !important;
+}
+
+.dark .recharts-area-area {
+  opacity: 0.4;
+}
+
