@@ -100,7 +100,7 @@ export default function GenerateVouchers() {
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
 
-  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article style="font-family:Arial,sans-serif;text-align:center;border:1px solid #222;padding:3mm"><strong>{{hotspotname}}</strong><hr><p>Identifiant : <b>{{username}}</b></p><p>Mot de passe : <b>{{password}}</b></p><small>Profil : {{profile}}</small></article>', widthMm: 55, heightMm: 30 });
+  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article class="dw-voucher"><header>{{hotspotname}} <span>[{{index}}]</span></header><table><thead><tr><th>Anarana</th><th>Code</th></tr></thead><tbody><tr><td>{{username}}</td><td>{{password}}</td></tr></tbody></table><footer>{{validity}} Ar {{price}}</footer></article>', widthMm: 48, heightMm: 22 });
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -390,7 +390,7 @@ export default function GenerateVouchers() {
               const pointOfSaleCode = selectedPointOfSale?.code ?? pointOfSaleId;
               const tickets = result.vouchers.map((voucher) => {
                 const values: Record<string, string> = {
-                  hotspotname: siteName, username: voucher.code, password: voucher.code,
+                  hotspotname: siteName, index: String(result.vouchers.indexOf(voucher) + 1), username: voucher.code, password: voucher.code,
                   validity: formatVoucherDuration(voucher.durationSeconds),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
                   price: voucher.planPrice == null ? "Non précisé" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "Ar"),
@@ -404,8 +404,8 @@ export default function GenerateVouchers() {
               const ticketMarkup = tickets.map((ticket) => '<section class="voucher-ticket" data-voucher-code="' + escapePrintValue(ticket.code) + '">' + ticket.body + '</section>').join("\n");
               printWindow.document.open();
               printWindow.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vouchers - ' + escapePrintValue(siteName) + '</title>' + templateHead +
-                '<style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.print-header{margin:0 0 5mm;font-size:9pt}.voucher-sheet{display:grid;grid-template-columns:repeat(auto-fill,' + Number(printTemplate.widthMm) + 'mm);align-content:start;gap:2mm}.voucher-ticket{width:' + Number(printTemplate.widthMm) + 'mm;height:' + Number(printTemplate.heightMm) + 'mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.voucher-ticket>*{max-width:100%}@media screen{body{padding:8mm}}</style></head><body>' +
-                '<div class="print-header">Site : ' + escapePrintValue(siteName) + ' · Routeur : ' + escapePrintValue(routerName) + ' · Point de vente : ' + escapePrintValue(pointOfSaleCode) + ' · Lot : ' + result.quantity + ' ticket(s)</div><main class="voucher-sheet">' + ticketMarkup + '</main><script>window.addEventListener("load",function(){window.focus();window.print();});<\\/script></body></html>');
+                '<style>@page{size:A4 portrait;margin:4mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.voucher-sheet{display:grid;grid-template-columns:repeat(4,48mm);grid-auto-rows:22mm;align-content:start;justify-content:space-between;column-gap:1mm;row-gap:1.5mm}.voucher-ticket{width:48mm;height:22mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;border:1.5px solid #111;padding:0.7mm}.voucher-ticket>*{max-width:100%}.dw-voucher{height:100%;width:100%;display:flex;flex-direction:column;justify-content:space-between;text-align:center;font-family:Arial,sans-serif;font-size:7pt;line-height:1.05}.dw-voucher header{font-size:8pt;font-weight:800;border-bottom:1px solid #111;padding-bottom:0.5mm;white-space:nowrap}.dw-voucher table{width:100%;border-collapse:collapse;table-layout:fixed}.dw-voucher th{font-size:6pt;font-weight:400}.dw-voucher th,.dw-voucher td{border:0.5px solid #555;padding:0.5mm 1mm}.dw-voucher td{font-size:8pt;font-weight:700}.dw-voucher footer{border:0.5px solid #555;font-size:7pt;font-weight:700;padding:0.5mm}@media screen{body{padding:4mm}}</style></head><body>' +
+                '<main class="voucher-sheet">' + ticketMarkup + '</main><script>window.addEventListener("load",function(){window.focus();window.print();});<\\/script></body></html>');
               printWindow.document.close();
             }}
             disabled={!templateLoaded}
