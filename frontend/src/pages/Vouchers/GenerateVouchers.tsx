@@ -111,7 +111,7 @@ export default function GenerateVouchers() {
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
 
-  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article class="dw-voucher"><header>{{hotspotname}} <span>[{{index}}]</span></header><small>Point de vente : {{pointofsale}}</small><table><thead><tr><th>Anarana</th><th>Code</th></tr></thead><tbody><tr><td>{{username}}</td><td>{{password}}</td></tr></tbody></table><footer>{{validity}} Ar {{price}}</footer></article>', widthMm: 48, heightMm: 22 });
+  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article class="dw-voucher"><header>{{hotspotname}} <span>[{{index}}]</span></header><small>Point de vente : {{pointofsale}}</small><table><thead><tr><th>Anarana</th><th>Code</th></tr></thead><tbody><tr><td>{{username}}</td><td>{{password}}</td></tr></tbody></table><footer>{{validity}} - {{price}}</footer></article>', widthMm: 48, heightMm: 22 });
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -400,7 +400,7 @@ export default function GenerateVouchers() {
                     ? formatVoucherDuration(voucher.durationSeconds)
                     : formatRouterOsDuration(selectedProfile?.["session-timeout"]),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
-                  price: voucher.planPrice == null ? "Prix non défini" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "MGA"),
+                  price: voucher.planPrice == null ? "Prix non défini" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + ((voucher.planCurrency ?? "MGA") === "MGA" ? " Ar" : " " + (voucher.planCurrency ?? "MGA")),
                   datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Quota non défini" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
