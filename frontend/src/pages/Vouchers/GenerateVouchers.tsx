@@ -401,7 +401,7 @@ export default function GenerateVouchers() {
                     : formatRouterOsDuration(selectedProfile?.["session-timeout"]),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
                   price: voucher.planPrice == null ? "Prix non défini" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + ((voucher.planCurrency ?? "MGA") === "MGA" ? " Ar" : " " + (voucher.planCurrency ?? "MGA")),
-                  datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Quota non défini" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
+                  datalimit: "",
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
                 const body = rendered.body
