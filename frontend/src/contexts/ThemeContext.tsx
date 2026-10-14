@@ -1,19 +1,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type ThemePreference = "light" | "dark";
+export type ThemePreference = "light" | "monokai-dimmed";
 const ThemeContext = createContext<{ theme: ThemePreference; setTheme: (theme: ThemePreference) => void } | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>(() => {
     try {
-      return localStorage.getItem("hotspot-management-theme") === "dark" ? "dark" : "light";
+      return localStorage.getItem("hotspot-management-theme") === "monokai-dimmed" ? "monokai-dimmed" : "light";
     } catch {
       return "light";
     }
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.classList.toggle("monokai-dimmed", theme === "monokai-dimmed");
     document.documentElement.style.colorScheme = theme;
     try { localStorage.setItem("hotspot-management-theme", theme); } catch { /* storage may be disabled */ }
   }, [theme]);
