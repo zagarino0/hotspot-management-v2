@@ -9,8 +9,8 @@ export default function DashboardLayout() {
     useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50 text-slate-900">
+      <div className="flex min-h-screen min-w-0">
         <Sidebar
           mobileOpen={mobileSidebarOpen}
           onClose={() => setMobileSidebarOpen(false)}
@@ -24,7 +24,7 @@ export default function DashboardLayout() {
           />
 
           <main className="min-w-0 flex-1">
-            <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
               <Outlet />
             </div>
           </main>
