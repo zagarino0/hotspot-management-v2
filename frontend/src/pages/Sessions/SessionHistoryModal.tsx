@@ -103,7 +103,7 @@ export default function SessionHistoryModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 p-2 backdrop-blur-[2px] sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -114,9 +114,9 @@ export default function SessionHistoryModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="session-history-title"
-        className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="flex max-h-[94dvh] w-full min-w-0 max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[88vh]"
       >
-        <header className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+        <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
               <History size={14} />
@@ -154,7 +154,7 @@ export default function SessionHistoryModal({
           </button>
         </header>
 
-        <div className="grid gap-3 border-b border-slate-100 bg-slate-50/60 px-6 py-4 sm:grid-cols-3">
+        <div className="grid min-w-0 gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:grid-cols-3 sm:px-6">
           <SummaryCard
             label="Quota total"
             value={
@@ -183,7 +183,7 @@ export default function SessionHistoryModal({
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {loading ? (
             <div className="py-12 text-center text-sm text-slate-400">
               Chargement de l'historique...
@@ -213,7 +213,7 @@ export default function SessionHistoryModal({
           )}
         </div>
 
-        <footer className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div className="text-[11px] text-slate-400">
             {orderedHistory.length} connexion
             {orderedHistory.length > 1 ? "s" : ""}
