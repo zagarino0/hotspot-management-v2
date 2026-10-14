@@ -1,12 +1,18 @@
--- Modèle standard compact : supprimer le quota et afficher durée - prix.
--- Mise à jour des installations existantes où la migration 032 a déjà ajouté le quota.
+-- Corrige les variantes historiques du modèle standard sans toucher aux modèles personnalisés.
 UPDATE voucher_print_template
 SET
-  html = REPLACE(
-    REPLACE(html, '{{validity}} · {{datalimit}} · {{price}}', '{{validity}} - {{price}}'),
-    '{{validity}} Ar {{price}}',
-    '{{validity}} - {{price}}'
+  html = regexp_replace(
+    regexp_replace(
+      html,
+      '\\s*[·|/]\\s*\\{\\{\\s*datalimit\\s*\\}\\}',
+      '',
+      'gi'
+    ),
+    '\\{\\{\\s*validity\\s*\\}\\}\\s*(Ar|MGA)?\\s*[-·|/]?\\s*\\{\\{\\s*price\\s*\\}\\}',
+    '{{validity}} - {{price}}',
+    'gi'
   ),
   updated_at = NOW()
-WHERE id = 1
-  AND name = 'Modèle standard';
+WHERE name = 'Modèle standard'
+  AND html ILIKE '%{{validity}}%'
+  AND html ILIKE '%{{price}}%';
