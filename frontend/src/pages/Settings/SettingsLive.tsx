@@ -6,6 +6,8 @@ import {
   MapPin,
   RefreshCw,
   Router,
+  Sun,
+  Moon,
   Save,
   Settings as SettingsIcon,
   Wifi,
@@ -29,6 +31,7 @@ import {
 } from "../../services/notificationService";
 import { getDashboardOverview } from "../../services/statisticsService";
 import api from "../../services/api";
+import { useTheme } from "../../contexts/ThemeContext";
 
 interface ConfigurationData {
   sites: Site[];
@@ -38,6 +41,7 @@ interface ConfigurationData {
 }
 
 export default function SettingsLive() {
+  const { theme, setTheme } = useTheme();
   const [configuration, setConfiguration] =
     useState<ConfigurationData | null>(null);
   const [retry, setRetry] = useState(0);
@@ -248,6 +252,30 @@ export default function SettingsLive() {
           Actualisation impossible : {error}
         </p>
       ) : null}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="rounded-lg bg-slate-100 p-2.5 text-slate-700">
+              {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </span>
+            <div>
+              <h2 className="font-semibold text-slate-900">Apparence</h2>
+              <p className="mt-1 text-sm text-slate-500">Choisissez le thème de l'application. Votre préférence est conservée sur cet appareil.</p>
+            </div>
+          </div>
+          <div className="flex w-full gap-2 sm:w-auto" role="group" aria-label="Choix du thème">
+            <button type="button" onClick={() => setTheme("light")} aria-pressed={theme === "light"}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none ${theme === "light" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <Sun className="h-4 w-4" /> Clair
+            </button>
+            <button type="button" onClick={() => setTheme("dark")} aria-pressed={theme === "dark"}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none ${theme === "dark" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <Moon className="h-4 w-4" /> Sombre
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatusCard
