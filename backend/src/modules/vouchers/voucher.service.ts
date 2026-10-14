@@ -378,12 +378,13 @@ export async function createVoucherBatch(
     );
   }
 
-  const plan = await findPlanById(data.planId);
+  const requestedPlanId = data.planId?.trim() || "";
+  const plan = requestedPlanId ? await findPlanById(requestedPlanId) : null;
 
-  if (!plan) {
-    throw notFoundError("Forfait introuvable.");
+  if (requestedPlanId && !plan) {
+    throw notFoundError("Forfait commercial introuvable.");
   }
-  if (plan.siteId !== data.siteId) {
+  if (plan && plan.siteId !== data.siteId) {
     throw badRequest("Ce forfait n'appartient pas au site sélectionné.");
   }
 
@@ -415,7 +416,7 @@ export async function createVoucherBatch(
     throw conflict(`Aucun identifiant MikroTik actif pour le routeur "${router.name}".`);
   }
 
-  const profile = (data.mikrotikProfile?.trim() || plan.mikrotikProfileCode?.trim() || "").trim();
+  const profile = (data.mikrotikProfile?.trim() || plan?.mikrotikProfileCode?.trim() || "").trim();
   if (!profile) {
     throw badRequest("Le profil MikroTik est obligatoire pour générer les vouchers.");
   }
@@ -447,17 +448,40 @@ export async function createVoucherBatch(
       );
     }
 
+    const catalogResult = await pool.query<{
+      code: string; name: string; duration_seconds: number | string | null;
+      default_price: number | string; currency: string; status: string;
+    }>(
+      `SELECT code, name, duration_seconds, default_price, currency, status
+         FROM hotspot_profile
+        WHERE LOWER(code) = LOWER($1) OR LOWER(name) = LOWER($1)
+        ORDER BY CASE WHEN LOWER(code) = LOWER($1) THEN 0 ELSE 1 END
+        LIMIT 1`,
+      [profile]
+    );
+    const catalogProfile = catalogResult.rows[0];
+    const catalogDuration = catalogProfile?.duration_seconds == null ? null : Number(catalogProfile.duration_seconds);
+    if (catalogDuration !== null && catalogDuration !== profileDurationSeconds) {
+      console.warn(`[vouchers] Durée du profil "${profile}" : MikroTik=${profileDurationSeconds}s, catalogue=${catalogDuration}s. La durée réelle MikroTik est conservée.`);
+    }
+    if (!plan && !catalogProfile) {
+      throw badRequest(`Aucun forfait commercial ni profil de catalogue ne correspond à "${profile}".`);
+    }
+    if (catalogProfile && catalogProfile.status !== "ACTIVE") {
+      throw badRequest(`Le profil de catalogue "${catalogProfile.code}" n'est pas actif.`);
+    }
+
     const batch = await generateVoucherBatch(
-      { ...data, pointOfSaleCode: pointOfSale.code, mikrotikProfile: profile },
+      { ...data, planId: plan?.id ?? "", pointOfSaleCode: pointOfSale.code, mikrotikProfile: profile },
       {
-        id: plan.id,
-        siteId: plan.siteId,
-        price: plan.price,
-        currency: plan.currency,
+        id: plan?.id ?? null,
+        siteId: data.siteId,
+        price: plan?.price ?? Number(catalogProfile?.default_price ?? 0),
+        currency: plan?.currency ?? catalogProfile?.currency ?? "MGA",
         durationSeconds: profileDurationSeconds,
-        dataLimitBytes: plan.dataLimitBytes,
-        downloadSpeedBps: plan.downloadSpeedBps,
-        uploadSpeedBps: plan.uploadSpeedBps,
+        dataLimitBytes: plan?.dataLimitBytes ?? null,
+        downloadSpeedBps: plan?.downloadSpeedBps ?? null,
+        uploadSpeedBps: plan?.uploadSpeedBps ?? null,
       }
     );
     batchId = batch.batchId;
