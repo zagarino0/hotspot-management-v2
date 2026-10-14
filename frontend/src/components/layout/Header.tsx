@@ -290,7 +290,7 @@ export default function Header({
           {siteMenuOpen ? (
             <div
               role="menu"
-              className="absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+              className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
             >
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">Sites configurés</p>
@@ -390,7 +390,7 @@ export default function Header({
           </button>
 
           {notificationsOpen ? (
-            <div className="absolute right-0 top-full z-50 mt-2 w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Notifications</p>
