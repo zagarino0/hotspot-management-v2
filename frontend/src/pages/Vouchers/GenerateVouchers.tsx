@@ -322,16 +322,6 @@ export default function GenerateVouchers() {
       }
       const finalPlanId = planId;
 
-      if (!finalPlanId) {
-        setError(
-          mode === "existing"
-            ? "Aucun forfait commercial associé à ce User Profile MikroTik. Le profil doit d'abord être associé à un forfait dans la gestion des forfaits."
-            : "Le forfait est obligatoire."
-        );
-        setSaving(false);
-        return;
-      }
-
       const generated = await generateVouchers({
         siteId: siteId.trim(),
         planId: finalPlanId,
