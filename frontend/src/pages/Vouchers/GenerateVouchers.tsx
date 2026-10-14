@@ -405,13 +405,13 @@ export default function GenerateVouchers() {
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
                 const body = rendered.body
-                  .replace(/<header([^>]*)>([\\s\\S]*?)<\\/header>/i, (_tag, attributes: string, content: string) => {
-                    const styleMatch = attributes.match(/\\bstyle="([^"]*)"/i);
+                  .replace(/<header([^>]*)>([\s\S]*?)<\/header>/i, (_tag, attributes: string, content: string) => {
+                    const styleMatch = attributes.match(/\bstyle="([^"]*)"/i);
                     const style = styleMatch
-                      ? styleMatch[1].replace(/text-align\\s*:\\s*[^;]+;?/gi, "").replace(/padding-right\\s*:\\s*[^;]+;?/gi, "")
+                      ? styleMatch[1].replace(/text-align\s*:\s*[^;]+;?/gi, "").replace(/padding-right\s*:\s*[^;]+;?/gi, "")
                       : "";
                     const cleanedAttributes = styleMatch ? attributes.replace(styleMatch[0], "") : attributes;
-                    const title = content.replace(/<span\\b[^>]*>[\\s\\S]*?<\\/span>/i, "").trim();
+                    const title = content.replace(/<span\b[^>]*>[\s\S]*?<\/span>/i, "").trim();
                     return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:0;min-height:3.5mm">' +
                       title +
                       '<span class="dw-ticket-number" style="position:absolute!important;right:0!important;top:0!important;display:block!important;font-size:7pt!important;line-height:1!important;text-align:right!important;z-index:10!important">[' +
