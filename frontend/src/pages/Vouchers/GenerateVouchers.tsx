@@ -51,7 +51,7 @@ function prepareVoucherTemplate(template: string, values: Record<string, string>
   for (const key in values) {
     if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
     const value = values[key];
-    html = html.replace(new RegExp("\\\\{\\\\{\\\\s*" + key + "\\\\s*\\\\}\\\\}", "gi"), escapePrintValue(value));
+    html = html.replace(new RegExp("\\{\\{\\s*" + key + "\\s*\\}\\}", "gi"), escapePrintValue(value));
   }
   return html;
 }
@@ -100,7 +100,7 @@ export default function GenerateVouchers() {
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
 
-  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article class="dw-voucher"><header>{{hotspotname}} <span>[{{index}}]</span></header><table><thead><tr><th>Anarana</th><th>Code</th></tr></thead><tbody><tr><td>{{username}}</td><td>{{password}}</td></tr></tbody></table><footer>{{validity}} Ar {{price}}</footer></article>', widthMm: 48, heightMm: 22 });
+  const [printTemplate, setPrintTemplate] = useState({ name: "Modèle standard", html: '<article class="dw-voucher"><header>{{hotspotname}} <span>[{{index}}]</span></header><small>Point de vente : {{pointofsale}}</small><table><thead><tr><th>Anarana</th><th>Code</th></tr></thead><tbody><tr><td>{{username}}</td><td>{{password}}</td></tr></tbody></table><footer>{{validity}} Ar {{price}}</footer></article>', widthMm: 48, heightMm: 22 });
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -391,6 +391,7 @@ export default function GenerateVouchers() {
               const tickets = result.vouchers.map((voucher) => {
                 const values: Record<string, string> = {
                   hotspotname: siteName, index: String(result.vouchers.indexOf(voucher) + 1), username: voucher.code, password: voucher.code,
+                  pointofsale: pointOfSaleCode, pointofsalecode: pointOfSaleCode,
                   validity: formatVoucherDuration(voucher.durationSeconds),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
                   price: voucher.planPrice == null ? "Non précisé" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "Ar"),
