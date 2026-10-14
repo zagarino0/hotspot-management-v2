@@ -411,7 +411,7 @@ export default function GenerateVouchers() {
                       ? styleMatch[1].replace(/text-align\s*:\s*[^;]+;?/gi, "").replace(/padding-right\s*:\s*[^;]+;?/gi, "")
                       : "";
                     const cleanedAttributes = styleMatch ? attributes.replace(styleMatch[0], "") : attributes;
-                    return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:8mm;min-height:3.5mm">' +
+                    return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:0;min-height:3.5mm">' +
                       '<span class="dw-ticket-number" style="position:absolute!important;right:0!important;top:0!important;display:block!important;font-size:7pt!important;line-height:1!important;text-align:right!important;z-index:10!important">[' +
                       (result.vouchers.indexOf(voucher) + 1) + ']</span>';
                   });
