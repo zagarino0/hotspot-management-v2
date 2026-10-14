@@ -42,7 +42,7 @@ export interface VoucherRow {
 
 export interface GenerateVouchersData {
   siteId: string;
-  planId: string;
+  planId?: string | null;
   routerId: string;
   pointOfSaleId: string;
   pointOfSaleCode?: string;
