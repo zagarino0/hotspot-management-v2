@@ -325,7 +325,7 @@ async function insertVoucherWithRetry(
   },
   input: {
     siteId: string;
-    planId: string;
+    planId: string | null;
     batchId: string;
     routerId: string;
     pointOfSaleId: string;
