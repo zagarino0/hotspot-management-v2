@@ -208,3 +208,11 @@
   opacity: 0.4;
 }
 
+
+
+/* Contraste des messages d'information dans Monokai Dimmed. */
+.dark .text-emerald-900 { color: #6ee7b7 !important; }
+.dark .text-amber-950 { color: #fef3c7 !important; }
+.dark .text-amber-800 { color: #fde68a !important; }
+.dark .text-red-800,
+.dark .text-red-700 { color: #fda4af !important; }
