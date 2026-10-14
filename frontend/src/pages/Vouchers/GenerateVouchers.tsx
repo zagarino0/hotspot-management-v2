@@ -415,9 +415,15 @@ export default function GenerateVouchers() {
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
                 const body = rendered.body
-                  .replace(/<header(?![^>]*\bstyle=)/i, '<header style="position:relative;text-align:center;padding-right:9mm"')
-                  .replace(/<header([^>]*)>/i, (tag) => tag.includes("position:relative") ? tag : tag.replace("<header", '<header style="position:relative;text-align:center;padding-right:9mm"'))
-                  .replace(/<span(\s*\[)/i, '<span style="position:absolute;right:0;top:0;text-align:right" $1');
+                  .replace(/<header([^>]*)>/i, (_tag, attributes: string) => {
+                    const styleMatch = attributes.match(/\bstyle="([^"]*)"/i);
+                    if (styleMatch) {
+                      const style = styleMatch[1].replace(/position\s*:\s*[^;]+;?/gi, "");
+                      return '<header' + attributes.replace(styleMatch[0], 'style="' + style + ';position:relative;text-align:center;padding-right:9mm"') + '>';
+                    }
+                    return '<header' + attributes + ' style="position:relative;text-align:center;padding-right:9mm">';
+                  })
+                  .replace(/<span>/i, '<span style="position:absolute;right:0;top:0;text-align:right">');
                 return { ...rendered, body, code: voucher.code };
               });
               const printWindow = window.open("", "_blank");
