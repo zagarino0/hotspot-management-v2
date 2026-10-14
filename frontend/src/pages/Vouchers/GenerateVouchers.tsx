@@ -47,7 +47,7 @@ function formatVoucherDuration(seconds: number | null): string {
 }
 
 function formatRouterOsDuration(value: string | undefined): string {
-  const raw = value?.trim().toLowerCase();
+  const raw = value?.trim().toLowerCase().replace(/\s+/g, "");
   if (!raw || raw === "none" || raw === "0s") return "Non précisée";
   const match = raw.match(/^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
   if (!match || !match.slice(1).some(Boolean)) return raw;
@@ -414,16 +414,20 @@ export default function GenerateVouchers() {
                   datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Illimité" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
+                const ticketNumber = "[" + (result.vouchers.indexOf(voucher) + 1) + "]";
                 const body = rendered.body
                   .replace(/<header([^>]*)>/i, (_tag, attributes: string) => {
                     const styleMatch = attributes.match(/\bstyle="([^"]*)"/i);
-                    if (styleMatch) {
-                      const style = styleMatch[1].replace(/position\s*:\s*[^;]+;?/gi, "");
-                      return '<header' + attributes.replace(styleMatch[0], 'style="' + style + ';position:relative;text-align:center;padding-right:9mm"') + '>';
-                    }
-                    return '<header' + attributes + ' style="position:relative;text-align:center;padding-right:9mm">';
+                    const style = styleMatch
+                      ? styleMatch[1].replace(/position\s*:\s*[^;]+;?/gi, "")
+                      : "";
+                    const cleanedAttributes = styleMatch
+                      ? attributes.replace(styleMatch[0], "")
+                      : attributes;
+                    return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:10mm;min-height:3.5mm">' +
+                      '<span style="position:absolute;right:0;top:0;font-size:7pt;text-align:right">' + ticketNumber + '</span>';
                   })
-                  .replace(/<span>/i, '<span style="position:absolute;right:0;top:0;text-align:right">');
+                  .replace(/<span\b[^>]*>\s*\[?\s*\d+\s*\]?\s*<\/span>/i, "");
                 return { ...rendered, body, code: voucher.code };
               });
               const printWindow = window.open("", "_blank");
