@@ -295,11 +295,11 @@ export default function Sales() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-3 rounded-xl border-0 bg-amber-50 p-4 font-semibold text-amber-950">
+      <div className="flex items-start gap-3 rounded-xl border-0 bg-transparent p-4 font-bold text-slate-800 dark:text-slate-100">
         <LockKeyhole size={19} className="mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-semibold">Historique réservé à l’administrateur</p>
-          <p className="mt-1 text-sm font-semibold text-amber-800">Les ventes détectées, clôtures et versements de tous les points de vente sont consultables uniquement par un compte administrateur autorisé. Les responsables n’ont pas encore d’accès.</p>
+          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">Les ventes détectées, clôtures et versements de tous les points de vente sont consultables uniquement par un compte administrateur autorisé. Les responsables n’ont pas encore d’accès.</p>
         </div>
       </div>
 
@@ -316,7 +316,7 @@ export default function Sales() {
         </button>
       </header>
 
-      {error && <div role="alert" className="rounded-xl border-0 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">{error}</div>}
+      {error && <div role="alert" className="rounded-xl border-0 bg-transparent px-4 py-3 text-sm font-bold text-red-700 dark:text-red-300">{error}</div>}
 
       <section className="rounded-2xl border-0 bg-white p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
@@ -431,7 +431,7 @@ export default function Sales() {
           <label className="mb-4 block text-sm font-semibold text-slate-800">Note (facultatif)
             <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Commentaire sur le versement" />
           </label>
-          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border-0 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
+          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border-0 bg-transparent p-3 text-sm font-bold text-emerald-700 dark:text-emerald-300">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
           <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === "" || Boolean(selectedRemittance)} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Enregistrement…" : selectedRemittance ? "Versement déjà enregistré" : "Confirmer la réception"}</button>
           <p className="mt-3 text-xs font-medium text-slate-600">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
         </div>
