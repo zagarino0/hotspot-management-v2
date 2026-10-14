@@ -13,8 +13,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle("monokai-dimmed", theme === "monokai-dimmed");
-    document.documentElement.style.colorScheme = theme;
+    document.documentElement.classList.toggle("dark", theme === "monokai-dimmed");
+    document.documentElement.style.colorScheme = theme === "monokai-dimmed" ? "dark" : "light";
     try { localStorage.setItem("hotspot-management-theme", theme); } catch { /* storage may be disabled */ }
   }, [theme]);
 
