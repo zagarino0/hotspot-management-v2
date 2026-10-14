@@ -386,7 +386,6 @@ export default function GenerateVouchers() {
             type="button"
             onClick={() => {
               const siteName = sites.find((site) => site.id === siteId)?.name ?? siteId;
-              const routerName = routers.find((router) => router.id === routerId)?.name ?? routerId;
               const pointOfSaleCode = selectedPointOfSale?.code ?? pointOfSaleId;
               const tickets = result.vouchers.map((voucher) => {
                 const values: Record<string, string> = {
