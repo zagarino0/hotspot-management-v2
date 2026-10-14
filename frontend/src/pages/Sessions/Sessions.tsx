@@ -383,8 +383,8 @@ export default function Sessions() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div className="flex w-full min-w-0 flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+          <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:w-auto">
             <Wifi size={15} strokeWidth={1.8} className="text-slate-400" />
 
             <select
@@ -392,7 +392,7 @@ export default function Sessions() {
               onChange={(event) =>
                 setSelectedRouterId(event.target.value)
               }
-              className="max-w-[220px] bg-transparent text-sm font-semibold text-slate-700 outline-none"
+              className="w-full min-w-0 max-w-full bg-transparent text-sm font-semibold text-slate-700 outline-none sm:max-w-[220px]"
               aria-label="Routeur consulté"
             >
               {routers.length === 0 ? (
@@ -407,7 +407,7 @@ export default function Sessions() {
             </select>
           </div>
 
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5">
+          <div className="inline-flex w-fit max-w-full items-center gap-2 self-start rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 sm:self-auto">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
             <span className="text-xs font-semibold text-emerald-700">
@@ -421,7 +421,7 @@ export default function Sessions() {
             type="button"
             onClick={handleSync}
             disabled={syncing}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             <RefreshCw
               size={16}
