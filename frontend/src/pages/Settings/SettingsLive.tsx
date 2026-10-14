@@ -8,6 +8,7 @@ import {
   Router,
   Sun,
   Moon,
+  Palette,
   Save,
   Settings as SettingsIcon,
   Wifi,
@@ -257,11 +258,11 @@ export default function SettingsLive() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="rounded-lg bg-slate-100 p-2.5 text-slate-700">
-              {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              {theme === "monokai-dimmed" ? <Palette className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </span>
             <div>
               <h2 className="font-semibold text-slate-900">Apparence</h2>
-              <p className="mt-1 text-sm text-slate-500">Choisissez le thème de l'application. Votre préférence est conservée sur cet appareil.</p>
+              <p className="mt-1 text-sm text-slate-500">Choisissez entre le thème clair et Monokai Dimmed. Votre préférence est conservée sur cet appareil.</p>
             </div>
           </div>
           <div className="flex w-full gap-2 sm:w-auto" role="group" aria-label="Choix du thème">
@@ -269,9 +270,9 @@ export default function SettingsLive() {
               className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none ${theme === "light" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
               <Sun className="h-4 w-4" /> Clair
             </button>
-            <button type="button" onClick={() => setTheme("dark")} aria-pressed={theme === "dark"}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none ${theme === "dark" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
-              <Moon className="h-4 w-4" /> Sombre
+            <button type="button" onClick={() => setTheme("monokai-dimmed")} aria-pressed={theme === "monokai-dimmed"}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none ${theme === "monokai-dimmed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <Palette className="h-4 w-4" /> Monokai Dimmed
             </button>
           </div>
         </div>
