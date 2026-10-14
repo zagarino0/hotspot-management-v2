@@ -1,38 +1,24 @@
 import { randomInt } from "node:crypto";
 
-/*
- * Alphabet volontairement privé des caractères ambigus à l'oral/
- * à l'écrit sur un petit ticket imprimé : 0/O, 1/I/L.
- */
-const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+/** Identifiant MikroTik : exactement quatre lettres minuscules. */
+export function generateVoucherUsername(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  let username = "";
+  for (let i = 0; i < 4; i++) username += alphabet[randomInt(alphabet.length)];
+  return username;
+}
 
-function randomSegment(length: number): string {
-  let segment = "";
-
-  for (let i = 0; i < length; i++) {
-    segment += ALPHABET[randomInt(ALPHABET.length)];
-  }
-
-  return segment;
+/** Code / mot de passe imprimé : exactement quatre chiffres. */
+export function generateVoucherPassword(): string {
+  return String(randomInt(0, 10000)).padStart(4, "0");
 }
 
 /**
- * Génère un code voucher au format PREFIX-XXXX-XXXX.
- * Le préfixe est optionnel (ex: nom court du site/forfait).
+ * Ancienne API conservée pour les autres usages existants.
+ * Les nouveaux vouchers utilisent séparément username et password.
  */
-export function generateVoucherCode(
-  prefix?: string | null
-): string {
-  const segments = [randomSegment(4), randomSegment(4)];
-
-  const cleanPrefix = prefix
-    ?.trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-
-  if (cleanPrefix) {
-    return `${cleanPrefix}-${segments.join("-")}`;
-  }
-
-  return segments.join("-");
+export function generateVoucherCode(prefix?: string | null): string {
+  const cleanPrefix = prefix?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const code = generateVoucherPassword();
+  return cleanPrefix ? `${cleanPrefix}-${code}` : code;
 }
