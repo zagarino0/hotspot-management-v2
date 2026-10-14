@@ -463,6 +463,22 @@ export async function createVoucherBatch(
     batchId = batch.batchId;
 
     const vouchers = await findVouchersByBatchId(batch.batchId);
+
+    // Charge la liste MikroTik une seule fois : répéter /print pour chaque ticket
+    // ralentissait fortement les lots et faisait expirer la commande API au-delà de 10 vouchers.
+    const existingRows = await api.write("/ip/hotspot/user/print");
+    const existingNames = new Set(
+      existingRows
+        .map((row: Record<string, unknown>) =>
+          typeof row.name === "string" ? row.name.trim().toLowerCase() : ""
+        )
+        .filter(Boolean)
+    );
+    const duplicate = vouchers.find((voucher) => existingNames.has(voucher.code.trim().toLowerCase()));
+    if (duplicate) {
+      throw conflict(`L'utilisateur MikroTik "${duplicate.code}" existe déjà. Aucun voucher du lot n'a été ajouté.`);
+    }
+
     const dateCode = new Date().toLocaleDateString("en-US", {
       month: "2-digit", day: "2-digit", year: "2-digit",
     }).replaceAll("/", ".");
@@ -474,7 +490,7 @@ export async function createVoucherBatch(
         profile,
         limitUptimeSeconds: profileDurationSeconds,
         comment,
-      });
+      }, true);
       createdUsernames.push(voucher.code);
     }
 
