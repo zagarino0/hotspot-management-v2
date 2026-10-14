@@ -411,21 +411,19 @@ export default function GenerateVouchers() {
                     : formatRouterOsDuration(selectedProfile?.["session-timeout"]),
                   profile: voucher.mikrotikProfile ?? mikrotikProfile,
                   price: voucher.planPrice == null ? "Prix non défini" : new Intl.NumberFormat("fr-FR").format(voucher.planPrice) + " " + (voucher.planCurrency ?? "MGA"),
-                  datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Illimité" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
+                  datalimit: voucher.dataLimitBytes == null || voucher.dataLimitBytes <= 0 ? "Quota non défini" : (voucher.dataLimitBytes >= 1073741824 ? (voucher.dataLimitBytes / 1073741824).toFixed(2) + " Go" : (voucher.dataLimitBytes / 1048576).toFixed(0) + " Mo"),
                 };
                 const rendered = extractTemplateDocument(prepareVoucherTemplate(printTemplate.html, values));
-                const ticketNumber = "[" + (result.vouchers.indexOf(voucher) + 1) + "]";
                 const body = rendered.body
                   .replace(/<header([^>]*)>/i, (_tag, attributes: string) => {
                     const styleMatch = attributes.match(/\bstyle="([^"]*)"/i);
                     const style = styleMatch
-                      ? styleMatch[1].replace(/position\s*:\s*[^;]+;?/gi, "")
+                      ? styleMatch[1].replace(/text-align\s*:\s*[^;]+;?/gi, "").replace(/padding-right\s*:\s*[^;]+;?/gi, "")
                       : "";
-                    const cleanedAttributes = styleMatch
-                      ? attributes.replace(styleMatch[0], "")
-                      : attributes;
-                    return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:10mm;min-height:3.5mm">' +
-                      '<span style="position:absolute;right:0;top:0;font-size:7pt;text-align:right">' + ticketNumber + '</span>';
+                    const cleanedAttributes = styleMatch ? attributes.replace(styleMatch[0], "") : attributes;
+                    return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:8mm;min-height:3.5mm">' +
+                      '<span class="dw-ticket-number" style="position:absolute!important;right:0!important;top:0!important;display:block!important;font-size:7pt!important;line-height:1!important;text-align:right!important;z-index:10!important">[' +
+                      (result.vouchers.indexOf(voucher) + 1) + ']</span>';
                   });
                 return { ...rendered, body, code: voucher.code };
               });
