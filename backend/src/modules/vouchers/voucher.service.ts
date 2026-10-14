@@ -8,7 +8,7 @@ import {
   updateVoucherStatus,
 } from "./voucher.repository.js";
 
-import { findPlanById } from "../plans/plan.repository.js";
+import { findPlanById, findPlans } from "../plans/plan.repository.js";
 
 import {
   findRoutersForSync,
@@ -379,7 +379,17 @@ export async function createVoucherBatch(
   }
 
   const requestedPlanId = data.planId?.trim() || "";
-  const plan = requestedPlanId ? await findPlanById(requestedPlanId) : null;
+  const requestedProfile = data.mikrotikProfile?.trim().toLowerCase() || "";
+  const plan = requestedPlanId
+    ? await findPlanById(requestedPlanId)
+    : (await findPlans()).find((candidate) =>
+        candidate.siteId === data.siteId &&
+        candidate.status === "ACTIVE" &&
+        (
+          candidate.mikrotikProfileCode?.trim().toLowerCase() === requestedProfile ||
+          candidate.name.trim().toLowerCase() === requestedProfile
+        )
+      ) ?? null;
 
   if (requestedPlanId && !plan) {
     throw notFoundError("Forfait commercial introuvable.");
