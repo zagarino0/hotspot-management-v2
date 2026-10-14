@@ -335,9 +335,13 @@ export default function GenerateVouchers() {
       setResult(generated);
       setProfileCreatedMessage("");
     } catch (err: any) {
+      const apiMessage = err?.response?.data?.message;
+      const validationMessage = err?.response?.data?.error;
       setError(
-        err?.response?.data?.message ??
-          "Impossible de générer les vouchers."
+        (typeof apiMessage === "string" && apiMessage.trim()) ||
+          (typeof validationMessage === "string" && validationMessage.trim()) ||
+          (typeof err?.message === "string" && err.message.trim()) ||
+          "Impossible de générer les vouchers. Vérifiez la connexion au backend et les journaux serveur."
       );
     } finally {
       setSaving(false);
@@ -635,10 +639,14 @@ export default function GenerateVouchers() {
                       setMikrotikProfile(profileName);
 
                       const matchingPlan = plansForSite.find(
-                        (plan) => plan.mikrotikProfileCode === profileName || plan.name === profileName
+                        (plan) =>
+                          plan.status === "ACTIVE" &&
+                          (plan.mikrotikProfileCode?.trim().toLowerCase() === profileName.trim().toLowerCase() ||
+                            plan.name.trim().toLowerCase() === profileName.trim().toLowerCase())
                       );
 
                       setPlanId(matchingPlan?.id ?? "");
+                      setError("");
                     }}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   >
