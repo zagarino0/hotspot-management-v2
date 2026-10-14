@@ -39,7 +39,15 @@ const VOUCHER_SELECT = `
     v.activated_at AS "activatedAt",
     v.expires_at AS "expiresAt",
 
-    v.duration_seconds AS "durationSeconds",
+    COALESCE(
+      v.duration_seconds,
+      CASE
+        WHEN LOWER(COALESCE(v.mikrotik_profile, '')) = LOWER(COALESCE(hp.code, ''))
+          OR LOWER(COALESCE(v.mikrotik_profile, '')) = LOWER(COALESCE(hp.name, ''))
+        THEN hp.duration_seconds
+        ELSE NULL
+      END
+    )::float8 AS "durationSeconds",
     v.data_limit_bytes AS "dataLimitBytes",
 
     v.sold_at AS "soldAt",
@@ -51,6 +59,14 @@ const VOUCHER_SELECT = `
   FROM voucher v
   JOIN site s ON s.id = v.site_id
   LEFT JOIN plan p ON p.id = v.plan_id
+  LEFT JOIN LATERAL (
+    SELECT code, name, duration_seconds
+    FROM hotspot_profile
+    WHERE LOWER(code) = LOWER(COALESCE(v.mikrotik_profile, ''))
+       OR LOWER(name) = LOWER(COALESCE(v.mikrotik_profile, ''))
+    ORDER BY CASE WHEN LOWER(code) = LOWER(COALESCE(v.mikrotik_profile, '')) THEN 0 ELSE 1 END
+    LIMIT 1
+  ) hp ON TRUE
 `;
 
 const VOUCHER_LIST_LIMIT = 500;
