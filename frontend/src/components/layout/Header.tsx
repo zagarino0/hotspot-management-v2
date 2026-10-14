@@ -290,7 +290,7 @@ export default function Header({
           {siteMenuOpen ? (
             <div
               role="menu"
-              className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+              className="fixed left-2 right-2 top-[4.5rem] z-50 w-auto max-w-none overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-[min(20rem,calc(100vw-1rem))] sm:max-w-[calc(100vw-1rem)]"
             >
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">Sites configurés</p>
@@ -390,7 +390,7 @@ export default function Header({
           </button>
 
           {notificationsOpen ? (
-            <div className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+            <div className="fixed left-2 right-2 top-[4.5rem] z-50 w-auto max-w-none overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(24rem,calc(100vw-1rem))] sm:max-w-[calc(100vw-1rem)]">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Notifications</p>
