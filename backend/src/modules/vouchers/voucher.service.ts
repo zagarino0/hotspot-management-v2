@@ -474,7 +474,7 @@ export async function createVoucherBatch(
         )
         .filter(Boolean)
     );
-    const duplicate = vouchers.find((voucher) => existingNames.has(voucher.code.trim().toLowerCase()));
+    const duplicate = vouchers.find((voucher) => existingNames.has((voucher.mikrotikUsername ?? "").trim().toLowerCase()));
     if (duplicate) {
       throw conflict(`L'utilisateur MikroTik "${duplicate.code}" existe déjà. Aucun voucher du lot n'a été ajouté.`);
     }
@@ -485,13 +485,13 @@ export async function createVoucherBatch(
     for (const voucher of vouchers) {
       const comment = voucher.mikrotikComment ?? `${voucher.code}-${dateCode} - ${pointOfSale.code}`;
       await createHotspotUser(api, {
-        username: voucher.code,
+        username: voucher.mikrotikUsername ?? voucher.code,
         password: voucher.code,
         profile,
         limitUptimeSeconds: profileDurationSeconds,
         comment,
       }, true);
-      createdUsernames.push(voucher.code);
+      createdUsernames.push(voucher.mikrotikUsername ?? voucher.code);
     }
 
     return { batchId: batch.batchId, quantity: batch.voucherIds.length, vouchers };
