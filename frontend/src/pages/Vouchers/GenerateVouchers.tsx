@@ -426,8 +426,7 @@ export default function GenerateVouchers() {
                       : attributes;
                     return '<header' + cleanedAttributes + ' style="' + style + ';position:relative;text-align:center;padding-right:10mm;min-height:3.5mm">' +
                       '<span style="position:absolute;right:0;top:0;font-size:7pt;text-align:right">' + ticketNumber + '</span>';
-                  })
-                  .replace(/<span\b[^>]*>\s*\[?\s*\d+\s*\]?\s*<\/span>/i, "");
+                  });
                 return { ...rendered, body, code: voucher.code };
               });
               const printWindow = window.open("", "_blank");
