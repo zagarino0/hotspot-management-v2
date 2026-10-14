@@ -203,7 +203,7 @@ export async function findVouchersByBatchId(
 ============================================================ */
 
 interface PlanSnapshot {
-  id: string;
+  id: string | null;
   siteId: string;
   price: number;
   currency: string;
@@ -233,10 +233,22 @@ export async function generateVoucherBatch(
           [data.siteId, data.mikrotikProfile.trim()],
         )
       : { rows: [] as { price: string; currency: string }[] };
+    const catalogPriceResult = !profilePriceResult.rows[0] && plan.id === null
+      ? await client.query<{ default_price: string; currency: string }>(
+          `SELECT default_price::text, currency
+             FROM hotspot_profile
+            WHERE LOWER(code) = LOWER($1) OR LOWER(name) = LOWER($1)
+            ORDER BY CASE WHEN LOWER(code) = LOWER($1) THEN 0 ELSE 1 END
+            LIMIT 1`,
+          [data.mikrotikProfile?.trim() ?? ""],
+        )
+      : { rows: [] as { default_price: string; currency: string }[] };
     const priceSnapshot = profilePriceResult.rows[0]
       ? Number(profilePriceResult.rows[0].price)
-      : plan.price;
-    const currencySnapshot = profilePriceResult.rows[0]?.currency ?? plan.currency;
+      : plan.id === null && catalogPriceResult.rows[0]
+        ? Number(catalogPriceResult.rows[0].default_price)
+        : plan.price;
+    const currencySnapshot = profilePriceResult.rows[0]?.currency ?? catalogPriceResult.rows[0]?.currency ?? plan.currency;
 
     const batchResult = await client.query<{ id: string }>(
       `
@@ -257,7 +269,7 @@ export async function generateVoucherBatch(
       `,
       [
         data.siteId,
-        data.planId,
+        plan.id,
         data.batchName,
         data.prefix ?? null,
         data.mikrotikProfile ?? null,
