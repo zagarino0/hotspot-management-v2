@@ -306,8 +306,8 @@ export default function Sales() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Gestion commerciale</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950">Ventes détectées</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Ventes détectées</h1>
+          <p className="mt-1 max-w-2xl text-sm font-medium text-slate-600">
             Les ventes sont détectées automatiquement à la première connexion réussie du voucher. Aucun enregistrement manuel par ticket.
           </p>
         </div>
@@ -318,20 +318,20 @@ export default function Sales() {
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="rounded-2xl border-0 bg-white p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-semibold text-slate-800">
             Point de vente
             <select value={selectedId} onChange={(e) => { setBusinessDate(""); setAmount(""); setSelectedId(e.target.value); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
               <option value="">Sélectionner un point de vente externe</option>
               {externalPoints.map((point) => <option key={point.id} value={point.id}>{point.name} ({point.code})</option>)}
             </select>
           </label>
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-semibold text-slate-800">
             Code du point de vente
             <input value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="Ex. CASHPOINTWIFI" className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-semibold text-slate-800">
             Nom du point de vente
             <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nom commercial" className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
@@ -340,27 +340,27 @@ export default function Sales() {
         {selectedPos && <div className="mt-4 rounded-xl bg-slate-50 p-3">
           {editingPoint ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">Code
+              <label className="block text-sm font-semibold text-slate-800">Code
                 <input value={editCode} onChange={(e) => setEditCode(e.target.value)} disabled={selectedPos.type === "INTERNAL"} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-100" />
               </label>
-              <label className="block text-sm font-medium text-slate-700">Nom
+              <label className="block text-sm font-semibold text-slate-800">Nom
                 <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
               </label>
-              <label className="block text-sm font-medium text-slate-700">Heure d'ouverture de la caisse
+              <label className="block text-sm font-semibold text-slate-800">Heure d'ouverture de la caisse
                 <input type="time" required value={editOpeningTime} onChange={(e) => setEditOpeningTime(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
               </label>
-              <label className="block text-sm font-medium text-slate-700">Heure de fermeture de la caisse
+              <label className="block text-sm font-semibold text-slate-800">Heure de fermeture de la caisse
                 <input type="time" required value={editClosingTime} onChange={(e) => setEditClosingTime(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
               </label>
-              <p className="text-xs text-slate-500 sm:col-span-2">Ces horaires sont enregistrés pour ce point de vente. La fermeture reste indépendante des autres points de vente.</p>
+              <p className="text-xs font-medium text-slate-600 sm:col-span-2">Ces horaires sont enregistrés pour ce point de vente. La fermeture reste indépendante des autres points de vente.</p>
               <div className="flex flex-wrap gap-2 sm:col-span-2">
                 <button type="button" onClick={handleUpdatePoint} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save size={15} /> Enregistrer</button>
-                <button type="button" onClick={() => setEditingPoint(false)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"><X size={15} /> Annuler</button>
+                <button type="button" onClick={() => setEditingPoint(false)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800"><X size={15} /> Annuler</button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs text-slate-500">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p><p className="mt-1 text-xs text-slate-500">Caisse : {selectedPos.openingTime || "08:00"} – {selectedPos.closingTime || "20:00"}</p></div>
+              <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs font-medium text-slate-600">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p><p className="mt-1 text-xs font-medium text-slate-600">Caisse : {selectedPos.openingTime || "08:00"} – {selectedPos.closingTime || "20:00"}</p></div>
               <div className="relative">
                 <button
                   type="button"
@@ -385,25 +385,25 @@ export default function Sales() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">Tickets vendus détectés</p><p className="mt-2 text-2xl font-bold text-slate-950">{soldEvents.length}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">Montant brut détecté</p><p className="mt-2 text-2xl font-bold text-slate-950">{money(soldEvents.reduce((sum, event) => sum + Number(event.unit_price), 0))}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">Clôtures disponibles</p><p className="mt-2 text-2xl font-bold text-slate-950">{closures.length}</p></div>
+        <div className="rounded-2xl border-0 bg-white p-5"><p className="text-sm font-medium text-slate-600">Tickets vendus détectés</p><p className="mt-2 text-2xl font-extrabold text-slate-950">{soldEvents.length}</p></div>
+        <div className="rounded-2xl border-0 bg-white p-5"><p className="text-sm font-medium text-slate-600">Montant brut détecté</p><p className="mt-2 text-2xl font-extrabold text-slate-950">{money(soldEvents.reduce((sum, event) => sum + Number(event.unit_price), 0))}</p></div>
+        <div className="rounded-2xl border-0 bg-white p-5"><p className="text-sm font-medium text-slate-600">Clôtures disponibles</p><p className="mt-2 text-2xl font-extrabold text-slate-950">{closures.length}</p></div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="overflow-hidden rounded-2xl border-0 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
-          <div><h2 className="font-bold text-slate-900">Tickets vendus détectés</h2><p className="mt-1 text-sm text-slate-500">Une ligne par voucher, lors de sa première session enregistrée.</p></div>
+          <div><h2 className="font-bold font-semibold text-slate-950">Tickets vendus détectés</h2><p className="mt-1 text-sm font-medium text-slate-600">Une ligne par voucher, lors de sa première session enregistrée.</p></div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{soldEvents.length} ticket(s)</span>
         </div>
-        {loading ? <p className="p-5 text-sm text-slate-500">Chargement…</p> : soldEvents.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucune vente détectée pour ce point de vente.</p> :
+        {loading ? <p className="p-5 text-sm font-medium text-slate-600">Chargement…</p> : soldEvents.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucune vente détectée pour ce point de vente.</p> :
           <div className="max-h-[420px] overflow-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Voucher</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Date de détection</th><th className="px-4 py-3">Source</th></tr></thead><tbody>{soldEvents.map((event) => <tr key={event.id} className="border-t border-slate-100"><td className="px-4 py-3 font-mono font-semibold text-slate-800">{event.voucher_code}</td><td className="px-4 py-3">{money(event.unit_price)}</td><td className="px-4 py-3 text-slate-600">{dateLabel(event.occurred_at)}</td><td className="px-4 py-3 text-slate-600">{event.metadata?.detection === "FIRST_SUCCESSFUL_SESSION" ? "Première connexion" : "Événement enregistré"}</td></tr>)}</tbody></table></div>
         }
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-slate-100 p-4"><CalendarClock size={18} /><div><h2 className="font-bold text-slate-900">Clôtures quotidiennes</h2><p className="text-sm text-slate-500">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
-        {closures.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucune clôture disponible pour ce point de vente.</p> :
-          <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[800px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{businessDateKey(closure.business_date)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-semibold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
+      <section className="overflow-hidden rounded-2xl border-0 bg-white">
+        <div className="flex items-center gap-2 border-b border-slate-100 p-4"><CalendarClock size={18} /><div><h2 className="font-bold font-semibold text-slate-950">Clôtures quotidiennes</h2><p className="text-sm font-medium text-slate-600">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
+        {closures.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucune clôture disponible pour ce point de vente.</p> :
+          <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[800px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{businessDateKey(closure.business_date)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-bold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
               const remittance = remittances.find((item) => businessDateKey(item.business_date) === businessDateKey(closure.business_date));
               return remittance
                 ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14} /> Versement reçu</span>
@@ -416,28 +416,28 @@ export default function Sales() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold text-slate-900">Confirmer un versement</h2></div>
-          <p className="mb-4 text-sm text-slate-500">La personne responsable saisit le montant réellement remis. La vente elle-même n'est pas saisie manuellement.</p>
-          <label className="mb-3 block text-sm font-medium text-slate-700">Journée clôturée
+        <div className="rounded-2xl border-0 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Confirmer un versement</h2></div>
+          <p className="mb-4 text-sm font-medium text-slate-600">La personne responsable saisit le montant réellement remis. La vente elle-même n'est pas saisie manuellement.</p>
+          <label className="mb-3 block text-sm font-semibold text-slate-800">Journée clôturée
             <select value={businessDate} onChange={(e) => { setBusinessDate(e.target.value); setAmount(""); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3">
               {closures.filter((closure) => closure.status === "CLOSED").map((closure) => <option key={closure.id} value={businessDateKey(closure.business_date)}>{businessDateKey(closure.business_date)} — attendu {money(closure.net_revenue)}</option>)}
             </select>
           </label>
-          <div className="mb-3 rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Montant attendu</p><p className="text-lg font-bold text-slate-900">{selectedClosure ? money(selectedClosure.net_revenue) : "Aucune clôture sélectionnée"}</p></div>
-          <label className="mb-3 block text-sm font-medium text-slate-700">Montant réellement remis (MGA)
+          <div className="mb-3 rounded-xl bg-slate-50 p-3"><p className="text-xs font-medium text-slate-600">Montant attendu</p><p className="text-lg font-extrabold font-semibold text-slate-950">{selectedClosure ? money(selectedClosure.net_revenue) : "Aucune clôture sélectionnée"}</p></div>
+          <label className="mb-3 block text-sm font-semibold text-slate-800">Montant réellement remis (MGA)
             <input type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Saisir le montant reçu" />
           </label>
-          <label className="mb-4 block text-sm font-medium text-slate-700">Note (facultatif)
+          <label className="mb-4 block text-sm font-semibold text-slate-800">Note (facultatif)
             <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Commentaire sur le versement" />
           </label>
-          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
+          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border-0 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
           <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === "" || Boolean(selectedRemittance)} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Enregistrement…" : selectedRemittance ? "Versement déjà enregistré" : "Confirmer la réception"}</button>
-          <p className="mt-3 text-xs text-slate-500">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
+          <p className="mt-3 text-xs font-medium text-slate-600">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 p-4"><h2 className="font-bold text-slate-900">Historique des versements</h2><p className="mt-1 text-sm text-slate-500">Montants reçus et écarts conservés par journée.</p></div>
-          {remittances.length === 0 ? <p className="p-5 text-sm text-slate-500">Aucun versement enregistré.</p> :
+        <div className="overflow-hidden rounded-2xl border-0 bg-white">
+          <div className="border-b border-slate-100 p-4"><h2 className="font-bold font-semibold text-slate-950">Historique des versements</h2><p className="mt-1 text-sm font-medium text-slate-600">Montants reçus et écarts conservés par journée.</p></div>
+          {remittances.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucun versement enregistré.</p> :
             <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[560px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Attendu</th><th className="px-4 py-3">Reçu</th><th className="px-4 py-3">Écart</th><th className="px-4 py-3">Date de réception</th></tr></thead><tbody>{remittances.map((item) => <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3">{businessDateKey(item.business_date)}</td><td className="px-4 py-3">{money(item.expected_amount)}</td><td className="px-4 py-3">{money(item.remitted_amount)}</td><td className={`px-4 py-3 font-semibold ${Number(item.difference) === 0 ? "text-emerald-700" : "text-amber-700"}`}>{money(item.difference)}</td><td className="px-4 py-3 text-slate-500">{dateLabel(item.remitted_at)}</td></tr>)}</tbody></table></div>
           }
         </div>
