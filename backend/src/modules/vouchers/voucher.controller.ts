@@ -175,13 +175,6 @@ export async function generateVouchers(
       });
     }
 
-    if (typeof planId !== "string" || !planId.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Le forfait est obligatoire.",
-      });
-    }
-
     if (typeof routerId !== "string" || !routerId.trim()) {
       return res.status(400).json({
         success: false,
@@ -211,7 +204,7 @@ export async function generateVouchers(
 
     const result = await createVoucherBatch({
       siteId: siteId.trim(),
-      planId: planId.trim(),
+      planId: typeof planId === "string" ? planId.trim() : "",
       routerId: routerId.trim(),
       pointOfSaleId: pointOfSaleId.trim(),
       quantity: numericQuantity,
