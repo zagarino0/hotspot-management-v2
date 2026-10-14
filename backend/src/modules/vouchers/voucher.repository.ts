@@ -1,5 +1,5 @@
 import { pool } from "../../database/pool.js";
-import { generateVoucherCode } from "../../lib/voucherCode.js";
+import { generateVoucherPassword, generateVoucherUsername } from "../../lib/voucherCode.js";
 
 import type {
   GenerateVouchersData,
@@ -21,8 +21,8 @@ const VOUCHER_SELECT = `
     v.plan_id AS "planId",
     p.name AS "planName",
     v.mikrotik_profile AS "mikrotikProfile",
-    p.price::float8 AS "planPrice",
-    p.currency AS "planCurrency",
+    COALESCE(v.price_snapshot, p.price)::float8 AS "planPrice",
+    COALESCE(v.currency_snapshot, p.currency) AS "planCurrency",
     v.router_id AS "routerId",
     v.mikrotik_username AS "mikrotikUsername",
     v.mikrotik_comment AS "mikrotikComment",
@@ -32,6 +32,7 @@ const VOUCHER_SELECT = `
     v.batch_id AS "batchId",
 
     v.code,
+    v.mikrotik_username AS "mikrotikUsername",
 
     v.status,
 
@@ -334,7 +335,8 @@ async function insertVoucherWithRetry(
     attempt < MAX_CODE_ATTEMPTS;
     attempt++
   ) {
-    const code = generateVoucherCode(input.prefix);
+    const username = generateVoucherUsername();
+    const code = generateVoucherPassword();
 
     try {
       const result = await client.query(
@@ -368,8 +370,8 @@ async function insertVoucherWithRetry(
           input.batchId,
           input.routerId,
           input.pointOfSaleId,
-          code,
-          `${code}-${new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }).replaceAll("/", ".")} - ${input.pointOfSaleCode}`,
+          username,
+          `${username}-${new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }).replaceAll("/", ".")} - ${input.pointOfSaleCode}`,
           code,
           input.mikrotikProfile ?? null,
           input.priceSnapshot,
