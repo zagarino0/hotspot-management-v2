@@ -153,15 +153,18 @@ export interface CreateHotspotUserInput {
 
 export async function createHotspotUser(
   api: RouterOSAPI,
-  input: CreateHotspotUserInput
+  input: CreateHotspotUserInput,
+  skipDuplicateCheck = false
 ): Promise<void> {
   const username = input.username.trim();
-  const existing = await api.write("/ip/hotspot/user/print");
-  if (existing.some((row: Record<string, unknown>) =>
-    typeof row.name === "string" &&
-    row.name.trim().toLowerCase() === username.toLowerCase()
-  )) {
-    throw new Error(`L'utilisateur MikroTik "${username}" existe déjà.`);
+  if (!skipDuplicateCheck) {
+    const existing = await api.write("/ip/hotspot/user/print");
+    if (existing.some((row: Record<string, unknown>) =>
+      typeof row.name === "string" &&
+      row.name.trim().toLowerCase() === username.toLowerCase()
+    )) {
+      throw new Error(`L'utilisateur MikroTik "${username}" existe déjà.`);
+    }
   }
 
   const args = [
