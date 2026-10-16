@@ -27,7 +27,6 @@ export function resolveMikroTikTlsOptions(
 ): RouterOSTlsOptions | undefined {
   if (resolveMikroTikProtocol(config) !== "api-ssl") return undefined;
   return {
-    servername: config.host,
     ...config.tls,
     rejectUnauthorized: true,
   };
