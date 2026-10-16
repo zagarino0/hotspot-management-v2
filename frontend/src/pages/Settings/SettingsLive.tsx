@@ -7,7 +7,6 @@ import {
   RefreshCw,
   Router,
   Sun,
-  Moon,
   Palette,
   Save,
   Settings as SettingsIcon,
