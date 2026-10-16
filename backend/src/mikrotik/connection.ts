@@ -26,8 +26,12 @@ export function resolveMikroTikTlsOptions(
   config: Pick<MikroTikConnectionConfig, "host" | "port" | "protocol" | "tls">
 ): RouterOSTlsOptions | undefined {
   if (resolveMikroTikProtocol(config) !== "api-ssl") return undefined;
+  const trustedCa = config.tls?.ca ?? process.env.MIKROTIK_TLS_CA;
+
   return {
+    ...(trustedCa ? { ca: trustedCa } : {}),
     ...config.tls,
+    // Never allow callers or environment variables to disable certificate validation.
     rejectUnauthorized: true,
   };
 }
