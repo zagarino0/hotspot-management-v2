@@ -5,11 +5,18 @@ import {
   getStoredToken,
 } from "../lib/authStorage";
 
-// Local backend is used only during local development.
-// GitHub Pages must always call the deployed Render API.
-const apiBaseUrl = import.meta.env.DEV
-  ? "http://localhost:4000"
-  : "https://hotspot-management-v2.onrender.com";
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const isGitHubPages = window.location.hostname === "zagarino0.github.io";
+
+// GitHub Pages must never send requests to localhost, even if a build
+// accidentally includes VITE_API_URL=http://localhost:4000.
+const apiBaseUrl = isGitHubPages
+  ? "https://hotspot-management-v2.onrender.com"
+  : configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)
+    ? configuredApiUrl.replace(/\/$/, "")
+    : import.meta.env.DEV
+      ? "http://localhost:4000"
+      : "https://hotspot-management-v2.onrender.com";
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -18,10 +25,6 @@ const api = axios.create({
   },
   timeout: 10000,
 });
-
-/* ============================================================
-   REQUEST : ATTACHER LE TOKEN
-============================================================ */
 
 api.interceptors.request.use((config) => {
   const token = getStoredToken();
@@ -33,10 +36,6 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
-
-/* ============================================================
-   RESPONSE : SESSION EXPIREE / INVALIDE
-============================================================ */
 
 api.interceptors.response.use(
   (response) => response,
