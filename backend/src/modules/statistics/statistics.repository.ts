@@ -43,11 +43,10 @@ async function countBetween(
 async function getSingleMikrotikSnapshot() {
   const routers = await findRoutersForSync();
 
-  if (routers.length !== 1) {
+  if (routers.length === 0) return null;
+  if (routers.length > 1) {
     throw new Error(
-      routers.length === 0
-        ? "Aucun MikroTik synchronisé n'est configuré pour le tableau de bord."
-        : "Le tableau de bord attend un seul MikroTik comme source de vérité."
+      "Le tableau de bord attend un seul MikroTik comme source de vérité."
     );
   }
 
@@ -239,7 +238,7 @@ export async function getDashboardOverview(
 
   const mikrotik = await getSingleMikrotikSnapshot();
 
-  const engagedVouchers = mikrotik.users
+  const engagedVouchers = (mikrotik?.users ?? [])
     .map((user) => {
       const quotaExhausted =
         user.limitUptimeSeconds !== null &&
@@ -259,8 +258,8 @@ export async function getDashboardOverview(
       return {
         code: user.username,
         profile: user.profile,
-        siteId: mikrotik.router.siteId,
-        routerId: mikrotik.router.id,
+        siteId: mikrotik!.router.siteId,
+        routerId: mikrotik!.router.id,
         status: status as "UNUSED" | "ACTIVE" | "EXPIRED",
       };
     })
@@ -305,9 +304,9 @@ export async function getDashboardOverview(
         0::int AS "accessPointsOnline",
         $3::int AS "vouchersAvailable"
     `, [
-      mikrotik.users.length,
-      mikrotik.activeSessions,
-      mikrotik.users.filter((user) => {
+      mikrotik?.users.length ?? 0,
+      mikrotik?.activeSessions ?? 0,
+      (mikrotik?.users ?? []).filter((user) => {
         const quotaExhausted =
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
@@ -400,14 +399,14 @@ export async function getDashboardOverview(
       vouchers: toTrend(vouchersCurrent, vouchersPrevious),
     },
     recentSales: recentSalesResult.rows,
-    networkStatus: [
-      {
-        id: mikrotik.router.id,
-        name: mikrotik.router.name,
-        type: "ROUTER" as const,
-        status: "ONLINE" as const,
-      },
-    ],
+    networkStatus: mikrotik
+      ? [{
+          id: mikrotik.router.id,
+          name: mikrotik.router.name,
+          type: "ROUTER" as const,
+          status: "ONLINE" as const,
+        }]
+      : [],
     sessionsSeries: sessionsSeriesResult.rows.map((row) => ({
       label: new Date(row.bucket).toLocaleDateString("fr-FR", {
         day: "2-digit",
