@@ -28,8 +28,8 @@ export function resolveMikroTikTlsOptions(
   if (resolveMikroTikProtocol(config) !== "api-ssl") return undefined;
   return {
     servername: config.host,
-    rejectUnauthorized: true,
     ...config.tls,
+    rejectUnauthorized: true,
   };
 }
 
