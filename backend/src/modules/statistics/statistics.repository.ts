@@ -236,7 +236,18 @@ export async function getDashboardOverview(
     trendStart.getTime() - days * 24 * 60 * 60 * 1000
   );
 
-  const mikrotik = await getSingleMikrotikSnapshot();
+  // Le tableau de bord doit rester disponible même si aucun routeur n'est
+  // configuré, si plusieurs routeurs sont présents ou si l'API RouterOS est
+  // momentanément inaccessible. Les métriques PostgreSQL restent exploitables.
+  let mikrotik: Awaited<ReturnType<typeof getSingleMikrotikSnapshot>> = null;
+  try {
+    mikrotik = await getSingleMikrotikSnapshot();
+  } catch (error) {
+    console.warn(
+      "[dashboard] Snapshot MikroTik indisponible; affichage des données locales.",
+      error instanceof Error ? error.message : error
+    );
+  }
 
   const engagedVouchers = (mikrotik?.users ?? [])
     .map((user) => {
@@ -297,11 +308,11 @@ export async function getDashboardOverview(
       SELECT
         $1::int AS clients,
         $2::int AS "activeSessions",
-        1::int AS sites,
-        1::int AS routers,
-        1::int AS "routersOnline",
-        0::int AS "accessPoints",
-        0::int AS "accessPointsOnline",
+        (SELECT COUNT(*)::int FROM site) AS sites,
+        (SELECT COUNT(*)::int FROM router) AS routers,
+        (SELECT COUNT(*)::int FROM router WHERE status = 'ONLINE') AS "routersOnline",
+        (SELECT COUNT(*)::int FROM access_point) AS "accessPoints",
+        (SELECT COUNT(*)::int FROM access_point WHERE status = 'ONLINE') AS "accessPointsOnline",
         $3::int AS "vouchersAvailable"
     `, [
       mikrotik?.users.length ?? 0,
