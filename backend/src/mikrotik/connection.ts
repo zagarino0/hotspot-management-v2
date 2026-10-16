@@ -1,5 +1,5 @@
 import { RouterOSAPI } from "node-routeros";
-import type { TlsOptions } from "node:tls";
+import type { ConnectionOptions } from "node:tls";
 import { env } from "../config/env.js";
 import { AppError } from "../lib/errors.js";
 
@@ -14,7 +14,7 @@ export interface MikroTikConnectionConfig {
   /** Optional explicit protocol. Otherwise 8729 selects API-SSL; other ports select API. */
   protocol?: MikroTikProtocol;
   /** Optional TLS overrides for private PKI deployments. Never disable verification in production. */
-  tls?: TlsOptions;
+  tls?: ConnectionOptions;
 }
 
 export function resolveMikroTikProtocol(config: Pick<MikroTikConnectionConfig, "port" | "protocol">): MikroTikProtocol {
@@ -24,7 +24,7 @@ export function resolveMikroTikProtocol(config: Pick<MikroTikConnectionConfig, "
 
 export function resolveMikroTikTlsOptions(
   config: Pick<MikroTikConnectionConfig, "host" | "port" | "protocol" | "tls">
-): TlsOptions | undefined {
+): ConnectionOptions | undefined {
   if (resolveMikroTikProtocol(config) !== "api-ssl") return undefined;
   return {
     servername: config.host,
