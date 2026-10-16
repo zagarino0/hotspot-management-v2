@@ -104,14 +104,16 @@ export const env = {
     password: getEnv(
       "DATABASE_PASSWORD"
     ),
+
+    ssl: process.env.DATABASE_SSL === "true",
   },
 
   /* ==========================================================
      MIKROTIK
-     
+
      Les routeurs sont configurés dynamiquement
      depuis PostgreSQL.
-     
+
      Ces valeurs sont donc optionnelles.
   ========================================================== */
 
