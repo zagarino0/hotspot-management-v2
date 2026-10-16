@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <title>Redirection…</title>
+    <script>
+      (function () {
+        var path = window.location.pathname;
+        var base = "/hotspot-management-v2";
+        if (path === base || path.indexOf(base + "/") === 0) {
+          var redirect = path + window.location.search + window.location.hash;
+          window.location.replace(
+            base + "/?redirect=" + encodeURIComponent(redirect)
+          );
+        } else {
+          window.location.replace(base + "/");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirection vers Hotspot Management V2…</p>
+  </body>
+</html>
