@@ -1,5 +1,6 @@
 import { RouterOSAPI } from "node-routeros";
 import { env } from "../config/env.js";
+import { AppError } from "../lib/errors.js";
 
 /* ============================================================
    TYPES
@@ -65,12 +66,22 @@ export async function connectMikroTik(
     return api;
   } catch (error) {
     try {
-      api.close();
+      await Promise.resolve(api.close());
     } catch {
       // The socket may already be closed after a connection failure.
     }
 
-    throw error;
+    // Keep low-level socket/library details in Render logs, but return an
+    // actionable HTTP 502 instead of the generic "Erreur interne" 500.
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[mikrotik] Connection failed for ${config.host}:${config.port}: ${detail}`
+    );
+
+    throw new AppError(
+      "Connexion MikroTik impossible depuis le serveur. Vérifiez l’adresse IP/hostname, le port API, les identifiants, l’activation du service API et le pare-feu. Si l’adresse est privée (192.168.x.x, 10.x.x.x ou 172.16–31.x.x), Render ne peut généralement pas l’atteindre directement : il faut un accès réseau public sécurisé ou un VPN/tunnel.",
+      502
+    );
   }
 }
 
