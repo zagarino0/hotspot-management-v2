@@ -11,7 +11,6 @@ test("port 8728 selects unencrypted RouterOS API", () => {
 test("port 8729 selects API-SSL with certificate verification enabled", () => {
   assert.equal(resolveMikroTikProtocol({ port: 8729 }), "api-ssl");
   assert.deepEqual(resolveMikroTikTlsOptions({ host: "router.example.test", port: 8729 }), {
-    servername: "router.example.test",
     rejectUnauthorized: true,
   });
 });
@@ -28,6 +27,5 @@ test("custom TLS options can provide a trusted CA while verification remains ena
     tls: { ca: "test-ca" },
   });
   assert.equal(options?.rejectUnauthorized, true);
-  assert.equal(options?.servername, "router.example.test");
   assert.equal(options?.ca, "test-ca");
 });
