@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// env.ts validates required secrets at import time; use disposable test values.
-process.env.JWT_SECRET ??= "test-only-jwt-secret";
-process.env.CREDENTIALS_ENCRYPTION_KEY ??= "0".repeat(64);
-process.env.DATABASE_PASSWORD ??= "test-only-password";
-
-const { resolveMikroTikProtocol, resolveMikroTikTlsOptions } = await import("../src/mikrotik/connection.js");
+import { resolveMikroTikProtocol, resolveMikroTikTlsOptions } from "../src/mikrotik/connection.js";
 
 test("port 8728 selects unencrypted RouterOS API", () => {
   assert.equal(resolveMikroTikProtocol({ port: 8728 }), "api");
