@@ -29,3 +29,37 @@ test("custom TLS options can provide a trusted CA while verification remains ena
   assert.equal(options?.rejectUnauthorized, true);
   assert.equal(options?.ca, "test-ca");
 });
+
+
+test("environment trusted CA is used when no router-specific CA is supplied", () => {
+  const previous = process.env.MIKROTIK_TLS_CA;
+  process.env.MIKROTIK_TLS_CA = "environment-ca";
+  try {
+    const options = resolveMikroTikTlsOptions({
+      host: "router.example.test",
+      port: 8729,
+    });
+    assert.equal(options?.ca, "environment-ca");
+    assert.equal(options?.rejectUnauthorized, true);
+  } finally {
+    if (previous === undefined) delete process.env.MIKROTIK_TLS_CA;
+    else process.env.MIKROTIK_TLS_CA = previous;
+  }
+});
+
+test("router-specific CA takes precedence and verification cannot be disabled", () => {
+  const previous = process.env.MIKROTIK_TLS_CA;
+  process.env.MIKROTIK_TLS_CA = "environment-ca";
+  try {
+    const options = resolveMikroTikTlsOptions({
+      host: "router.example.test",
+      port: 8729,
+      tls: { ca: "router-ca", rejectUnauthorized: false },
+    });
+    assert.equal(options?.ca, "router-ca");
+    assert.equal(options?.rejectUnauthorized, true);
+  } finally {
+    if (previous === undefined) delete process.env.MIKROTIK_TLS_CA;
+    else process.env.MIKROTIK_TLS_CA = previous;
+  }
+});
