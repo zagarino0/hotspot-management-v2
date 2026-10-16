@@ -16,11 +16,20 @@ import {
 } from "../lib/authStorage";
 
 /* ============================================================
-   CONFIGURATION
+   CONFIGURATION API
 ============================================================ */
 
+// GitHub Pages must always use the deployed backend.
+// VITE_API_URL=http://localhost:4000 is only for local development.
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+  window.location.hostname === "zagarino0.github.io"
+    ? "https://hotspot-management-v2.onrender.com"
+    : configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)
+      ? configuredApiUrl.replace(/\/$/, "")
+      : import.meta.env.DEV
+        ? "http://localhost:4000"
+        : "https://hotspot-management-v2.onrender.com";
 
 /* ============================================================
    TYPES IAM
@@ -57,10 +66,6 @@ export interface AuthUser {
   roles: AuthRole[];
 }
 
-/* ============================================================
-   API RESPONSE
-============================================================ */
-
 interface LoginResponse {
   success: true;
   data: {
@@ -74,70 +79,33 @@ interface ApiErrorResponse {
   message?: string;
 }
 
-/* ============================================================
-   CONTEXT
-============================================================ */
-
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
-
   loading: boolean;
-
   isAuthenticated: boolean;
-
-  login: (
-    username: string,
-    password: string
-  ) => Promise<void>;
-
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
-
   refreshUser: () => Promise<AuthUser | null>;
-
   hasRole: (roleCode: string) => boolean;
-
-  hasPermission: (
-    permissionCode: string
-  ) => boolean;
+  hasPermission: (permissionCode: string) => boolean;
 }
 
-const AuthContext =
-  createContext<AuthContextValue | undefined>(
-    undefined
-  );
-
-/* ============================================================
-   PROVIDER
-============================================================ */
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-export function AuthProvider({
-  children,
-}: AuthProviderProps) {
-  const [user, setUser] =
-    useState<AuthUser | null>(null);
-
-  const [token, setToken] =
-    useState<string | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  /* ==========================================================
-     RESTAURATION SESSION
-  ========================================================== */
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     try {
-      const storedToken =
-        getStoredToken();
-
-      const storedUser =
-        getStoredUserRaw();
+      const storedToken = getStoredToken();
+      const storedUser = getStoredUserRaw();
 
       if (!storedToken || !storedUser) {
         setToken(null);
@@ -145,12 +113,7 @@ export function AuthProvider({
         return;
       }
 
-      const parsedUser =
-        JSON.parse(storedUser) as AuthUser;
-
-      /*
-       * Vérification minimale de la structure
-       */
+      const parsedUser = JSON.parse(storedUser) as AuthUser;
 
       if (
         !parsedUser ||
@@ -158,21 +121,14 @@ export function AuthProvider({
         typeof parsedUser.username !== "string" ||
         !Array.isArray(parsedUser.roles)
       ) {
-        throw new Error(
-          "Session utilisateur invalide."
-        );
+        throw new Error("Session utilisateur invalide.");
       }
 
       setToken(storedToken);
       setUser(parsedUser);
     } catch (error) {
-      console.error(
-        "Impossible de restaurer la session.",
-        error
-      );
-
+      console.error("Impossible de restaurer la session.", error);
       clearStoredSession();
-
       setToken(null);
       setUser(null);
     } finally {
@@ -180,280 +136,128 @@ export function AuthProvider({
     }
   }, []);
 
-  /* ==========================================================
-     LOGIN
-  ========================================================== */
+  const login = useCallback(async (username: string, password: string): Promise<void> => {
+    const cleanUsername = username.trim();
 
-  const login = useCallback(
-    async (
-      username: string,
-      password: string
-    ): Promise<void> => {
-      const cleanUsername =
-        username.trim();
+    if (!cleanUsername || !password) {
+      throw new Error("Identifiant et mot de passe requis.");
+    }
 
-      if (!cleanUsername || !password) {
-        throw new Error(
-          "Identifiant et mot de passe requis."
-        );
-      }
+    let response: Response;
 
-      let response: Response;
+    try {
+      response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          username: cleanUsername,
+          password,
+        }),
+      });
+    } catch {
+      throw new Error("Impossible de contacter le serveur.");
+    }
 
-      try {
-        response = await fetch(
-          `${API_URL}/api/auth/login`,
-          {
-            method: "POST",
+    let result: LoginResponse | ApiErrorResponse | null = null;
 
-            headers: {
-              "Content-Type":
-                "application/json",
-              Accept: "application/json",
-            },
+    try {
+      result = (await response.json()) as LoginResponse | ApiErrorResponse;
+    } catch {
+      throw new Error("Réponse invalide du serveur.");
+    }
 
-            body: JSON.stringify({
-              username: cleanUsername,
-              password,
-            }),
-          }
-        );
-      } catch {
-        throw new Error(
-          "Impossible de contacter le serveur."
-        );
-      }
+    if (!response.ok) {
+      const errorResult = result as ApiErrorResponse;
+      throw new Error(errorResult.message ?? "Échec de l'authentification.");
+    }
 
-      let result:
-        | LoginResponse
-        | ApiErrorResponse
-        | null = null;
+    const loginResult = result as LoginResponse;
 
-      try {
-        result =
-          (await response.json()) as
-            | LoginResponse
-            | ApiErrorResponse;
-      } catch {
-        throw new Error(
-          "Réponse invalide du serveur."
-        );
-      }
+    if (
+      loginResult.success !== true ||
+      !loginResult.data ||
+      typeof loginResult.data.token !== "string" ||
+      !loginResult.data.user
+    ) {
+      throw new Error("Réponse d'authentification invalide.");
+    }
 
-      /* ========================================================
-         ERREUR API
-      ======================================================== */
+    const newToken = loginResult.data.token;
+    const newUser = loginResult.data.user;
 
-      if (!response.ok) {
-        const errorResult =
-          result as ApiErrorResponse;
-
-        throw new Error(
-          errorResult.message ??
-            "Échec de l'authentification."
-        );
-      }
-
-      /* ========================================================
-         VALIDATION REPONSE
-      ======================================================== */
-
-      const loginResult =
-        result as LoginResponse;
-
-      if (
-        loginResult.success !== true ||
-        !loginResult.data ||
-        typeof loginResult.data.token !==
-          "string" ||
-        !loginResult.data.user
-      ) {
-        throw new Error(
-          "Réponse d'authentification invalide."
-        );
-      }
-
-      const newToken =
-        loginResult.data.token;
-
-      const newUser =
-        loginResult.data.user;
-
-      /* ========================================================
-         SAUVEGARDE SESSION
-      ======================================================== */
-
-      setStoredSession(
-        newToken,
-        JSON.stringify(newUser)
-      );
-
-      /* ========================================================
-         ETAT GLOBAL
-      ======================================================== */
-
-      setToken(newToken);
-      setUser(newUser);
-    },
-    []
-  );
-
-  /* ==========================================================
-     REFRESH CURRENT USER
-  ========================================================== */
+    setStoredSession(newToken, JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+  }, []);
 
   const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
     const currentToken = getStoredToken();
 
-    if (!currentToken) {
-      return null;
-    }
+    if (!currentToken) return null;
 
-    const response = await fetch(
-      `${API_URL}/api/auth/me`,
-      {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${currentToken}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_URL}/api/auth/me`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${currentToken}`,
+      },
+    });
 
     const result = (await response.json()) as
       | { success: true; data: AuthUser }
       | ApiErrorResponse;
 
     if (!response.ok || result.success !== true) {
-      throw new Error(
-        "Impossible de récupérer le profil utilisateur."
-      );
+      throw new Error("Impossible de récupérer le profil utilisateur.");
     }
 
-    setStoredSession(
-      currentToken,
-      JSON.stringify(result.data)
-    );
+    setStoredSession(currentToken, JSON.stringify(result.data));
     setToken(currentToken);
     setUser(result.data);
-
     return result.data;
   }, []);
 
-  /* ==========================================================
-     LOGOUT
-  ========================================================== */
-
   const logout = useCallback(() => {
     clearStoredSession();
-
     setToken(null);
     setUser(null);
   }, []);
 
-  /* ==========================================================
-     ROLE CHECK
-  ========================================================== */
+  const hasRole = useCallback((roleCode: string): boolean => {
+    if (!user) return false;
+    return user.roles.some((role) => role.code.toUpperCase() === roleCode.toUpperCase());
+  }, [user]);
 
-  const hasRole = useCallback(
-    (roleCode: string): boolean => {
-      if (!user) {
-        return false;
-      }
-
-      return user.roles.some(
-        (role) =>
-          role.code.toUpperCase() ===
-          roleCode.toUpperCase()
-      );
-    },
-    [user]
-  );
-
-  /* ==========================================================
-     PERMISSION CHECK
-  ========================================================== */
-
-  const hasPermission = useCallback(
-    (permissionCode: string): boolean => {
-      if (!user) {
-        return false;
-      }
-
-      return user.roles.some((role) =>
-        role.permissions.some(
-          (permission) =>
-            permission.code.toUpperCase() ===
-            permissionCode.toUpperCase()
-        )
-      );
-    },
-    [user]
-  );
-
-  /* ==========================================================
-     AUTHENTICATED
-  ========================================================== */
-
-  const isAuthenticated =
-    Boolean(token) &&
-    Boolean(user);
-
-  /* ==========================================================
-     CONTEXT VALUE
-  ========================================================== */
-
-  const value =
-    useMemo<AuthContextValue>(
-      () => ({
-        user,
-        token,
-
-        loading,
-
-        isAuthenticated,
-
-        login,
-        logout,
-        refreshUser,
-
-        hasRole,
-        hasPermission,
-      }),
-      [
-        user,
-        token,
-        loading,
-        isAuthenticated,
-        login,
-        logout,
-        refreshUser,
-        hasRole,
-        hasPermission,
-      ]
+  const hasPermission = useCallback((permissionCode: string): boolean => {
+    if (!user) return false;
+    return user.roles.some((role) =>
+      role.permissions.some((permission) => permission.code.toUpperCase() === permissionCode.toUpperCase())
     );
+  }, [user]);
 
-  return (
-    <AuthContext.Provider
-      value={value}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const isAuthenticated = Boolean(token) && Boolean(user);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    login,
+    logout,
+    refreshUser,
+    hasRole,
+    hasPermission,
+  }), [user, token, loading, isAuthenticated, login, logout, refreshUser, hasRole, hasPermission]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/* ============================================================
-   HOOK
-============================================================ */
-
 export function useAuth(): AuthContextValue {
-  const context =
-    useContext(AuthContext);
-
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error(
-      "useAuth doit être utilisé à l'intérieur de AuthProvider."
-    );
+    throw new Error("useAuth doit être utilisé à l'intérieur de AuthProvider.");
   }
-
   return context;
 }
