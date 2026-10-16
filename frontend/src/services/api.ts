@@ -5,9 +5,18 @@ import {
   getStoredToken,
 } from "../lib/authStorage";
 
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+// A relative URL would send requests to GitHub Pages instead of the backend.
+// Keep absolute URLs from the environment (including localhost for development),
+// and use the deployed Render API when the variable is missing or relative.
+const apiBaseUrl =
+  configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)
+    ? configuredApiUrl.replace(/\/$/, "")
+    : "https://hotspot-management-v2.onrender.com";
+
 const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL || "http://localhost:4000",
+  baseURL: apiBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },
