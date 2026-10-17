@@ -3,6 +3,13 @@ import type { RouterForSync } from "../routers/router.repository.js";
 import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
 import type { RouterOSAPI } from "node-routeros";
 import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
+import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
+
+const CALENDAR_VALIDITY_PROFILES = new Set(["profil_24h", "profil_week", "profil_mothe_1", "profil_mothe_2"]);
+
+function isCalendarValidityProfile(profile: string | null): boolean {
+  return profile !== null && CALENDAR_VALIDITY_PROFILES.has(profile.trim().toLowerCase());
+}
 
 interface PointOfSaleRef {
   id: string;
@@ -284,6 +291,42 @@ export async function syncMikrotikVouchers(
 
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
 
+    // Calendar expiry is authoritative only for the four explicitly targeted profiles.
+    // Read PostgreSQL expiry before deriving status from the RouterOS uptime counters.
+    const calendarExpiry = isCalendarValidityProfile(user.profile)
+      ? await pool.query<{ id: string; expiresAt: string; username: string }>(
+          `SELECT id, expires_at AS "expiresAt", mikrotik_username AS username
+             FROM voucher
+            WHERE router_id = $1
+              AND lower(COALESCE(mikrotik_username, code)) = lower($2)
+              AND lower(mikrotik_profile) = lower($3)
+              AND expires_at IS NOT NULL
+              AND expires_at <= NOW()
+            LIMIT 1`,
+          [router.id, username, user.profile]
+        )
+      : { rows: [] as { id: string; expiresAt: string; username: string }[] };
+
+    const calendarExpiredVoucher = calendarExpiry.rows[0] ?? null;
+    if (calendarExpiredVoucher) {
+      // Idempotent RouterOS enforcement: only write disabled=yes when needed.
+      if (api && !user.disabled) {
+        await setHotspotUserDisabled(api, username, true);
+      }
+      if (api) {
+        const activeUsers = await fetchActiveHotspotUsers(api);
+        for (const active of activeUsers) {
+          if (
+            active.username?.trim().toLowerCase() === username.toLowerCase() &&
+            active.routerInternalId
+          ) {
+            await removeActiveHotspotUser(api, active.routerInternalId);
+          }
+        }
+      }
+      user.disabled = true;
+    }
+
     // The POS list is loaded at the start of the router sync and may become
     // stale while vouchers are being processed. Re-read the current state
     // immediately before enforcing the POS lock, especially during activation.
@@ -361,6 +404,18 @@ export async function syncMikrotikVouchers(
                 updated_at = NOW()
           WHERE id = $1`,
         [sync.id]
+      );
+    }
+
+    if (calendarExpiredVoucher) {
+      await pool.query(
+        `UPDATE voucher
+            SET status = 'EXPIRED',
+                mikrotik_disabled = true,
+                mikrotik_disabled_reason = 'CALENDAR_EXPIRY',
+                updated_at = NOW()
+          WHERE id = $1`,
+        [calendarExpiredVoucher.id]
       );
     }
 
