@@ -753,8 +753,14 @@ export async function syncVoucherUsage(
           WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
             'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
           )
-            AND v.expires_at IS NOT NULL
-            AND v.expires_at <= NOW()
+            AND COALESCE(
+              v.expires_at,
+              (
+                SELECT MIN(s.started_at)
+                FROM session s
+                WHERE s.voucher_id = v.id
+              ) + make_interval(secs => v.duration_seconds::double precision)
+            ) <= NOW()
             THEN 'EXPIRED'
           WHEN v.duration_seconds IS NOT NULL
             AND (
