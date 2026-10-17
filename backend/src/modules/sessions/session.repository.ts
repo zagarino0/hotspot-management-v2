@@ -49,6 +49,32 @@ const SESSION_SELECT = `
     ) AS "voucherDurationSeconds",
 
     CASE
+      WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+      )
+        AND COALESCE(
+          v.expires_at,
+          first_connection.first_connected_at + make_interval(
+            secs => COALESCE(
+              v.duration_seconds,
+              s.mikrotik_limit_uptime_seconds
+            )::double precision
+          )
+        ) IS NOT NULL
+      THEN GREATEST(
+        FLOOR(EXTRACT(EPOCH FROM (
+          COALESCE(
+            v.expires_at,
+            first_connection.first_connected_at + make_interval(
+              secs => COALESCE(
+                v.duration_seconds,
+                s.mikrotik_limit_uptime_seconds
+              )::double precision
+            )
+          ) - NOW()
+        ))),
+        0
+      )::bigint
       WHEN COALESCE(
         v.duration_seconds,
         s.mikrotik_limit_uptime_seconds
@@ -63,6 +89,32 @@ const SESSION_SELECT = `
     END AS "voucherRemainingSeconds",
 
     CASE
+      WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+      )
+        AND COALESCE(
+          v.expires_at,
+          first_connection.first_connected_at + make_interval(
+            secs => COALESCE(
+              v.duration_seconds,
+              s.mikrotik_limit_uptime_seconds
+            )::double precision
+          )
+        ) IS NOT NULL
+      THEN GREATEST(
+        FLOOR(EXTRACT(EPOCH FROM (
+          COALESCE(
+            v.expires_at,
+            first_connection.first_connected_at + make_interval(
+              secs => COALESCE(
+                v.duration_seconds,
+                s.mikrotik_limit_uptime_seconds
+              )::double precision
+            )
+          ) - COALESCE(s.ended_at, NOW())
+        ))),
+        0
+      )::bigint
       WHEN COALESCE(
         v.duration_seconds,
         s.mikrotik_limit_uptime_seconds
@@ -130,6 +182,20 @@ const SESSION_SELECT = `
   FROM session s
   LEFT JOIN router r ON r.id = s.router_id
   LEFT JOIN voucher v ON v.id = s.voucher_id
+  LEFT JOIN LATERAL (
+    SELECT MIN(s2.started_at) AS first_connected_at
+    FROM session s2
+    WHERE (
+      (s.voucher_id IS NOT NULL AND s2.voucher_id = s.voucher_id)
+      OR (
+        s.voucher_id IS NULL
+        AND s2.voucher_id IS NULL
+        AND s2.site_id = s.site_id
+        AND s2.router_id = s.router_id
+        AND s2.username = s.username
+      )
+    )
+  ) first_connection ON TRUE
   LEFT JOIN LATERAL (
     SELECT
       COALESCE(
@@ -627,17 +693,49 @@ export async function activateVoucher(
 ): Promise<void> {
   await pool.query(
     `
-      UPDATE voucher
+      UPDATE voucher v
       SET
         status = CASE
-          WHEN status = 'UNUSED' THEN 'ACTIVE'
-          ELSE status
+          WHEN v.status = 'UNUSED' THEN 'ACTIVE'
+          ELSE v.status
         END,
-        activated_at = COALESCE(activated_at, NOW()),
-        used_at = COALESCE(used_at, NOW()),
+        activated_at = CASE
+          WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
+            'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+          )
+          THEN COALESCE(
+            (
+              SELECT MIN(s.started_at)
+              FROM session s
+              WHERE s.voucher_id = v.id
+            ),
+            v.activated_at,
+            NOW()
+          )
+          ELSE COALESCE(v.activated_at, NOW())
+        END,
+        expires_at = CASE
+          WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
+            'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+          )
+            AND v.duration_seconds IS NOT NULL
+          THEN COALESCE(
+            v.expires_at,
+            COALESCE(
+              (
+                SELECT MIN(s.started_at)
+                FROM session s
+                WHERE s.voucher_id = v.id
+              ),
+              NOW()
+            ) + make_interval(secs => v.duration_seconds::double precision)
+          )
+          ELSE v.expires_at
+        END,
+        used_at = COALESCE(v.used_at, NOW()),
         updated_at = NOW()
-      WHERE id = $1
-        AND status NOT IN ('DISABLED', 'REVOKED', 'EXPIRED')
+      WHERE v.id = $1
+        AND v.status NOT IN ('DISABLED', 'REVOKED', 'EXPIRED')
     `,
     [voucherId]
   );
@@ -652,7 +750,22 @@ export async function syncVoucherUsage(
       SET
         status = CASE
           WHEN v.status IN ('DISABLED', 'REVOKED') THEN v.status
-          WHEN v.duration_seconds IS NOT NULL
+          WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
+            'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+          )
+            AND COALESCE(
+              v.expires_at,
+              (
+                SELECT MIN(s.started_at)
+                FROM session s
+                WHERE s.voucher_id = v.id
+              ) + make_interval(secs => v.duration_seconds::double precision)
+            ) <= NOW()
+            THEN 'EXPIRED'
+          WHEN LOWER(COALESCE(v.mikrotik_profile, '')) NOT IN (
+            'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+          )
+            AND v.duration_seconds IS NOT NULL
             AND (
               SELECT COALESCE(SUM(COALESCE(s.duration_seconds, 0)), 0)
               FROM session s

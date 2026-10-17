@@ -3,6 +3,8 @@ import type { RouterForSync } from "../routers/router.repository.js";
 import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
 import type { RouterOSAPI } from "node-routeros";
 import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
+import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
+import { enforceCalendarExpiry, isCalendarValidityProfile } from "./calendarValidity.js";
 
 interface PointOfSaleRef {
   id: string;
@@ -284,6 +286,71 @@ export async function syncMikrotikVouchers(
 
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
 
+    // Calendar expiry is authoritative only for the four explicitly targeted profiles.
+    // Read PostgreSQL expiry before deriving status from the RouterOS uptime counters.
+    const calendarExpiry = isCalendarValidityProfile(user.profile)
+      ? await pool.query<{ id: string; expiresAt: string; username: string }>(
+          `SELECT v.id,
+                  COALESCE(
+                    v.expires_at,
+                    first_session.first_connected_at + make_interval(
+                      secs => COALESCE(
+                        v.duration_seconds,
+                        first_session.limit_uptime_seconds
+                      )::double precision
+                    )
+                  ) AS "expiresAt",
+                  COALESCE(v.mikrotik_username, v.code) AS username
+             FROM voucher v
+             LEFT JOIN LATERAL (
+               SELECT MIN(s.started_at) AS first_connected_at,
+                      MAX(s.mikrotik_limit_uptime_seconds) AS limit_uptime_seconds
+                 FROM session s
+                WHERE (
+                  (s.voucher_id IS NOT NULL AND s.voucher_id = v.id)
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s.site_id = v.site_id
+                    AND s.router_id = v.router_id
+                    AND lower(s.username) = lower(COALESCE(v.mikrotik_username, v.code))
+                  )
+                )
+             ) first_session ON TRUE
+            WHERE v.router_id = $1
+              AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
+              AND lower(v.mikrotik_profile) = lower($3)
+              AND COALESCE(
+                v.expires_at,
+                first_session.first_connected_at + make_interval(
+                  secs => COALESCE(
+                    v.duration_seconds,
+                    first_session.limit_uptime_seconds
+                  )::double precision
+                )
+              ) <= NOW()
+            LIMIT 1`,
+          [router.id, username, user.profile]
+        )
+      : { rows: [] as { id: string; expiresAt: string; username: string }[] };
+
+    const calendarExpiredVoucher = calendarExpiry.rows[0] ?? null;
+    if (calendarExpiredVoucher) {
+      const enforced = await enforceCalendarExpiry({
+        profile: user.profile,
+        expiresAt: calendarExpiredVoucher.expiresAt,
+        username,
+        disabled: user.disabled,
+        disableUser: async (targetUsername) => {
+          if (api) await setHotspotUserDisabled(api, targetUsername, true);
+        },
+        listActiveUsers: async () => api ? fetchActiveHotspotUsers(api) : [],
+        removeActiveUser: async (routerInternalId) => {
+          if (api) await removeActiveHotspotUser(api, routerInternalId);
+        },
+      });
+      if (enforced && api) user.disabled = true;
+    }
+
     // The POS list is loaded at the start of the router sync and may become
     // stale while vouchers are being processed. Re-read the current state
     // immediately before enforcing the POS lock, especially during activation.
@@ -361,6 +428,21 @@ export async function syncMikrotikVouchers(
                 updated_at = NOW()
           WHERE id = $1`,
         [sync.id]
+      );
+    }
+
+    if (calendarExpiredVoucher) {
+      await pool.query(
+        `UPDATE voucher
+            SET status = 'EXPIRED',
+                mikrotik_disabled = CASE WHEN $2::boolean THEN true ELSE mikrotik_disabled END,
+                mikrotik_disabled_reason = CASE
+                  WHEN $2::boolean THEN 'CALENDAR_EXPIRY'
+                  ELSE mikrotik_disabled_reason
+                END,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [calendarExpiredVoucher.id, Boolean(api)]
       );
     }
 
