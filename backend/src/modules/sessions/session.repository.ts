@@ -704,12 +704,12 @@ export async function activateVoucher(
             'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
           )
           THEN COALESCE(
-            v.activated_at,
             (
               SELECT MIN(s.started_at)
               FROM session s
               WHERE s.voucher_id = v.id
             ),
+            v.activated_at,
             NOW()
           )
           ELSE COALESCE(v.activated_at, NOW())
