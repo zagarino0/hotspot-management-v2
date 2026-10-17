@@ -290,13 +290,44 @@ export async function syncMikrotikVouchers(
     // Read PostgreSQL expiry before deriving status from the RouterOS uptime counters.
     const calendarExpiry = isCalendarValidityProfile(user.profile)
       ? await pool.query<{ id: string; expiresAt: string; username: string }>(
-          `SELECT id, expires_at AS "expiresAt", mikrotik_username AS username
-             FROM voucher
-            WHERE router_id = $1
-              AND lower(COALESCE(mikrotik_username, code)) = lower($2)
-              AND lower(mikrotik_profile) = lower($3)
-              AND expires_at IS NOT NULL
-              AND expires_at <= NOW()
+          `SELECT v.id,
+                  COALESCE(
+                    v.expires_at,
+                    first_session.first_connected_at + make_interval(
+                      secs => COALESCE(
+                        v.duration_seconds,
+                        first_session.limit_uptime_seconds
+                      )::double precision
+                    )
+                  ) AS "expiresAt",
+                  COALESCE(v.mikrotik_username, v.code) AS username
+             FROM voucher v
+             LEFT JOIN LATERAL (
+               SELECT MIN(s.started_at) AS first_connected_at,
+                      MAX(s.mikrotik_limit_uptime_seconds) AS limit_uptime_seconds
+                 FROM session s
+                WHERE (
+                  (s.voucher_id IS NOT NULL AND s.voucher_id = v.id)
+                  OR (
+                    s.voucher_id IS NULL
+                    AND s.site_id = v.site_id
+                    AND s.router_id = v.router_id
+                    AND lower(s.username) = lower(COALESCE(v.mikrotik_username, v.code))
+                  )
+                )
+             ) first_session ON TRUE
+            WHERE v.router_id = $1
+              AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
+              AND lower(v.mikrotik_profile) = lower($3)
+              AND COALESCE(
+                v.expires_at,
+                first_session.first_connected_at + make_interval(
+                  secs => COALESCE(
+                    v.duration_seconds,
+                    first_session.limit_uptime_seconds
+                  )::double precision
+                )
+              ) <= NOW()
             LIMIT 1`,
           [router.id, username, user.profile]
         )
