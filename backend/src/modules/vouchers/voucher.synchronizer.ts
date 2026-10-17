@@ -4,7 +4,7 @@ import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
 import type { RouterOSAPI } from "node-routeros";
 import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
 import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
-import { isCalendarValidityProfile } from "./calendarValidity.js";
+import { enforceCalendarExpiry, isCalendarValidityProfile } from "./calendarValidity.js";
 
 interface PointOfSaleRef {
   id: string;
@@ -304,22 +304,20 @@ export async function syncMikrotikVouchers(
 
     const calendarExpiredVoucher = calendarExpiry.rows[0] ?? null;
     if (calendarExpiredVoucher) {
-      // Idempotent RouterOS enforcement: only write disabled=yes when needed.
-      if (api && !user.disabled) {
-        await setHotspotUserDisabled(api, username, true);
-      }
-      if (api) {
-        const activeUsers = await fetchActiveHotspotUsers(api);
-        for (const active of activeUsers) {
-          if (
-            active.username?.trim().toLowerCase() === username.toLowerCase() &&
-            active.routerInternalId
-          ) {
-            await removeActiveHotspotUser(api, active.routerInternalId);
-          }
-        }
-      }
-      user.disabled = true;
+      const enforced = await enforceCalendarExpiry({
+        profile: user.profile,
+        expiresAt: calendarExpiredVoucher.expiresAt,
+        username,
+        disabled: user.disabled,
+        disableUser: async (targetUsername) => {
+          if (api) await setHotspotUserDisabled(api, targetUsername, true);
+        },
+        listActiveUsers: async () => api ? fetchActiveHotspotUsers(api) : [],
+        removeActiveUser: async (routerInternalId) => {
+          if (api) await removeActiveHotspotUser(api, routerInternalId);
+        },
+      });
+      if (enforced) user.disabled = true;
     }
 
     // The POS list is loaded at the start of the router sync and may become
