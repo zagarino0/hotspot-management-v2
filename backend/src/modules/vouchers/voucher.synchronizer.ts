@@ -4,12 +4,7 @@ import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
 import type { RouterOSAPI } from "node-routeros";
 import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
 import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
-
-const CALENDAR_VALIDITY_PROFILES = new Set(["profil_24h", "profil_week", "profil_mothe_1", "profil_mothe_2"]);
-
-function isCalendarValidityProfile(profile: string | null): boolean {
-  return profile !== null && CALENDAR_VALIDITY_PROFILES.has(profile.trim().toLowerCase());
-}
+import { isCalendarValidityProfile } from "./calendarValidity.js";
 
 interface PointOfSaleRef {
   id: string;
