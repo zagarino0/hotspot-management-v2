@@ -317,7 +317,7 @@ export async function syncMikrotikVouchers(
           if (api) await removeActiveHotspotUser(api, routerInternalId);
         },
       });
-      if (enforced) user.disabled = true;
+      if (enforced && api) user.disabled = true;
     }
 
     // The POS list is loaded at the start of the router sync and may become
@@ -404,11 +404,14 @@ export async function syncMikrotikVouchers(
       await pool.query(
         `UPDATE voucher
             SET status = 'EXPIRED',
-                mikrotik_disabled = true,
-                mikrotik_disabled_reason = 'CALENDAR_EXPIRY',
+                mikrotik_disabled = CASE WHEN $2::boolean THEN true ELSE mikrotik_disabled END,
+                mikrotik_disabled_reason = CASE
+                  WHEN $2::boolean THEN 'CALENDAR_EXPIRY'
+                  ELSE mikrotik_disabled_reason
+                END,
                 updated_at = NOW()
           WHERE id = $1`,
-        [calendarExpiredVoucher.id]
+        [calendarExpiredVoucher.id, Boolean(api)]
       );
     }
 
