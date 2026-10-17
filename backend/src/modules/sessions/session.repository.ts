@@ -762,7 +762,10 @@ export async function syncVoucherUsage(
               ) + make_interval(secs => v.duration_seconds::double precision)
             ) <= NOW()
             THEN 'EXPIRED'
-          WHEN v.duration_seconds IS NOT NULL
+          WHEN LOWER(COALESCE(v.mikrotik_profile, '')) NOT IN (
+            'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
+          )
+            AND v.duration_seconds IS NOT NULL
             AND (
               SELECT COALESCE(SUM(COALESCE(s.duration_seconds, 0)), 0)
               FROM session s
