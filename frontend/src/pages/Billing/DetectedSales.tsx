@@ -97,10 +97,12 @@ export default function Sales() {
   }
 
   async function loadPosData(id: string) {
-    if (!id) {
+    const point = points.find((item) => item.id === id);
+    if (!id || point?.type === "INTERNAL") {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
+      setBusinessDate("");
       return;
     }
     const [eventRows, closureRows, remittanceRows] = await Promise.all([
@@ -127,10 +129,11 @@ export default function Sales() {
     let active = true;
     setLoading(true);
     setError("");
-    if (!selectedId) {
+    if (!selectedId || points.find((point) => point.id === selectedId)?.type === "INTERNAL") {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
+      setBusinessDate("");
       setLoading(false);
       return () => { active = false; };
     }
@@ -256,6 +259,10 @@ export default function Sales() {
 
   async function handleRemittance() {
     if (busy) return;
+    if (selectedPos?.type === "INTERNAL") {
+      setError("Les versements sont disponibles uniquement pour les points de vente externes.");
+      return;
+    }
     if (!selectedId || !businessDate || !selectedClosure) {
       setError("Sélectionnez une clôture existante avant de confirmer le versement.");
       return;
@@ -320,6 +327,11 @@ export default function Sales() {
       </header>
 
       {error && <div role="alert" className="rounded-xl border-0 bg-transparent px-4 py-3 text-sm font-bold text-red-700 dark:text-red-300">{error}</div>}
+      {selectedPos?.type === "INTERNAL" && (
+        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          « {selectedPos.name} » est le point interne de l’application. Les ventes détectées, clôtures journalières et versements sont disponibles uniquement pour les points de vente externes. Ce point reste visible dans la liste.
+        </div>
+      )}
 
       <section className="rounded-2xl border-0 bg-white p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
