@@ -97,20 +97,31 @@ export default function Sales() {
   }
 
   async function loadPosData(id: string) {
-    const point = points.find((item) => item.id === id);
-    if (!id || point?.type === "INTERNAL") {
+    if (!id) {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
       setBusinessDate("");
       return;
     }
-    const [eventRows, closureRows, remittanceRows] = await Promise.all([
-      getPosTicketEvents(id),
+
+    const point = points.find((item) => item.id === id);
+    const eventRows = await getPosTicketEvents(id);
+    setEvents(eventRows);
+
+    // Le point interne enregistre des ventes, mais ne possède ni clôture
+    // journalière ni versement externe.
+    if (point?.type === "INTERNAL") {
+      setClosures([]);
+      setRemittances([]);
+      setBusinessDate("");
+      return;
+    }
+
+    const [closureRows, remittanceRows] = await Promise.all([
       getPosDailyClosures(id),
       getPosRemittances(id),
     ]);
-    setEvents(eventRows);
     setClosures(closureRows);
     setRemittances(remittanceRows);
     setBusinessDate((current) => current || businessDateKey(closureRows[0]?.business_date) || "");
@@ -129,7 +140,7 @@ export default function Sales() {
     let active = true;
     setLoading(true);
     setError("");
-    if (!selectedId || points.find((point) => point.id === selectedId)?.type === "INTERNAL") {
+    if (!selectedId) {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
@@ -137,20 +148,35 @@ export default function Sales() {
       setLoading(false);
       return () => { active = false; };
     }
-    Promise.all([
-      getPosTicketEvents(selectedId),
-      getPosDailyClosures(selectedId),
-      getPosRemittances(selectedId),
-    ])
-      .then(([eventRows, closureRows, remittanceRows]) => {
-        if (!active) return;
-        setEvents(eventRows);
-        setClosures(closureRows);
-        setRemittances(remittanceRows);
-        setBusinessDate((current) => closureRows.some((c) => businessDateKey(c.business_date) === current)
-          ? current
-          : businessDateKey(closureRows[0]?.business_date) || "");
-      })
+
+    const selectedPoint = points.find((point) => point.id === selectedId);
+    const loadSelectedPoint = async () => {
+      const eventRows = await getPosTicketEvents(selectedId);
+      if (!active) return;
+      setEvents(eventRows);
+
+      // Les événements SOLD sont consultables pour INTERNAL ; seules les
+      // clôtures et les remises restent réservées aux points EXTERNAL.
+      if (selectedPoint?.type === "INTERNAL") {
+        setClosures([]);
+        setRemittances([]);
+        setBusinessDate("");
+        return;
+      }
+
+      const [closureRows, remittanceRows] = await Promise.all([
+        getPosDailyClosures(selectedId),
+        getPosRemittances(selectedId),
+      ]);
+      if (!active) return;
+      setClosures(closureRows);
+      setRemittances(remittanceRows);
+      setBusinessDate((current) => closureRows.some((c) => businessDateKey(c.business_date) === current)
+        ? current
+        : businessDateKey(closureRows[0]?.business_date) || "");
+    };
+
+    loadSelectedPoint()
       .catch((e: any) => { if (active) setError(e?.response?.status === 403 ? "Accès refusé : seul l’administrateur peut consulter ces historiques." : e?.response?.status === 401 ? "Session expirée. Reconnectez-vous pour continuer." : "Impossible de charger les ventes détectées, les clôtures ou les versements."); })
       .then(() => { if (active) setLoading(false); }, () => { if (active) setLoading(false); });
     return () => { active = false; };
