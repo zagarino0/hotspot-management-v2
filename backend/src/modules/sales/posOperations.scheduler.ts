@@ -1,4 +1,5 @@
 import { pool } from "../../database/pool.js";
+import { firstUseSaleEventKey, resolveFirstUseTariff } from "./posSalesDetection.rules.js";
 
 import {
   POS_TIME_ZONE as TIME_ZONE,
@@ -89,7 +90,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
   );
 }
 
-async function detectFirstUse() {
+export async function detectFirstUse(voucherId?: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -99,33 +100,29 @@ async function detectFirstUse() {
       pointOfSaleId: string;
       code: string;
       firstSessionAt: string;
-      unitPrice: string;
-      currency: string;
-      priceSource: string;
-      priceIssue: string | null;
+      priceSnapshot: string | null;
+      currencySnapshot: string | null;
+      planPrice: string | null;
+      planCurrency: string | null;
+      matchedRows: number;
+      distinctPositivePrices: number;
+      sitePrice: string | null;
+      distinctCurrencies: number;
+      siteCurrency: string | null;
       businessDate: string;
     }>(
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              CASE WHEN v.price_snapshot IS NOT NULL THEN v.price_snapshot
-                   WHEN sp.matched_rows = 0 THEN p.price
-                   WHEN sp.distinct_positive_prices = 1 THEN sp.price
-                   ELSE NULL END::text AS "unitPrice",
-              CASE WHEN v.currency_snapshot IS NOT NULL THEN v.currency_snapshot
-                   WHEN sp.matched_rows = 0 THEN p.currency
-                   WHEN sp.distinct_currencies = 1 THEN sp.currency
-                   ELSE NULL END AS currency,
-              CASE WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
-                   WHEN sp.matched_rows = 0 THEN 'CURRENT_PLAN'
-                   ELSE 'CURRENT_SITE_PROFILE' END AS "priceSource",
-              CASE
-                WHEN v.price_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_positive_prices <> 1
-                  THEN 'Tarif du profil ambigu ou non positif dans la configuration du site.'
-                WHEN v.currency_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_currencies <> 1
-                  THEN 'Devises contradictoires pour le profil dans la configuration du site.'
-                ELSE NULL
-              END AS "priceIssue",
+              v.price_snapshot::text AS "priceSnapshot",
+              v.currency_snapshot AS "currencySnapshot",
+              p.price::text AS "planPrice",
+              p.currency AS "planCurrency",
+              sp.matched_rows AS "matchedRows",
+              sp.distinct_positive_prices AS "distinctPositivePrices",
+              sp.price::text AS "sitePrice",
+              sp.distinct_currencies AS "distinctCurrencies",
+              sp.currency AS "siteCurrency",
               (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
@@ -154,13 +151,27 @@ async function detectFirstUse() {
          ) first_session ON first_session.started_at IS NOT NULL
         WHERE v.first_use_detected_at IS NULL
           AND COALESCE(setting.detect_sale_on_first_use, TRUE) = TRUE
+          AND ($2::uuid IS NULL OR v.id = $2::uuid)
         ORDER BY first_session.started_at
         LIMIT 50
         FOR UPDATE OF v SKIP LOCKED`,
-      [TIME_ZONE],
+      [TIME_ZONE, voucherId ?? null],
     );
 
     for (const item of candidates.rows) {
+      const tariff = resolveFirstUseTariff({
+        voucherPriceSnapshot: item.priceSnapshot === null ? null : Number(item.priceSnapshot),
+        voucherCurrencySnapshot: item.currencySnapshot,
+        planPrice: item.planPrice === null ? null : Number(item.planPrice),
+        planCurrency: item.planCurrency,
+        siteProfile: {
+          matchedRows: Number(item.matchedRows),
+          distinctPositivePrices: Number(item.distinctPositivePrices),
+          price: item.sitePrice === null ? null : Number(item.sitePrice),
+          distinctCurrencies: Number(item.distinctCurrencies),
+          currency: item.siteCurrency,
+        },
+      });
       const priorSale = await client.query<{ pointOfSaleId: string }>(
         `SELECT point_of_sale_id AS "pointOfSaleId"
            FROM point_of_sale_ticket_event
@@ -188,11 +199,11 @@ async function detectFirstUse() {
         continue;
       }
 
-      if (Number(item.unitPrice) <= 0 || item.currency !== "MGA") {
+      if (tariff.unitPrice === null || tariff.unitPrice <= 0 || tariff.currency !== "MGA" || tariff.issue !== null) {
         const issue = await client.query(
           `UPDATE voucher SET first_use_detection_issue = $2
             WHERE id = $1 AND first_use_detection_issue IS NULL`,
-          [item.voucherId, item.priceIssue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
+          [item.voucherId, tariff.issue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
         );
         if (issue.rowCount) {
           console.warn(`[pos-sales] Détection mise en attente: prix non résolu pour le voucher ${item.code}.`);
@@ -212,14 +223,14 @@ async function detectFirstUse() {
           item.siteId,
           item.voucherId,
           item.code,
-          Number(item.unitPrice),
-          item.currency,
-          `voucher-first-use:${item.voucherId}`,
+          tariff.unitPrice,
+          tariff.currency,
+          firstUseSaleEventKey(item.voucherId),
           JSON.stringify({
             detection: "FIRST_SUCCESSFUL_SESSION",
             detectedAt: new Date().toISOString(),
             firstSessionStartedAt: item.firstSessionAt,
-            priceSource: item.priceSource,
+            priceSource: tariff.priceSource,
             saleTimeVerified: false,
           }),
           item.firstSessionAt,
