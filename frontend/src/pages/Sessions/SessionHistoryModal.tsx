@@ -401,12 +401,7 @@ function getCumulativeUniqueDurationSeconds(history: Session[]): number {
       if (!Number.isFinite(start)) return null;
 
       const duration = Math.max(0, toNumber(item.durationSeconds) ?? 0);
-      const recordedEnd = item.endedAt
-        ? new Date(item.endedAt).getTime()
-        : start + duration * 1000;
-      const end = Number.isFinite(recordedEnd)
-        ? Math.max(start, recordedEnd)
-        : start + duration * 1000;
+      const end = start + duration * 1000;
 
       return { start, end };
     })
