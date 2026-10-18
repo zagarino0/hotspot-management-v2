@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { enforceCalendarExpiry, isCalendarValidityProfile, isCalendarVoucherExpired } from "../src/modules/vouchers/calendarValidity.js";
 
-test("calendar validity applies only to the four configured profiles, case-insensitively", () => {
-  for (const profile of ["profil_24H", "PROFIL_WEEK", "profil_mothe_1", "profil_mothe_2"]) {
+test("calendar validity applies only to the five configured profiles, case-insensitively", () => {
+  for (const profile of ["profil_24H", "PROFIL_WEEK", "profil_mothe_1", "profil_mothe_2", "profil_bonus"]) {
     assert.equal(isCalendarValidityProfile(profile), true, profile);
   }
   for (const profile of ["profil_3h", "default", "", null, undefined]) {
@@ -16,6 +16,7 @@ test("calendar expiry uses absolute expiry time, including while the voucher is 
   assert.equal(isCalendarVoucherExpired("profil_24H", "2026-10-17T17:59:59.000Z", now), true);
   assert.equal(isCalendarVoucherExpired("profil_week", "2026-10-17T18:00:00.000Z", now), true);
   assert.equal(isCalendarVoucherExpired("profil_mothe_1", "2026-10-17T18:00:01.000Z", now), false);
+  assert.equal(isCalendarVoucherExpired("profil_bonus", "2026-10-17T17:59:59.000Z", now), true);
   assert.equal(isCalendarVoucherExpired("profil_3h", "2026-10-16T00:00:00.000Z", now), false);
   assert.equal(isCalendarVoucherExpired("profil_24h", null, now), false);
 });
@@ -70,6 +71,32 @@ test("repeated synchronization is idempotent and never resets expiry after recon
   assert.equal(disableCalls, 1);
   assert.equal(removeCalls, 0);
   assert.equal(isCalendarVoucherExpired("profil_week", fixedExpiry, new Date("2026-10-17T19:00:00.000Z")), true);
+});
+
+test("profil_bonus follows the same fixed calendar expiry and enforcement rules", async () => {
+  const fixedExpiry = "2026-10-24T17:00:00.000Z";
+  let disableCalls = 0;
+  let removed: string[] = [];
+  const result = await enforceCalendarExpiry({
+    profile: "PROFIL_BONUS",
+    expiresAt: fixedExpiry,
+    now: new Date("2026-10-24T17:00:00.000Z"),
+    username: "bonus-01",
+    disabled: false,
+    disableUser: async () => { disableCalls += 1; },
+    listActiveUsers: async () => [
+      { username: "BONUS-01", routerInternalId: "*B1" },
+    ],
+    removeActiveUser: async (id) => { removed.push(id); },
+  });
+
+  assert.equal(result, true);
+  assert.equal(disableCalls, 1);
+  assert.deepEqual(removed, ["*B1"]);
+  assert.equal(
+    isCalendarVoucherExpired("profil_bonus", fixedExpiry, new Date("2026-10-24T18:00:00.000Z")),
+    true,
+  );
 });
 
 test("unexpired or non-target vouchers never trigger RouterOS enforcement", async () => {
