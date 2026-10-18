@@ -107,7 +107,7 @@ async function findPlanIdForProfile(
     `SELECT p.id
        FROM plan p
       WHERE p.site_id = $1
-        AND p.mikrotik_profile_code = $2
+        AND LOWER(BTRIM(p.mikrotik_profile_code)) = LOWER(BTRIM($2))
         AND p.status = 'ACTIVE'
       ORDER BY p.created_at ASC
       LIMIT 2`,
