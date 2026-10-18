@@ -355,7 +355,7 @@ export default function Sales() {
       {error && <div role="alert" className="rounded-xl border-0 bg-transparent px-4 py-3 text-sm font-bold text-red-700 dark:text-red-300">{error}</div>}
       {selectedPos?.type === "INTERNAL" && (
         <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          « {selectedPos.name} » est le point interne de l’application. Les ventes détectées, clôtures journalières et versements sont disponibles uniquement pour les points de vente externes. Ce point reste visible dans la liste.
+          « {selectedPos.name} » est le point interne de l’application. Les ventes détectées sont affichées ici comme pour les points externes. Les clôtures journalières et versements restent réservés aux points de vente externes.
         </div>
       )}
 
