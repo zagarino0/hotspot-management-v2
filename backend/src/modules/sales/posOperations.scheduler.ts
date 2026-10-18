@@ -102,18 +102,30 @@ async function detectFirstUse() {
       unitPrice: string;
       currency: string;
       priceSource: string;
+      priceIssue: string | null;
       businessDate: string;
     }>(
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              COALESCE(v.price_snapshot, sp.price, p.price)::text AS "unitPrice",
-              COALESCE(v.currency_snapshot, sp.currency, p.currency) AS currency,
+              CASE WHEN v.price_snapshot IS NOT NULL THEN v.price_snapshot
+                   WHEN sp.matched_rows = 0 THEN p.price
+                   WHEN sp.distinct_positive_prices = 1 THEN sp.price
+                   ELSE NULL END::text AS "unitPrice",
+              CASE WHEN v.currency_snapshot IS NOT NULL THEN v.currency_snapshot
+                   WHEN sp.matched_rows = 0 THEN p.currency
+                   WHEN sp.distinct_currencies = 1 THEN sp.currency
+                   ELSE NULL END AS currency,
+              CASE WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
+                   WHEN sp.matched_rows = 0 THEN 'CURRENT_PLAN'
+                   ELSE 'CURRENT_SITE_PROFILE' END AS "priceSource",
               CASE
-                WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
-                WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
-                ELSE 'CURRENT_PLAN'
-              END AS "priceSource",
+                WHEN v.price_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_positive_prices <> 1
+                  THEN 'Tarif du profil ambigu ou non positif dans la configuration du site.'
+                WHEN v.currency_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_currencies <> 1
+                  THEN 'Devises contradictoires pour le profil dans la configuration du site.'
+                ELSE NULL
+              END AS "priceIssue",
               (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
@@ -123,18 +135,11 @@ async function detectFirstUse() {
          LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
          LEFT JOIN LATERAL (
-           SELECT
-             CASE
-               -- Ignore casing/outer spaces and prefer a single unambiguous positive tariff.
-               -- A duplicate 0 MGA row must not mask the valid 500 MGA row.
-               WHEN COUNT(DISTINCT price) FILTER (WHERE price > 0) = 1
-                 THEN MAX(price) FILTER (WHERE price > 0)
-               ELSE NULL
-             END AS price,
-             CASE
-               WHEN COUNT(DISTINCT currency) = 1 THEN MAX(currency)
-               ELSE NULL
-             END AS currency
+           SELECT COUNT(*)::int AS matched_rows,
+                  COUNT(DISTINCT price) FILTER (WHERE price > 0)::int AS distinct_positive_prices,
+                  MAX(price) FILTER (WHERE price > 0) AS price,
+                  COUNT(DISTINCT currency)::int AS distinct_currencies,
+                  MAX(currency) AS currency
            FROM site_hotspot_profile_price
            WHERE site_id = v.site_id
              AND LOWER(BTRIM(profile_code)) = LOWER(BTRIM(v.mikrotik_profile))
@@ -143,6 +148,9 @@ async function detectFirstUse() {
            SELECT MIN(s.started_at) AS started_at
              FROM session s
             WHERE s.voucher_id = v.id
+               OR (s.voucher_id IS NULL AND s.site_id = v.site_id
+                   AND s.router_id = v.router_id
+                   AND LOWER(s.username) = LOWER(COALESCE(v.mikrotik_username, v.code)))
          ) first_session ON first_session.started_at IS NOT NULL
         WHERE v.first_use_detected_at IS NULL
           AND COALESCE(setting.detect_sale_on_first_use, TRUE) = TRUE
@@ -184,7 +192,7 @@ async function detectFirstUse() {
         const issue = await client.query(
           `UPDATE voucher SET first_use_detection_issue = $2
             WHERE id = $1 AND first_use_detection_issue IS NULL`,
-          [item.voucherId, "Prix ou devise du forfait non résolu pour la détection de vente."],
+          [item.voucherId, item.priceIssue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
         );
         if (issue.rowCount) {
           console.warn(`[pos-sales] Détection mise en attente: prix non résolu pour le voucher ${item.code}.`);
