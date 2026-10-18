@@ -89,15 +89,27 @@ export default function SessionHistoryModal({
   const totalQuota =
     toNumber(latestSession.voucherDurationSeconds);
 
-  const usedSeconds =
-    toNumber(latestSession.voucherUsedSeconds) ?? 0;
-
-  const remainingSeconds =
-    latestSession.status === "ACTIVE"
+  const calendarProfile = isCalendarProfile(latestSession.mikrotikProfile);
+  const remainingSeconds = calendarProfile
+    ? toNumber(latestSession.voucherRemainingSeconds)
+    : latestSession.status === "ACTIVE"
       ? toNumber(latestSession.voucherRemainingSeconds)
-      : toNumber(
-          latestSession.voucherRemainingSecondsAtEnd
-        );
+      : toNumber(latestSession.voucherRemainingSecondsAtEnd);
+
+  const usedSeconds = calendarProfile
+    ? getCumulativeUniqueDurationSeconds(history)
+    : toNumber(latestSession.voucherUsedSeconds) ?? 0;
+
+  const usedDays =
+    calendarProfile && totalQuota !== null && remainingSeconds !== null
+      ? Math.max(
+          0,
+          Math.min(
+            Math.floor(totalQuota / 86400),
+            Math.floor((totalQuota - remainingSeconds) / 86400)
+          )
+        )
+      : null;
 
   const displayStatus = getDisplayStatus(latestSession);
 
@@ -165,13 +177,17 @@ export default function SessionHistoryModal({
           />
 
           <SummaryCard
-            label="Total utilisé"
-            value={formatDuration(usedSeconds)}
+            label={calendarProfile ? "Jours utilisés" : "Total utilisé"}
+            value={
+              calendarProfile && usedDays !== null
+                ? `${usedDays} j`
+                : formatDuration(usedSeconds)
+            }
           />
 
           <SummaryCard
             label={
-              latestSession.status === "ACTIVE"
+              calendarProfile || latestSession.status === "ACTIVE"
                 ? "Restant maintenant"
                 : "Restant à la déconnexion"
             }
@@ -214,11 +230,18 @@ export default function SessionHistoryModal({
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="text-[11px] text-slate-400">
-            {orderedHistory.length} connexion
-            {orderedHistory.length > 1 ? "s" : ""}
-            {" · "}
-            {session.ipAddress || "IP inconnue"}
+          <div className="flex flex-col gap-1 text-[11px] text-slate-400">
+            <span>
+              {orderedHistory.length} connexion
+              {orderedHistory.length > 1 ? "s" : ""}
+              {" · "}
+              {session.ipAddress || "IP inconnue"}
+            </span>
+            {calendarProfile && (
+              <span className="font-semibold text-slate-600">
+                Total des heures utilisées : {formatDuration(usedSeconds)}
+              </span>
+            )}
           </div>
 
           <button
@@ -355,6 +378,63 @@ function Detail({
       </div>
     </div>
   );
+}
+
+function isCalendarProfile(profile: string | null): boolean {
+  return [
+    "profil_24h",
+    "profil_week",
+    "profil_mothe_1",
+    "profil_mothe_2",
+    "profil_bonus",
+  ].includes((profile ?? "").trim().toLowerCase());
+}
+
+/**
+ * Union des intervalles de connexion : évite de compter deux fois une
+ * même période si l'historique contient des sessions qui se chevauchent.
+ */
+function getCumulativeUniqueDurationSeconds(history: Session[]): number {
+  const intervals = history
+    .map((item) => {
+      const start = new Date(item.startedAt).getTime();
+      if (!Number.isFinite(start)) return null;
+
+      const duration = Math.max(0, toNumber(item.durationSeconds) ?? 0);
+      const recordedEnd = item.endedAt
+        ? new Date(item.endedAt).getTime()
+        : start + duration * 1000;
+      const end = Number.isFinite(recordedEnd)
+        ? Math.max(start, recordedEnd)
+        : start + duration * 1000;
+
+      return { start, end };
+    })
+    .filter((item): item is { start: number; end: number } => item !== null && item.end > item.start)
+    .sort((a, b) => a.start - b.start);
+
+  let totalMs = 0;
+  let currentStart: number | null = null;
+  let currentEnd: number | null = null;
+
+  for (const interval of intervals) {
+    if (currentStart === null || currentEnd === null) {
+      currentStart = interval.start;
+      currentEnd = interval.end;
+    } else if (interval.start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, interval.end);
+    } else {
+      totalMs += currentEnd - currentStart;
+      currentStart = interval.start;
+      currentEnd = interval.end;
+    }
+  }
+
+  if (currentStart !== null && currentEnd !== null) {
+    totalMs += currentEnd - currentStart;
+  }
+
+  return Math.floor(totalMs / 1000);
 }
 
 function getDisplayStatus(session: Session): SessionStatus {
