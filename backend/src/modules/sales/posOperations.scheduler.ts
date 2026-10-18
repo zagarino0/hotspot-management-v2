@@ -119,11 +119,26 @@ async function detectFirstUse() {
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
-           AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
+           AND pos.status = 'ACTIVE'
          LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
-         LEFT JOIN site_hotspot_profile_price sp
-           ON sp.site_id = v.site_id AND LOWER(sp.profile_code) = LOWER(v.mikrotik_profile)
+         LEFT JOIN LATERAL (
+           SELECT
+             CASE
+               -- Ignore casing/outer spaces and prefer a single unambiguous positive tariff.
+               -- A duplicate 0 MGA row must not mask the valid 500 MGA row.
+               WHEN COUNT(DISTINCT price) FILTER (WHERE price > 0) = 1
+                 THEN MAX(price) FILTER (WHERE price > 0)
+               ELSE NULL
+             END AS price,
+             CASE
+               WHEN COUNT(DISTINCT currency) = 1 THEN MAX(currency)
+               ELSE NULL
+             END AS currency
+           FROM site_hotspot_profile_price
+           WHERE site_id = v.site_id
+             AND LOWER(BTRIM(profile_code)) = LOWER(BTRIM(v.mikrotik_profile))
+         ) sp ON TRUE
          JOIN LATERAL (
            SELECT MIN(s.started_at) AS started_at
              FROM session s
@@ -396,7 +411,7 @@ async function runSchedulerCycle() {
       const posResult = await pool.query<{ id: string; closingTime: string }>(
         `SELECT pos.id, TO_CHAR(pos.closing_time, 'HH24:MI') AS "closingTime"
            FROM point_of_sale pos
-          WHERE pos.organization_id = $1 AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'`,
+          WHERE pos.organization_id = $1 AND pos.status = 'ACTIVE'`,
         [setting.organizationId],
       );
       for (const pos of posResult.rows) {
