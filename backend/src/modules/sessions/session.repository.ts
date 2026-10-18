@@ -672,20 +672,48 @@ export async function upsertActiveSession(
 
 export async function findVoucherIdByCode(
   siteId: string,
-  code: string
+  routerId: string,
+  username: string
 ): Promise<string | null> {
+  const normalizedUsername = username.trim();
+  if (!normalizedUsername) return null;
+
+  // Le nom du compte MikroTik est l'identifiant d'abord à rapprocher,
+  // mais uniquement dans le site et le routeur concernés. La comparaison
+  // insensible à la casse tolère les différences de capitalisation RouterOS.
   const result = await pool.query<{ id: string }>(
     `
       SELECT id
       FROM voucher
       WHERE site_id = $1
-        AND code = $2
+        AND router_id = $2
+        AND LOWER(COALESCE(mikrotik_username, code)) = LOWER($3)
+      ORDER BY
+        CASE WHEN LOWER(mikrotik_username) = LOWER($3) THEN 0 ELSE 1 END,
+        created_at DESC
       LIMIT 1
     `,
-    [siteId, code]
+    [siteId, routerId, normalizedUsername]
   );
 
-  return result.rows[0]?.id ?? null;
+  if (result.rows[0]) return result.rows[0].id;
+
+  // Compatibilité avec les anciens vouchers non encore rattachés à un routeur.
+  // Ne jamais récupérer un voucher déjà attribué à un autre routeur.
+  const legacy = await pool.query<{ id: string }>(
+    `
+      SELECT id
+      FROM voucher
+      WHERE site_id = $1
+        AND router_id IS NULL
+        AND LOWER(code) = LOWER($2)
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [siteId, normalizedUsername]
+  );
+
+  return legacy.rows[0]?.id ?? null;
 }
 
 export async function activateVoucher(
