@@ -387,7 +387,7 @@ function isCalendarProfile(profile: string | null): boolean {
     "profil_mothe_1",
     "profil_mothe_2",
     "profil_bonus",
-  ].includes((profile ?? "").trim().toLowerCase());
+  ].indexOf((profile ?? "").trim().toLowerCase()) !== -1;
 }
 
 /**
