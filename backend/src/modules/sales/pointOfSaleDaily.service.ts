@@ -16,6 +16,14 @@ async function assertExternalPosAccess(client: PoolClient, pointOfSaleId: string
   if (!result.rows[0]) throw notFoundError("Point de vente externe introuvable.");
   return result.rows[0];
 }
+
+async function assertPosOrganizationAccess(client: PoolClient, pointOfSaleId: string, userId: string): Promise<PosAccess> {
+  const result = await client.query<PosAccess>(`SELECT pos.id, pos.organization_id AS "organizationId"
+    FROM point_of_sale pos JOIN "user" u ON u.organization_id = pos.organization_id
+    WHERE pos.id = $1 AND u.id = $2 LIMIT 1`, [pointOfSaleId, userId]);
+  if (!result.rows[0]) throw notFoundError("Point de vente introuvable.");
+  return result.rows[0];
+}
 async function assertPermission(client: PoolClient, userId: string, organizationId: string, code: string) {
   const result = await client.query(`SELECT 1 FROM user_role ur
     JOIN role r ON r.id=ur.role_id AND r.status='ACTIVE'
@@ -27,7 +35,7 @@ async function assertPermission(client: PoolClient, userId: string, organization
 
 export async function listDailyClosures(id: string, userId: string, from?: string, to?: string) {
   const c=await pool.connect(); try {
-    const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_DAILY_CLOSURES_READ");
+    const pos=await assertPosOrganizationAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_DAILY_CLOSURES_READ");
     const r=await c.query(`SELECT * FROM point_of_sale_daily_closure WHERE point_of_sale_id=$1
       AND ($2::date IS NULL OR business_date >= $2::date) AND ($3::date IS NULL OR business_date <= $3::date)
       ORDER BY business_date DESC LIMIT 120`,[id,from??null,to??null]); return r.rows;
@@ -35,7 +43,14 @@ export async function listDailyClosures(id: string, userId: string, from?: strin
 }
 export async function listTicketEvents(id: string,userId: string,date?: string) {
   const c=await pool.connect(); try {
-    const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_TICKET_EVENTS_READ");
+    const access = await c.query<PosAccess>(`SELECT pos.id, pos.organization_id AS "organizationId"
+      FROM point_of_sale pos
+      JOIN "user" u ON u.organization_id = pos.organization_id
+      WHERE pos.id = $1 AND u.id = $2
+      LIMIT 1`, [id, userId]);
+    const pos = access.rows[0];
+    if (!pos) throw notFoundError("Point de vente introuvable.");
+    await assertPermission(c, userId, pos.organizationId, "POS_TICKET_EVENTS_READ");
     const r=await c.query(`SELECT e.* FROM point_of_sale_ticket_event e
       JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
       WHERE e.point_of_sale_id=$1
