@@ -35,7 +35,14 @@ export async function listDailyClosures(id: string, userId: string, from?: strin
 }
 export async function listTicketEvents(id: string,userId: string,date?: string) {
   const c=await pool.connect(); try {
-    const pos=await assertExternalPosAccess(c,id,userId); await assertPermission(c,userId,pos.organizationId,"POS_TICKET_EVENTS_READ");
+    const access = await c.query<PosAccess>(`SELECT pos.id, pos.organization_id AS "organizationId"
+      FROM point_of_sale pos
+      JOIN "user" u ON u.organization_id = pos.organization_id
+      WHERE pos.id = $1 AND u.id = $2
+      LIMIT 1`, [id, userId]);
+    const pos = access.rows[0];
+    if (!pos) throw notFoundError("Point de vente introuvable.");
+    await assertPermission(c, userId, pos.organizationId, "POS_TICKET_EVENTS_READ");
     const r=await c.query(`SELECT e.* FROM point_of_sale_ticket_event e
       JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
       WHERE e.point_of_sale_id=$1
