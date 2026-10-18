@@ -358,6 +358,7 @@ async function performRouterSyncSessions(
         user.username !== null
           ? await findVoucherIdByCode(
               router.siteId,
+              router.id,
               user.username
             )
           : null;
