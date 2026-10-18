@@ -3,6 +3,7 @@ export const CALENDAR_VALIDITY_PROFILES = new Set([
   "profil_week",
   "profil_mothe_1",
   "profil_mothe_2",
+  "profil_bonus",
 ]);
 
 export function isCalendarValidityProfile(profile: string | null | undefined): boolean {
