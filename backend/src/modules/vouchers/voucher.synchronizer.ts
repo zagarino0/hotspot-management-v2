@@ -10,6 +10,7 @@ interface PointOfSaleRef {
   id: string;
   code: string;
   status: "ACTIVE" | "INACTIVE";
+  type: string;
 }
 
 interface ExistingVoucher {
@@ -246,10 +247,9 @@ export async function syncMikrotikVouchers(
   api?: RouterOSAPI
 ): Promise<{ discovered: number; updated: number; deleted: number; anomalies: number }> {
   const posResult = await pool.query<PointOfSaleRef>(
-    `SELECT id, code, status
+    `SELECT id, code, status, type
        FROM point_of_sale
-      WHERE organization_id = $1
-        AND type = 'EXTERNAL'`,
+      WHERE organization_id = $1`,
     [router.organizationId]
   );
 
@@ -271,13 +271,12 @@ export async function syncMikrotikVouchers(
     // ambiguous or missing. This keeps already-linked POS vouchers enforceable.
     if (!pointOfSale) {
       const linkedPos = await pool.query<PointOfSaleRef>(
-        `SELECT p.id, p.code, p.status
+        `SELECT p.id, p.code, p.status, p.type
            FROM voucher v
            JOIN point_of_sale p ON p.id = v.point_of_sale_id
           WHERE v.router_id = $1
             AND v.mikrotik_username = $2
             AND p.organization_id = $3
-            AND p.type = 'EXTERNAL'
           LIMIT 1`,
         [router.id, username, router.organizationId]
       );
@@ -356,11 +355,10 @@ export async function syncMikrotikVouchers(
     // immediately before enforcing the POS lock, especially during activation.
     if (pointOfSale) {
       const currentPos = await pool.query<PointOfSaleRef>(
-        `SELECT id, code, status
+        `SELECT id, code, status, type
            FROM point_of_sale
           WHERE id = $1
             AND organization_id = $2
-            AND type = 'EXTERNAL'
           LIMIT 1`,
         [pointOfSale.id, router.organizationId]
       );
@@ -369,7 +367,7 @@ export async function syncMikrotikVouchers(
 
     // An inactive external POS is authoritative: never trust a possibly stale
     // enabled state returned by a sync cycle that overlaps POS deactivation.
-    const posInactive = pointOfSale?.status === "INACTIVE";
+    const posInactive = pointOfSale?.type === "EXTERNAL" && pointOfSale.status === "INACTIVE";
     if (posInactive && api) {
       if (!user.disabled) {
         await setHotspotUserDisabled(api, username, true);
