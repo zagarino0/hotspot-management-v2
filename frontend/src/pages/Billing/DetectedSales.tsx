@@ -105,18 +105,12 @@ export default function Sales() {
       return;
     }
 
-    const point = points.find((item) => item.id === id);
     const eventRows = await getPosTicketEvents(id);
     setEvents(eventRows);
 
     // Le point interne enregistre des ventes, mais ne possède ni clôture
     // journalière ni versement externe.
-    if (point?.type === "INTERNAL") {
-      setClosures([]);
-      setRemittances([]);
-      setBusinessDate("");
-      return;
-    }
+    
 
     const [closureRows, remittanceRows] = await Promise.all([
       getPosDailyClosures(id),
@@ -149,7 +143,6 @@ export default function Sales() {
       return () => { active = false; };
     }
 
-    const selectedPoint = points.find((point) => point.id === selectedId);
     const loadSelectedPoint = async () => {
       const eventRows = await getPosTicketEvents(selectedId);
       if (!active) return;
@@ -157,12 +150,7 @@ export default function Sales() {
 
       // Les événements SOLD sont consultables pour INTERNAL ; seules les
       // clôtures et les remises restent réservées aux points EXTERNAL.
-      if (selectedPoint?.type === "INTERNAL") {
-        setClosures([]);
-        setRemittances([]);
-        setBusinessDate("");
-        return;
-      }
+      
 
       const [closureRows, remittanceRows] = await Promise.all([
         getPosDailyClosures(selectedId),
@@ -285,10 +273,6 @@ export default function Sales() {
 
   async function handleRemittance() {
     if (busy) return;
-    if (selectedPos?.type === "INTERNAL") {
-      setError("Les versements sont disponibles uniquement pour les points de vente externes.");
-      return;
-    }
     if (!selectedId || !businessDate || !selectedClosure) {
       setError("Sélectionnez une clôture existante avant de confirmer le versement.");
       return;
@@ -353,11 +337,7 @@ export default function Sales() {
       </header>
 
       {error && <div role="alert" className="rounded-xl border-0 bg-transparent px-4 py-3 text-sm font-bold text-red-700 dark:text-red-300">{error}</div>}
-      {selectedPos?.type === "INTERNAL" && (
-        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          « {selectedPos.name} » est le point interne de l’application. Les ventes détectées sont affichées ici comme pour les points externes. Les clôtures journalières et versements restent réservés aux points de vente externes.
-        </div>
-      )}
+
 
       <section className="rounded-2xl border-0 bg-white p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
