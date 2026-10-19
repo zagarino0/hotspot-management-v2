@@ -418,33 +418,40 @@ export default function Sales() {
         }
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-2xl border-0 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Confirmer un versement</h2></div>
-          <p className="mb-4 text-sm font-medium text-slate-600">La personne responsable saisit le montant réellement remis. La vente elle-même n'est pas saisie manuellement.</p>
-          <label className="mb-3 block text-sm font-semibold text-slate-800">Journée clôturée
-            <select value={businessDate} onChange={(e) => { setBusinessDate(e.target.value); setAmount(""); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3">
-              {closures.filter((closure) => closure.status === "CLOSED").map((closure) => <option key={closure.id} value={businessDateKey(closure.business_date)}>{businessDateKey(closure.business_date)} — attendu {money(closure.net_revenue)}</option>)}
-            </select>
-          </label>
-          <div className="mb-3 rounded-xl bg-slate-50 p-3"><p className="text-xs font-medium text-slate-600">Montant attendu</p><p className="text-lg font-extrabold font-semibold text-slate-950">{selectedClosure ? money(selectedClosure.net_revenue) : "Aucune clôture sélectionnée"}</p></div>
-          <label className="mb-3 block text-sm font-semibold text-slate-800">Montant réellement remis (MGA)
-            <input type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Saisir le montant reçu" />
-          </label>
-          <label className="mb-4 block text-sm font-semibold text-slate-800">Note (facultatif)
-            <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Commentaire sur le versement" />
-          </label>
-          {selectedRemittance && <div role="status" className="mb-3 rounded-xl border-0 bg-transparent p-3 text-sm font-bold text-emerald-700 dark:text-emerald-300">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
-          <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === "" || Boolean(selectedRemittance)} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Enregistrement…" : selectedRemittance ? "Versement déjà enregistré" : "Confirmer la réception"}</button>
-          <p className="mt-3 text-xs font-medium text-slate-600">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
-        </div>
-        <div className="overflow-hidden rounded-2xl border-0 bg-white">
-          <div className="border-b border-slate-100 p-4"><h2 className="font-bold font-semibold text-slate-950">Historique des versements</h2><p className="mt-1 text-sm font-medium text-slate-600">Montants reçus et écarts conservés par journée.</p></div>
-          {remittances.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucun versement enregistré.</p> :
-            <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[560px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Attendu</th><th className="px-4 py-3">Reçu</th><th className="px-4 py-3">Écart</th><th className="px-4 py-3">Date de réception</th></tr></thead><tbody>{remittances.map((item) => <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3">{businessDateKey(item.business_date)}</td><td className="px-4 py-3">{money(item.expected_amount)}</td><td className="px-4 py-3">{money(item.remitted_amount)}</td><td className={`px-4 py-3 font-semibold ${Number(item.difference) === 0 ? "text-emerald-700" : "text-amber-700"}`}>{money(item.difference)}</td><td className="px-4 py-3 text-slate-500">{dateLabel(item.remitted_at)}</td></tr>)}</tbody></table></div>
-          }
-        </div>
-      </section>
+      {selectedPos?.type === "EXTERNAL" ? (
+        <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-2xl border-0 bg-white p-5">
+            <div className="mb-4 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Confirmer un versement</h2></div>
+            <p className="mb-4 text-sm font-medium text-slate-600">La personne responsable saisit le montant réellement remis. La vente elle-même n'est pas saisie manuellement.</p>
+            <label className="mb-3 block text-sm font-semibold text-slate-800">Journée clôturée
+              <select value={businessDate} onChange={(e) => { setBusinessDate(e.target.value); setAmount(""); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3">
+                {closures.filter((closure) => closure.status === "CLOSED").map((closure) => <option key={closure.id} value={businessDateKey(closure.business_date)}>{businessDateKey(closure.business_date)} — attendu {money(closure.net_revenue)}</option>)}
+              </select>
+            </label>
+            <div className="mb-3 rounded-xl bg-slate-50 p-3"><p className="text-xs font-medium text-slate-600">Montant attendu</p><p className="text-lg font-extrabold font-semibold text-slate-950">{selectedClosure ? money(selectedClosure.net_revenue) : "Aucune clôture sélectionnée"}</p></div>
+            <label className="mb-3 block text-sm font-semibold text-slate-800">Montant réellement remis (MGA)
+              <input type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Saisir le montant reçu" />
+            </label>
+            <label className="mb-4 block text-sm font-semibold text-slate-800">Note (facultatif)
+              <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 px-3" placeholder="Commentaire sur le versement" />
+            </label>
+            {selectedRemittance && <div role="status" className="mb-3 rounded-xl border-0 bg-transparent p-3 text-sm font-bold text-emerald-700 dark:text-emerald-300">Versement déjà enregistré pour cette journée : {money(selectedRemittance.remitted_amount)} reçu, écart de {money(selectedRemittance.difference)}. Aucun nouveau versement ne peut être créé.</div>}
+            <button type="button" onClick={handleRemittance} disabled={busy || !selectedClosure || !businessDate || amount === "" || Boolean(selectedRemittance)} className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Enregistrement…" : selectedRemittance ? "Versement déjà enregistré" : "Confirmer la réception"}</button>
+            <p className="mt-3 text-xs font-medium text-slate-600">Le système conserve l'écart entre le montant attendu et le montant reçu. Un versement unique est autorisé par point de vente et par journée.</p>
+          </div>
+          <div className="overflow-hidden rounded-2xl border-0 bg-white">
+            <div className="border-b border-slate-100 p-4"><h2 className="font-bold font-semibold text-slate-950">Historique des versements</h2><p className="mt-1 text-sm font-medium text-slate-600">Montants reçus et écarts conservés par journée.</p></div>
+            {remittances.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucun versement enregistré.</p> :
+              <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[560px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Attendu</th><th className="px-4 py-3">Reçu</th><th className="px-4 py-3">Écart</th><th className="px-4 py-3">Date de réception</th></tr></thead><tbody>{remittances.map((item) => <tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-3">{businessDateKey(item.business_date)}</td><td className="px-4 py-3">{money(item.expected_amount)}</td><td className="px-4 py-3">{money(item.remitted_amount)}</td><td className={`px-4 py-3 font-semibold ${Number(item.difference) === 0 ? "text-emerald-700" : "text-amber-700"}`}>{money(item.difference)}</td><td className="px-4 py-3 text-slate-500">{dateLabel(item.remitted_at)}</td></tr>)}</tbody></table></div>
+            }
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-2xl border-0 bg-white p-5">
+          <div className="mb-2 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Versements</h2></div>
+          <p className="text-sm font-medium text-slate-600">Le point de vente interne n’utilise pas le processus de versement des points externes. Les ventes et les clôtures quotidiennes restent consultables ci-dessus.</p>
+        </section>
+      )}
     </div>
   );
 }
