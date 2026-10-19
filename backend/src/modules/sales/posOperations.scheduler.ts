@@ -90,7 +90,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
   );
 }
 
-async function detectFirstUse(voucherId?: string) {
+export async function detectFirstUse(voucherId?: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
