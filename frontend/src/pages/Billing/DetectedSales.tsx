@@ -100,7 +100,6 @@ export default function Sales() {
       setRemittances([]);
       return;
     }
-    const selectedPoint = points.find((point) => point.id === id);
     const eventRows = await getPosTicketEvents(id);
     // Les clôtures et versements sont réservés aux points externes par l'API.
     // Ne pas faire échouer le chargement des ventes internes en appelant ces routes.
@@ -132,7 +131,6 @@ export default function Sales() {
       setLoading(false);
       return () => { active = false; };
     }
-    const selectedPoint = points.find((point) => point.id === selectedId);
     const dataPromise = getPosTicketEvents(selectedId).then(async (eventRows) => {
       const closureRows = await getPosDailyClosures(selectedId);
       const remittanceRows = await getPosRemittances(selectedId);
