@@ -100,11 +100,13 @@ export default function Sales() {
       setRemittances([]);
       return;
     }
-    const [eventRows, closureRows, remittanceRows] = await Promise.all([
-      getPosTicketEvents(id),
-      getPosDailyClosures(id),
-      getPosRemittances(id),
-    ]);
+    const selectedPoint = points.find((point) => point.id === id);
+    const eventRows = await getPosTicketEvents(id);
+    // Les clôtures et versements sont réservés aux points externes par l'API.
+    // Ne pas faire échouer le chargement des ventes internes en appelant ces routes.
+    const [closureRows, remittanceRows] = selectedPoint?.type === "INTERNAL"
+      ? [[], []] as [PosDailyClosure[], PosRemittance[]]
+      : await Promise.all([getPosDailyClosures(id), getPosRemittances(id)]);
     setEvents(eventRows);
     setClosures(closureRows);
     setRemittances(remittanceRows);
@@ -131,11 +133,14 @@ export default function Sales() {
       setLoading(false);
       return () => { active = false; };
     }
-    Promise.all([
-      getPosTicketEvents(selectedId),
-      getPosDailyClosures(selectedId),
-      getPosRemittances(selectedId),
-    ])
+    const selectedPoint = points.find((point) => point.id === selectedId);
+    const dataPromise = getPosTicketEvents(selectedId).then(async (eventRows) => {
+      const [closureRows, remittanceRows] = selectedPoint?.type === "INTERNAL"
+        ? [[], []] as [PosDailyClosure[], PosRemittance[]]
+        : await Promise.all([getPosDailyClosures(selectedId), getPosRemittances(selectedId)]);
+      return [eventRows, closureRows, remittanceRows] as const;
+    });
+    dataPromise
       .then(([eventRows, closureRows, remittanceRows]) => {
         if (!active) return;
         setEvents(eventRows);
