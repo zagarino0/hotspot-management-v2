@@ -119,7 +119,7 @@ export default function SessionHistoryModal({
               (calendarDayStart(Date.now()) -
                 calendarDayStart(firstConnectionAt)) /
                 86400000
-            ) + 1
+            )
           )
         )
       : null;
