@@ -456,7 +456,7 @@ async function runSchedulerCycle() {
         }
 
         // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
-        if (!isClosureDue(nowTime, pos.closingTime)) continue;
+        if (!isClosureDue(nowTime, setting.closureTime)) continue;
         // La journée commerciale porte la date de clôture : le cycle ouvert la veille à 20:10 est clôturé à 20:00 aujourd'hui.
         const existing = await pool.query<{ lastDate: string | null }>(
           `SELECT MAX(business_date)::text AS "lastDate"
