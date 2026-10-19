@@ -244,10 +244,17 @@ export default function SessionHistoryModal({
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div className="text-[11px] text-slate-400">
-            {orderedHistory.length} connexion
-            {orderedHistory.length > 1 ? "s" : ""}
-            {" · "}
-            {session.ipAddress || "IP inconnue"}
+            <div>
+              {orderedHistory.length} connexion
+              {orderedHistory.length > 1 ? "s" : ""}
+              {" · "}
+              {session.ipAddress || "IP inconnue"}
+            </div>
+            <div className="mt-1 font-semibold text-slate-600">
+              Temps de connexion cumulé : {formatDuration(
+                getCumulativeUniqueDurationSeconds(history)
+              )}
+            </div>
           </div>
 
           <button
