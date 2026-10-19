@@ -443,11 +443,6 @@ export default function Sales() {
             }
           </div>
         </section>
-      ) : (
-        <section className="rounded-2xl border-0 bg-white p-5">
-          <div className="mb-2 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Versements</h2></div>
-          <p className="text-sm font-medium text-slate-600">Le point de vente interne n’utilise pas le processus de versement des points externes. Les ventes et les clôtures quotidiennes restent consultables ci-dessus.</p>
-        </section>
     </div>
   );
 }
