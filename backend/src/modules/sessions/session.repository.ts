@@ -516,9 +516,14 @@ export async function upsertActiveSession(
   // connexion active courante. Si son heure de début estimée diffère
   // fortement de started_at, il s'agit d'une reconnexion que le cycle
   // précédent n'a pas observée. Ne pas réutiliser l'ancienne ligne.
-  const existing = await pool.query<{ id: string; startedAt: Date | string }>(
+  const existing = await pool.query<{
+    id: string;
+    durationSeconds: number | string | null;
+  }>(
     `
-      SELECT id, started_at AS "startedAt"
+      SELECT
+        id,
+        duration_seconds AS "durationSeconds"
       FROM session
       WHERE router_id = $1
         AND mac_address = $2
@@ -530,20 +535,27 @@ export async function upsertActiveSession(
     [data.routerId, data.macAddress]
   );
 
-  const currentStartedAtMs = Date.now() - Math.max(0, data.uptimeSeconds) * 1000;
   const existingRow = existing.rows[0];
-  const existingStartedAtMs = existingRow
-    ? new Date(existingRow.startedAt).getTime()
-    : Number.NaN;
+  const previousMikrotikUptime = existingRow?.durationSeconds == null
+    ? null
+    : Number(existingRow.durationSeconds);
+
+  // Détection fondée exclusivement sur le compteur uptime renvoyé par
+  // MikroTik, jamais sur l'horloge du backend ou celle de PostgreSQL.
+  // Une baisse nette de l'uptime courant par rapport au maximum observé
+  // indique que la connexion active a été réinitialisée/recréée.
+  // La petite tolérance absorbe les variations d'ordre des observations.
+  const MIKROTIK_UPTIME_JITTER_SECONDS = 5;
   const sameConnection =
     existingRow !== undefined &&
-    Number.isFinite(existingStartedAtMs) &&
-    Math.abs(existingStartedAtMs - currentStartedAtMs) <= 120_000;
+    previousMikrotikUptime !== null &&
+    Number.isFinite(previousMikrotikUptime) &&
+    data.uptimeSeconds + MIKROTIK_UPTIME_JITTER_SECONDS >= previousMikrotikUptime;
 
   if (existingRow && !sameConnection) {
-    // On ne connaît pas l'instant exact de déconnexion si les cycles ont
-    // manqué l'événement. updated_at est la dernière observation fiable.
-    // La durée reste le dernier uptime observé, sans compter le temps hors ligne.
+    // L'uptime MikroTik a diminué : on clôt l'ancienne connexion et on
+    // ouvre une nouvelle ligne. On conserve la dernière durée observée ;
+    // on ne compte jamais le temps passé hors ligne.
     await pool.query(
       `
         UPDATE session
