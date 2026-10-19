@@ -129,6 +129,7 @@ const SESSION_SELECT = `
     END AS "voucherRemainingSecondsAtEnd",
 
     v.code AS "voucherCode",
+    v.activated_at AS "voucherActivatedAt",
 
     CASE
       WHEN s.voucher_id IS NOT NULL THEN (
