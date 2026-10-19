@@ -100,27 +100,31 @@ export default function SessionHistoryModal({
     ? getCumulativeUniqueDurationSeconds(history)
     : toNumber(latestSession.voucherUsedSeconds) ?? 0;
 
-  const firstConnectionAt = useMemo(() => {
+  const firstActivationAt = useMemo(() => {
+    const activation = latestSession.voucherActivatedAt
+      ? new Date(latestSession.voucherActivatedAt).getTime()
+      : Number.NaN;
+    if (Number.isFinite(activation)) return activation;
+
+    // Repli historique si le voucher n'a pas de date d'activation persistée.
     const timestamps = history
       .map((item) => new Date(item.startedAt).getTime())
       .filter((value) => Number.isFinite(value));
     return timestamps.length > 0 ? Math.min(...timestamps) : null;
-  }, [history]);
+  }, [history, latestSession.voucherActivatedAt]);
 
-  // Les jours calendaires utilisés sont comptés depuis la première connexion,
-  // même lorsque le client se déconnecte puis se reconnecte plusieurs fois.
+  // Pour les forfaits calendrier, compter le temps écoulé depuis la première
+  // activation (pas les jours civils et pas le temps connecté). Le jour entamé
+  // compte comme une fraction de jour dans le quota affiché.
+  const usedCalendarSeconds =
+    calendarProfile && firstActivationAt !== null
+      ? Math.max(0, Math.floor((Date.now() - firstActivationAt) / 1000))
+      : null;
   const usedDays =
-    calendarProfile && totalQuota !== null && firstConnectionAt !== null
-      ? Math.max(
-          0,
-          Math.min(
-            Math.ceil(totalQuota / 86400),
-            Math.floor(
-              (calendarDayStart(Date.now()) -
-                calendarDayStart(firstConnectionAt)) /
-                86400000
-            )
-          )
+    usedCalendarSeconds !== null
+      ? Math.min(
+          totalQuota !== null ? Math.ceil(totalQuota / 86400) : Number.POSITIVE_INFINITY,
+          Math.floor(usedCalendarSeconds / 86400)
         )
       : null;
 
@@ -193,7 +197,7 @@ export default function SessionHistoryModal({
             label={calendarProfile ? "Jours utilisés" : "Total utilisé"}
             value={
               calendarProfile && usedDays !== null
-                ? `${usedDays} j`
+                ? formatDuration(usedCalendarSeconds ?? 0)
                 : formatDuration(usedSeconds)
             }
           />
