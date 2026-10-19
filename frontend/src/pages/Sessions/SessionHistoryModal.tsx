@@ -100,13 +100,27 @@ export default function SessionHistoryModal({
     ? getCumulativeUniqueDurationSeconds(history)
     : toNumber(latestSession.voucherUsedSeconds) ?? 0;
 
+  // Les profils calendaires consomment des jours selon le calendrier,
+  // pas par blocs de 24 heures écoulées. La première session de l'historique
+  // représente la première connexion connue du voucher.
+  const firstConnectionAt = useMemo(() => {
+    const timestamps = history
+      .map((item) => new Date(item.startedAt).getTime())
+      .filter((value) => Number.isFinite(value));
+    return timestamps.length > 0 ? Math.min(...timestamps) : null;
+  }, [history]);
+
   const usedDays =
-    calendarProfile && totalQuota !== null && remainingSeconds !== null
+    calendarProfile && totalQuota !== null && firstConnectionAt !== null
       ? Math.max(
           0,
           Math.min(
             Math.floor(totalQuota / 86400),
-            Math.floor((totalQuota - remainingSeconds) / 86400)
+            Math.floor(
+              (calendarDayStart(Date.now()) -
+                calendarDayStart(firstConnectionAt)) /
+                86400000
+            ) + 1
           )
         )
       : null;
@@ -380,6 +394,12 @@ function Detail({
   );
 }
 
+function calendarDayStart(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
 function isCalendarProfile(profile: string | null): boolean {
   return [
     "profil_24h",
@@ -401,7 +421,13 @@ function getCumulativeUniqueDurationSeconds(history: Session[]): number {
       if (!Number.isFinite(start)) return null;
 
       const duration = Math.max(0, toNumber(item.durationSeconds) ?? 0);
-      const end = start + duration * 1000;
+      const recordedEnd = start + duration * 1000;
+      // Une session ACTIVE continue jusqu'à maintenant même si le dernier
+      // cycle de synchronisation n'a pas encore actualisé durationSeconds.
+      const end =
+        item.status === "ACTIVE"
+          ? Math.max(recordedEnd, Date.now())
+          : recordedEnd;
 
       return { start, end };
     })
