@@ -48,3 +48,22 @@ export async function enforceCalendarExpiry(input: CalendarExpiryEnforcement): P
   }
   return true;
 }
+
+
+/** Parse RouterOS expiry comments in the router's Madagascar local timezone. */
+export function parseRouterOsExpiryComment(comment: string | null | undefined): string | null {
+  if (!comment?.trim()) return null;
+  const match = comment.trim().match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/i);
+  if (!match) return null;
+  const months: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  const month = months[match[1].toLowerCase()];
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const localDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  if (localDate.getUTCFullYear() !== year || localDate.getUTCMonth() !== month - 1 || localDate.getUTCDate() !== day || hour > 23 || minute > 59 || second > 59) return null;
+  // Indian/Antananarivo is UTC+03:00 year-round.
+  return new Date(localDate.getTime() - 3 * 60 * 60 * 1000).toISOString();
+}
