@@ -22,19 +22,42 @@ let syncInFlight = false;
 
 async function runLiveSync(): Promise<void> {
   if (syncInFlight) {
+    console.warn("[live-sync] Cycle ignoré : une synchronisation précédente est encore en cours.");
     return;
   }
 
   syncInFlight = true;
+  const startedAt = Date.now();
 
   try {
+    console.log("[live-sync] Début du cycle de synchronisation MikroTik.");
     const results = await syncAllRouters();
 
+    if (results.length === 0) {
+      console.warn(
+        "[live-sync] Aucun routeur éligible. Vérifier dans PostgreSQL que router.sync_enabled = TRUE et management_ip IS NOT NULL, et que le routeur appartient à un site existant."
+      );
+      return;
+    }
+
     const failed = results.filter((r) => !r.success);
+    const succeeded = results.filter((r) => r.success);
+
+    console.log(
+      `[live-sync] Cycle terminé en ${Date.now() - startedAt} ms : ${succeeded.length}/${results.length} succès, ${failed.length} échec(s).`,
+      results.map((r) => ({
+        routerId: r.routerId,
+        routerName: r.routerName,
+        success: r.success,
+        activeCount: r.activeCount,
+        closedCount: r.closedCount,
+        ...(r.error ? { error: r.error } : {}),
+      }))
+    );
 
     if (failed.length > 0) {
       console.warn(
-        `[live-sync] ${failed.length}/${results.length} routeur(s) injoignable(s) :`,
+        `[live-sync] ${failed.length}/${results.length} routeur(s) en échec :`,
         failed
           .map((r) => `${r.routerName} (${r.error})`)
           .join(", ")
