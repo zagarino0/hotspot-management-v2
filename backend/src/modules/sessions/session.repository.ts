@@ -49,6 +49,32 @@ const SESSION_SELECT = `
     ) AS "voucherDurationSeconds",
 
     CASE
+      WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+      )
+        AND COALESCE(
+          v.expires_at,
+          first_connection.first_connected_at + make_interval(
+            secs => COALESCE(
+              v.duration_seconds,
+              s.mikrotik_limit_uptime_seconds
+            )::double precision
+          )
+        ) IS NOT NULL
+      THEN GREATEST(
+        FLOOR(EXTRACT(EPOCH FROM (
+          COALESCE(
+            v.expires_at,
+            first_connection.first_connected_at + make_interval(
+              secs => COALESCE(
+                v.duration_seconds,
+                s.mikrotik_limit_uptime_seconds
+              )::double precision
+            )
+          ) - NOW()
+        ))),
+        0
+      )::bigint
       WHEN COALESCE(
         v.duration_seconds,
         s.mikrotik_limit_uptime_seconds
@@ -63,6 +89,32 @@ const SESSION_SELECT = `
     END AS "voucherRemainingSeconds",
 
     CASE
+      WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+      )
+        AND COALESCE(
+          v.expires_at,
+          first_connection.first_connected_at + make_interval(
+            secs => COALESCE(
+              v.duration_seconds,
+              s.mikrotik_limit_uptime_seconds
+            )::double precision
+          )
+        ) IS NOT NULL
+      THEN GREATEST(
+        FLOOR(EXTRACT(EPOCH FROM (
+          COALESCE(
+            v.expires_at,
+            first_connection.first_connected_at + make_interval(
+              secs => COALESCE(
+                v.duration_seconds,
+                s.mikrotik_limit_uptime_seconds
+              )::double precision
+            )
+          ) - COALESCE(s.ended_at, NOW())
+        ))),
+        0
+      )::bigint
       WHEN COALESCE(
         v.duration_seconds,
         s.mikrotik_limit_uptime_seconds
@@ -130,6 +182,20 @@ const SESSION_SELECT = `
   FROM session s
   LEFT JOIN router r ON r.id = s.router_id
   LEFT JOIN voucher v ON v.id = s.voucher_id
+  LEFT JOIN LATERAL (
+    SELECT MIN(s2.started_at) AS first_connected_at
+    FROM session s2
+    WHERE (
+      (s.voucher_id IS NOT NULL AND s2.voucher_id = s.voucher_id)
+      OR (
+        s.voucher_id IS NULL
+        AND s2.voucher_id IS NULL
+        AND s2.site_id = s.site_id
+        AND s2.router_id = s.router_id
+        AND s2.username = s.username
+      )
+    )
+  ) first_connection ON TRUE
   LEFT JOIN LATERAL (
     SELECT
       COALESCE(
