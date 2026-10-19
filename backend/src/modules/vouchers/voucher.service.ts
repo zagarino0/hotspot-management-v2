@@ -102,7 +102,7 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
         const quotaExhausted =
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
-          user.uptimeSeconds === user.limitUptimeSeconds;
+          user.uptimeSeconds >= user.limitUptimeSeconds;
 
         const hasMac = Boolean(user.macAddress?.trim());
         const withinQuota =
@@ -183,7 +183,7 @@ export async function updateMikrotikVoucherComment(
     const quotaExhausted =
       user.limitUptimeSeconds !== null &&
       user.limitUptimeSeconds > 0 &&
-      user.uptimeSeconds === user.limitUptimeSeconds;
+      user.uptimeSeconds >= user.limitUptimeSeconds;
 
     const hasMac = Boolean(user.macAddress?.trim());
     const withinQuota =
