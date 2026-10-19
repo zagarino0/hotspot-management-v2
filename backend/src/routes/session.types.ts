@@ -48,6 +48,7 @@ export interface SessionRow {
   voucherRemainingSeconds: number | null;
   voucherRemainingSecondsAtEnd: number | null;
   voucherCode: string | null;
+  voucherActivatedAt: Date | null;
   connectionSequence: number;
 
   terminationReason: string | null;
