@@ -512,21 +512,56 @@ export async function upsertActiveSession(
     throw new Error(`Impossible d'enregistrer la session MikroTik : aucun site associé au routeur ${data.routerId}.`);
   }
 
-  const existing = await pool.query<{ id: string }>(
+  // Le compteur uptime de /ip/hotspot/active/print est relatif à la
+  // connexion active courante. Si son heure de début estimée diffère
+  // fortement de started_at, il s'agit d'une reconnexion que le cycle
+  // précédent n'a pas observée. Ne pas réutiliser l'ancienne ligne.
+  const existing = await pool.query<{ id: string; startedAt: Date | string }>(
     `
-      SELECT id
+      SELECT id, started_at AS "startedAt"
       FROM session
       WHERE router_id = $1
         AND mac_address = $2
         AND status = 'ACTIVE'
         AND ended_at IS NULL
+      ORDER BY started_at DESC
       LIMIT 1
     `,
     [data.routerId, data.macAddress]
   );
 
-  if (existing.rows[0]) {
-    const sessionId = existing.rows[0].id;
+  const currentStartedAtMs = Date.now() - Math.max(0, data.uptimeSeconds) * 1000;
+  const existingRow = existing.rows[0];
+  const existingStartedAtMs = existingRow
+    ? new Date(existingRow.startedAt).getTime()
+    : Number.NaN;
+  const sameConnection =
+    existingRow !== undefined &&
+    Number.isFinite(existingStartedAtMs) &&
+    Math.abs(existingStartedAtMs - currentStartedAtMs) <= 120_000;
+
+  if (existingRow && !sameConnection) {
+    // On ne connaît pas l'instant exact de déconnexion si les cycles ont
+    // manqué l'événement. updated_at est la dernière observation fiable.
+    // La durée reste le dernier uptime observé, sans compter le temps hors ligne.
+    await pool.query(
+      `
+        UPDATE session
+        SET
+          status = 'TERMINATED',
+          ended_at = LEAST(COALESCE(updated_at, NOW()), NOW()),
+          termination_reason = 'RECONNECTED',
+          updated_at = NOW()
+        WHERE id = $1
+          AND status = 'ACTIVE'
+          AND ended_at IS NULL
+      `,
+      [existingRow.id]
+    );
+  }
+
+  if (existingRow && sameConnection) {
+    const sessionId = existingRow.id;
 
     await pool.query(
       `
