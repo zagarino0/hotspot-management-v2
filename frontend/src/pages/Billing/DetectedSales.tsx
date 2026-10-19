@@ -105,7 +105,7 @@ export default function Sales() {
     // Les clôtures et versements sont réservés aux points externes par l'API.
     // Ne pas faire échouer le chargement des ventes internes en appelant ces routes.
     const closureRows = await getPosDailyClosures(id);
-    const remittanceRows = selectedPoint?.type === "INTERNAL" ? [] : await getPosRemittances(id);
+    const remittanceRows = await getPosRemittances(id);
     setEvents(eventRows);
     setClosures(closureRows);
     setRemittances(remittanceRows);
@@ -135,7 +135,7 @@ export default function Sales() {
     const selectedPoint = points.find((point) => point.id === selectedId);
     const dataPromise = getPosTicketEvents(selectedId).then(async (eventRows) => {
       const closureRows = await getPosDailyClosures(selectedId);
-      const remittanceRows = selectedPoint?.type === "INTERNAL" ? [] : await getPosRemittances(selectedId);
+      const remittanceRows = await getPosRemittances(selectedId);
       return [eventRows, closureRows, remittanceRows] as const;
     });
     dataPromise
@@ -418,7 +418,6 @@ export default function Sales() {
         }
       </section>
 
-      {selectedPos?.type === "EXTERNAL" ? (
         <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-2xl border-0 bg-white p-5">
             <div className="mb-4 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Confirmer un versement</h2></div>
@@ -451,7 +450,6 @@ export default function Sales() {
           <div className="mb-2 flex items-center gap-2"><Wallet size={18} /><h2 className="font-bold font-semibold text-slate-950">Versements</h2></div>
           <p className="text-sm font-medium text-slate-600">Le point de vente interne n’utilise pas le processus de versement des points externes. Les ventes et les clôtures quotidiennes restent consultables ci-dessus.</p>
         </section>
-      )}
     </div>
   );
 }
