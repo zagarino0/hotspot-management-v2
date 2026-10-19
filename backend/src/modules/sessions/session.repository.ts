@@ -50,7 +50,7 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
       )
         AND COALESCE(
           v.expires_at,
@@ -90,7 +90,7 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2'
       )
         AND COALESCE(
           v.expires_at,
