@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { enforceCalendarExpiry, isCalendarValidityProfile, isCalendarVoucherExpired } from "../src/modules/vouchers/calendarValidity.js";
+import { enforceCalendarExpiry, isCalendarValidityProfile, isCalendarVoucherExpired, parseRouterOsExpiryComment } from "../src/modules/vouchers/calendarValidity.js";
 
 test("calendar validity applies only to the five configured profiles, case-insensitively", () => {
   for (const profile of ["profil_24H", "PROFIL_WEEK", "profil_mothe_1", "profil_mothe_2", "profil_bonus"]) {
@@ -113,4 +113,12 @@ test("unexpired or non-target vouchers never trigger RouterOS enforcement", asyn
   assert.equal(await enforceCalendarExpiry({ ...common, profile: "profil_24H" }), false);
   assert.equal(await enforceCalendarExpiry({ ...common, profile: "profil_3h" }), false);
   assert.equal(calls, 0);
+});
+
+
+test("parses RouterOS expiry comments in Madagascar local time", () => {
+  assert.equal(parseRouterOsExpiryComment("oct/19/2026 19:44:31"), "2026-10-19T16:44:31.000Z");
+  assert.equal(parseRouterOsExpiryComment("not-an-expiry"), null);
+  assert.equal(parseRouterOsExpiryComment("oct/32/2026 19:44:31"), null);
+  assert.equal(parseRouterOsExpiryComment("oct/19/2026 25:44:31"), null);
 });
