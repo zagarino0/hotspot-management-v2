@@ -4,7 +4,7 @@ import type { MikrotikHotspotUser } from "../../mikrotik/hotspotUsers.js";
 import type { RouterOSAPI } from "node-routeros";
 import { setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
 import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
-import { enforceCalendarExpiry, isCalendarValidityProfile } from "./calendarValidity.js";
+import { enforceCalendarExpiry, isCalendarValidityProfile, parseRouterOsExpiryComment } from "./calendarValidity.js";
 
 interface PointOfSaleRef {
   id: string;
@@ -291,6 +291,7 @@ export async function syncMikrotikVouchers(
       ? await pool.query<{ id: string; expiresAt: string; username: string }>(
           `SELECT v.id,
                   COALESCE(
+                    $4::timestamptz,
                     v.expires_at,
                     first_session.first_connected_at + make_interval(
                       secs => COALESCE(
@@ -319,7 +320,8 @@ export async function syncMikrotikVouchers(
               AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
               AND lower(v.mikrotik_profile) = lower($3)
               AND COALESCE(
-                v.expires_at,
+                    $4::timestamptz,
+                    v.expires_at,
                 first_session.first_connected_at + make_interval(
                   secs => COALESCE(
                     v.duration_seconds,
@@ -328,7 +330,7 @@ export async function syncMikrotikVouchers(
                 )
               ) <= NOW()
             LIMIT 1`,
-          [router.id, username, user.profile]
+          [router.id, username, user.profile, parseRouterOsExpiryComment(user.comment)]
         )
       : { rows: [] as { id: string; expiresAt: string; username: string }[] };
 
