@@ -1,4 +1,5 @@
 import { pool } from "../../database/pool.js";
+import { firstUseSaleEventKey, resolveFirstUseTariff } from "./posSalesDetection.rules.js";
 
 import {
   POS_TIME_ZONE as TIME_ZONE,
@@ -89,7 +90,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
   );
 }
 
-async function detectFirstUse() {
+async function detectFirstUse(voucherId?: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -99,45 +100,78 @@ async function detectFirstUse() {
       pointOfSaleId: string;
       code: string;
       firstSessionAt: string;
-      unitPrice: string;
-      currency: string;
-      priceSource: string;
+      priceSnapshot: string | null;
+      currencySnapshot: string | null;
+      planPrice: string | null;
+      planCurrency: string | null;
+      matchedRows: number;
+      distinctPositivePrices: number;
+      sitePrice: string | null;
+      distinctCurrencies: number;
+      siteCurrency: string | null;
       businessDate: string;
     }>(
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              COALESCE(v.price_snapshot, sp.price, p.price)::text AS "unitPrice",
-              COALESCE(v.currency_snapshot, sp.currency, p.currency) AS currency,
-              CASE
-                WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
-                WHEN sp.price IS NOT NULL THEN 'CURRENT_SITE_PROFILE'
-                ELSE 'CURRENT_PLAN'
-              END AS "priceSource",
+              v.price_snapshot::text AS "priceSnapshot",
+              v.currency_snapshot AS "currencySnapshot",
+              p.price::text AS "planPrice",
+              p.currency AS "planCurrency",
+              sp.matched_rows AS "matchedRows",
+              sp.distinct_positive_prices AS "distinctPositivePrices",
+              sp.price::text AS "sitePrice",
+              sp.distinct_currencies AS "distinctCurrencies",
+              sp.currency AS "siteCurrency",
               (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
-           AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
+           AND pos.status = 'ACTIVE'
          LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
-         LEFT JOIN site_hotspot_profile_price sp
-           ON sp.site_id = v.site_id AND LOWER(sp.profile_code) = LOWER(v.mikrotik_profile)
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS matched_rows,
+                  COUNT(DISTINCT price) FILTER (WHERE price > 0)::int AS distinct_positive_prices,
+                  MAX(price) FILTER (WHERE price > 0) AS price,
+                  COUNT(DISTINCT currency)::int AS distinct_currencies,
+                  MAX(currency) AS currency
+           FROM site_hotspot_profile_price
+           WHERE site_id = v.site_id
+             AND LOWER(BTRIM(profile_code)) = LOWER(BTRIM(v.mikrotik_profile))
+         ) sp ON TRUE
          JOIN LATERAL (
            SELECT MIN(s.started_at) AS started_at
              FROM session s
             WHERE s.voucher_id = v.id
+               OR (s.voucher_id IS NULL AND s.site_id = v.site_id
+                   AND s.router_id = v.router_id
+                   AND LOWER(s.username) = LOWER(COALESCE(v.mikrotik_username, v.code)))
          ) first_session ON first_session.started_at IS NOT NULL
         WHERE v.first_use_detected_at IS NULL
           AND COALESCE(setting.detect_sale_on_first_use, TRUE) = TRUE
+          AND ($2::uuid IS NULL OR v.id = $2::uuid)
         ORDER BY first_session.started_at
         LIMIT 50
         FOR UPDATE OF v SKIP LOCKED`,
-      [TIME_ZONE],
+      [TIME_ZONE, voucherId ?? null],
     );
 
     for (const item of candidates.rows) {
+      const tariff = resolveFirstUseTariff({
+        voucherPriceSnapshot: item.priceSnapshot === null ? null : Number(item.priceSnapshot),
+        voucherCurrencySnapshot: item.currencySnapshot,
+        planPrice: item.planPrice === null ? null : Number(item.planPrice),
+        planCurrency: item.planCurrency,
+        siteProfile: {
+          matchedRows: Number(item.matchedRows),
+          distinctPositivePrices: Number(item.distinctPositivePrices),
+          price: item.sitePrice === null ? null : Number(item.sitePrice),
+          distinctCurrencies: Number(item.distinctCurrencies),
+          currency: item.siteCurrency,
+        },
+      });
       const priorSale = await client.query<{ pointOfSaleId: string }>(
         `SELECT point_of_sale_id AS "pointOfSaleId"
            FROM point_of_sale_ticket_event
@@ -165,11 +199,11 @@ async function detectFirstUse() {
         continue;
       }
 
-      if (Number(item.unitPrice) <= 0 || item.currency !== "MGA") {
+      if (tariff.unitPrice === null || tariff.unitPrice <= 0 || tariff.currency !== "MGA" || tariff.issue !== null) {
         const issue = await client.query(
           `UPDATE voucher SET first_use_detection_issue = $2
             WHERE id = $1 AND first_use_detection_issue IS NULL`,
-          [item.voucherId, "Prix ou devise du forfait non résolu pour la détection de vente."],
+          [item.voucherId, tariff.issue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
         );
         if (issue.rowCount) {
           console.warn(`[pos-sales] Détection mise en attente: prix non résolu pour le voucher ${item.code}.`);
@@ -189,14 +223,14 @@ async function detectFirstUse() {
           item.siteId,
           item.voucherId,
           item.code,
-          Number(item.unitPrice),
-          item.currency,
-          `voucher-first-use:${item.voucherId}`,
+          tariff.unitPrice,
+          tariff.currency,
+          firstUseSaleEventKey(item.voucherId),
           JSON.stringify({
             detection: "FIRST_SUCCESSFUL_SESSION",
             detectedAt: new Date().toISOString(),
             firstSessionStartedAt: item.firstSessionAt,
-            priceSource: item.priceSource,
+            priceSource: tariff.priceSource,
             saleTimeVerified: false,
           }),
           item.firstSessionAt,
