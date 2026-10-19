@@ -57,6 +57,7 @@ export function parseRouterOsExpiryComment(comment: string | null | undefined): 
   if (!match) return null;
   const months: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
   const month = months[match[1].toLowerCase()];
+  if (!month) return null;
   const day = Number(match[2]);
   const year = Number(match[3]);
   const hour = Number(match[4]);
