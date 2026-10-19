@@ -430,7 +430,7 @@ async function runSchedulerCycle() {
       const posResult = await pool.query<{ id: string; closingTime: string }>(
         `SELECT pos.id, TO_CHAR(pos.closing_time, 'HH24:MI') AS "closingTime"
            FROM point_of_sale pos
-          WHERE pos.organization_id = $1 AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'`,
+          WHERE pos.organization_id = $1 AND pos.status = 'ACTIVE'`,
         [setting.organizationId],
       );
       for (const pos of posResult.rows) {
