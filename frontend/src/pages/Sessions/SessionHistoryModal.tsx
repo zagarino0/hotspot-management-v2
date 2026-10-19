@@ -89,15 +89,38 @@ export default function SessionHistoryModal({
   const totalQuota =
     toNumber(latestSession.voucherDurationSeconds);
 
-  const usedSeconds =
-    toNumber(latestSession.voucherUsedSeconds) ?? 0;
-
-  const remainingSeconds =
-    latestSession.status === "ACTIVE"
+  const calendarProfile = isCalendarProfile(latestSession.mikrotikProfile);
+  const remainingSeconds = calendarProfile
+    ? toNumber(latestSession.voucherRemainingSeconds)
+    : latestSession.status === "ACTIVE"
       ? toNumber(latestSession.voucherRemainingSeconds)
-      : toNumber(
-          latestSession.voucherRemainingSecondsAtEnd
-        );
+      : toNumber(latestSession.voucherRemainingSecondsAtEnd);
+
+  const usedSeconds = calendarProfile
+    ? getCumulativeUniqueDurationSeconds(history)
+    : toNumber(latestSession.voucherUsedSeconds) ?? 0;
+
+  const firstConnectionAt = useMemo(() => {
+    const timestamps = history
+      .map((item) => new Date(item.startedAt).getTime())
+      .filter((value) => Number.isFinite(value));
+    return timestamps.length > 0 ? Math.min(...timestamps) : null;
+  }, [history]);
+
+  const usedDays =
+    calendarProfile && totalQuota !== null && firstConnectionAt !== null
+      ? Math.max(
+          0,
+          Math.min(
+            Math.floor(totalQuota / 86400),
+            Math.floor(
+              (calendarDayStart(Date.now()) -
+                calendarDayStart(firstConnectionAt)) /
+                86400000
+            ) + 1
+          )
+        )
+      : null;
 
   const displayStatus = getDisplayStatus(latestSession);
 
@@ -165,8 +188,12 @@ export default function SessionHistoryModal({
           />
 
           <SummaryCard
-            label="Total utilisé"
-            value={formatDuration(usedSeconds)}
+            label={calendarProfile ? "Jours utilisés" : "Total utilisé"}
+            value={
+              calendarProfile && usedDays !== null
+                ? `${usedDays} j`
+                : formatDuration(usedSeconds)
+            }
           />
 
           <SummaryCard
@@ -355,6 +382,65 @@ function Detail({
       </div>
     </div>
   );
+}
+
+function calendarDayStart(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function isCalendarProfile(profile: string | null): boolean {
+  return [
+    "profil_24h",
+    "profil_week",
+    "profil_mothe_1",
+    "profil_mothe_2",
+    "profil_bonus",
+  ].includes((profile ?? "").trim().toLowerCase());
+}
+
+function getCumulativeUniqueDurationSeconds(history: Session[]): number {
+  const intervals = history
+    .map((item) => {
+      const start = new Date(item.startedAt).getTime();
+      if (!Number.isFinite(start)) return null;
+
+      const duration = Math.max(0, toNumber(item.durationSeconds) ?? 0);
+      const recordedEnd = start + duration * 1000;
+      const end =
+        item.status === "ACTIVE"
+          ? Math.max(recordedEnd, Date.now())
+          : recordedEnd;
+      return { start, end };
+    })
+    .filter((item): item is { start: number; end: number } => item !== null)
+    .sort((a, b) => a.start - b.start);
+
+  let totalMilliseconds = 0;
+  let intervalStart: number | null = null;
+  let intervalEnd: number | null = null;
+
+  for (const interval of intervals) {
+    if (intervalEnd === null || intervalStart === null) {
+      intervalStart = interval.start;
+      intervalEnd = interval.end;
+      continue;
+    }
+    if (interval.start <= intervalEnd) {
+      intervalEnd = Math.max(intervalEnd, interval.end);
+    } else {
+      totalMilliseconds += Math.max(0, intervalEnd - intervalStart);
+      intervalStart = interval.start;
+      intervalEnd = interval.end;
+    }
+  }
+
+  if (intervalStart !== null && intervalEnd !== null) {
+    totalMilliseconds += Math.max(0, intervalEnd - intervalStart);
+  }
+
+  return Math.floor(totalMilliseconds / 1000);
 }
 
 function getDisplayStatus(session: Session): SessionStatus {
