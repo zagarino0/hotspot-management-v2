@@ -359,7 +359,7 @@ export default function Sales() {
                 <button type="button" onClick={() => setEditingPoint(false)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800"><X size={15} /> Annuler</button>
               </div>
             </div>
-          
+          ):(
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><p className="font-semibold text-slate-800">{selectedPos.name}</p><p className="text-xs font-medium text-slate-600">{selectedPos.code} · {selectedPos.status === "ACTIVE" ? "Actif" : "Inactif"}</p><p className="mt-1 text-xs font-medium text-slate-600">Caisse : {selectedPos.openingTime || "08:00"} – {selectedPos.closingTime || "20:00"}</p></div>
               <div className="relative">
