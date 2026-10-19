@@ -86,7 +86,7 @@ export async function listPosRemittances(
   await assertPermission(userId, organizationId, "POS_REMITTANCES_READ");
   const pos = await pool.query(
     `SELECT id FROM point_of_sale
-      WHERE id = $1 AND organization_id = $2 AND type = 'EXTERNAL'`,
+      WHERE id = $1 AND organization_id = $2`,
     [pointOfSaleId, organizationId],
   );
   if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
@@ -168,7 +168,7 @@ export async function recordPosRemittance(
     await client.query("BEGIN");
     const pos = await client.query(
       `SELECT id FROM point_of_sale
-        WHERE id = $1 AND organization_id = $2 AND type = 'EXTERNAL' FOR UPDATE`,
+        WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
       [pointOfSaleId, organizationId],
     );
     if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
