@@ -100,13 +100,6 @@ export default function SessionHistoryModal({
     ? getCumulativeUniqueDurationSeconds(history)
     : toNumber(latestSession.voucherUsedSeconds) ?? 0;
 
-  const firstConnectionAt = useMemo(() => {
-    const timestamps = history
-      .map((item) => new Date(item.startedAt).getTime())
-      .filter((value) => Number.isFinite(value));
-    return timestamps.length > 0 ? Math.min(...timestamps) : null;
-  }, [history]);
-
   // Pour un profil calendaire, les jours utilisés doivent rester cohérents
   // avec le temps restant calculé par le backend à partir de l'expiration.
   // L'historique peut être tronqué ou ne pas contenir la toute première
@@ -384,11 +377,6 @@ function Detail({
   );
 }
 
-function calendarDayStart(timestamp: number): number {
-  const date = new Date(timestamp);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
 
 function isCalendarProfile(profile: string | null): boolean {
   return [
