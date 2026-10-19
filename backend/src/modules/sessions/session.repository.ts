@@ -111,7 +111,7 @@ const SESSION_SELECT = `
                 s.mikrotik_limit_uptime_seconds
               )::double precision
             )
-          ) - COALESCE(s.ended_at, NOW())
+          ) - NOW()
         ))),
         0
       )::bigint
