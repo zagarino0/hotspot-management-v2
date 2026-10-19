@@ -107,17 +107,17 @@ export default function SessionHistoryModal({
     return timestamps.length > 0 ? Math.min(...timestamps) : null;
   }, [history]);
 
+  // Pour un profil calendaire, les jours utilisés doivent rester cohérents
+  // avec le temps restant calculé par le backend à partir de l'expiration.
+  // L'historique peut être tronqué ou ne pas contenir la toute première
+  // connexion ; ne pas en déduire la validité depuis la seule liste des sessions.
   const usedDays =
-    calendarProfile && totalQuota !== null && firstConnectionAt !== null
+    calendarProfile && totalQuota !== null && remainingSeconds !== null
       ? Math.max(
           0,
           Math.min(
-            Math.floor(totalQuota / 86400),
-            Math.floor(
-              (calendarDayStart(Date.now()) -
-                calendarDayStart(firstConnectionAt)) /
-                86400000
-            ) + 1
+            Math.ceil(totalQuota / 86400),
+            Math.ceil((totalQuota - remainingSeconds) / 86400)
           )
         )
       : null;
