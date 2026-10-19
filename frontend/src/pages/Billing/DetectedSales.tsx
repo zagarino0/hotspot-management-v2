@@ -79,7 +79,7 @@ export default function Sales() {
   const [error, setError] = useState("");
 
   const selectedPos = points.find((point) => point.id === selectedId);
-  const externalPoints = points.filter((point) => point.type === "EXTERNAL");
+  const selectablePoints = points;
   const soldEvents = useMemo(
     () => events.filter((event) => event.event_type === "SOLD"),
     [events],
@@ -90,7 +90,7 @@ export default function Sales() {
   async function loadPoints() {
     const result = await getPointOfSales();
     setPoints(result);
-    setSelectedId((current) => current || result.find((point) => point.type === "EXTERNAL")?.id || "");
+    setSelectedId((current) => current || result[0]?.id || "");
   }
 
   async function loadPosData(id: string) {
@@ -224,7 +224,7 @@ export default function Sales() {
       await deletePointOfSale(point.id);
       const remaining = await getPointOfSales();
       setPoints(remaining);
-      setSelectedId(remaining.find((item) => item.type === "EXTERNAL")?.id ?? "");
+      setSelectedId(remaining[0]?.id ?? "");
       setEditingPoint(false);
       setBusinessDate("");
       setAmount("");
@@ -323,8 +323,8 @@ export default function Sales() {
           <label className="block text-sm font-semibold text-slate-800">
             Point de vente
             <select value={selectedId} onChange={(e) => { setBusinessDate(""); setAmount(""); setSelectedId(e.target.value); }} className="mt-1 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
-              <option value="">Sélectionner un point de vente externe</option>
-              {externalPoints.map((point) => <option key={point.id} value={point.id}>{point.name} ({point.code})</option>)}
+              <option value="">Sélectionner un point de vente</option>
+              {selectablePoints.map((point) => <option key={point.id} value={point.id}>{point.name} ({point.code}) · {point.type === "INTERNAL" ? "Interne" : "Externe"}</option>)}
             </select>
           </label>
           <label className="block text-sm font-semibold text-slate-800">
