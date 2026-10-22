@@ -686,35 +686,18 @@ function Detail({
 }
 
 function calendarDateOrdinal(timestamp: number): number {
-
-  const parts = new Intl.DateTimeFormat("en-CA", {
-
+  // sv-SE fournit une date ISO YYYY-MM-DD, sans formatToParts/Object.fromEntries.
+  // Cela reste compatible avec la configuration TypeScript actuelle du frontend.
+  const date = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Indian/Antananarivo",
-
     year: "numeric",
-
     month: "2-digit",
-
     day: "2-digit",
+  }).format(new Date(timestamp));
 
-  }).formatToParts(new Date(timestamp));
+  const [year, month, day] = date.split("-").map(Number);
 
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-
-  return Math.floor(
-
-    Date.UTC(
-
-      Number(values.year),
-
-      Number(values.month) - 1,
-
-      Number(values.day)
-
-    ) / 86400000
-
-  );
-
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
 function isCalendarProfile(profile: string | null): boolean {
