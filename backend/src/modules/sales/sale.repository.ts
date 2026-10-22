@@ -438,43 +438,77 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   const salesCount = engagedVouchers.length;
 
   /*
-   * Ventes du jour = ventes confirmées (PAID) des POS internes et externes.
-   * Le jour commercial suit l'heure de fermeture de chaque POS et le fuseau
-   * de Madagascar. Les sessions/reconnexions ne sont pas des ventes POS.
+   * Ventes du jour = ventes internes PAID + tickets externes SOLD.
+   * Les deux sources sont disjointes par type de POS pour éviter les doublons.
+   * Chaque source suit le jour commercial du POS dans le fuseau de Madagascar.
    */
   const todaySalesResult = await pool.query<{ revenue: string }>(
     `
-      SELECT COALESCE(
-        SUM(sa.quantity * COALESCE(sp.price, hp.default_price, sa.unit_price)),
-        0
+      WITH internal_sales AS (
+        SELECT
+          SUM(
+            sa.quantity * COALESCE(
+              sp.price,
+              hp.default_price,
+              sa.unit_price
+            )
+          ) AS revenue
+        FROM sale sa
+        JOIN point_of_sale pos
+          ON pos.id = sa.point_of_sale_id
+         AND pos.type = 'INTERNAL'
+        LEFT JOIN hotspot_profile hp
+          ON LOWER(TRIM(hp.code)) = LOWER(TRIM(COALESCE(sa.profile_code, '')))
+        LEFT JOIN LATERAL (
+          SELECT MAX(price) AS price
+          FROM site_hotspot_profile_price
+          WHERE site_id = sa.site_id
+            AND LOWER(TRIM(profile_code)) = LOWER(TRIM(COALESCE(hp.code, sa.profile_code, '')))
+        ) sp ON TRUE
+        WHERE sa.status = 'PAID'
+          AND (
+            CASE
+              WHEN TO_CHAR(sa.sold_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                   > TO_CHAR(pos.closing_time, 'HH24:MI')
+              THEN (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+              ELSE (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date
+            END
+          ) = (
+            CASE
+              WHEN TO_CHAR(NOW() AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                   > TO_CHAR(pos.closing_time, 'HH24:MI')
+              THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
+              ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+            END
+          )
+      ),
+      external_sales AS (
+        SELECT SUM(e.unit_price) AS revenue
+        FROM point_of_sale_ticket_event e
+        JOIN point_of_sale pos
+          ON pos.id = e.point_of_sale_id
+         AND pos.type = 'EXTERNAL'
+        WHERE e.event_type = 'SOLD'
+          AND (
+            CASE
+              WHEN TO_CHAR(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                   > TO_CHAR(pos.closing_time, 'HH24:MI')
+              THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+              ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date
+            END
+          ) = (
+            CASE
+              WHEN TO_CHAR(NOW() AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                   > TO_CHAR(pos.closing_time, 'HH24:MI')
+              THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
+              ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+            END
+          )
+      )
+      SELECT (
+        COALESCE((SELECT revenue FROM internal_sales), 0) +
+        COALESCE((SELECT revenue FROM external_sales), 0)
       )::float8 AS revenue
-      FROM sale sa
-      JOIN point_of_sale pos ON pos.id = sa.point_of_sale_id
-      LEFT JOIN hotspot_profile hp
-        ON hp.code = LOWER(TRIM(COALESCE(sa.profile_code, '')))
-      LEFT JOIN site_hotspot_profile_price sp
-        ON sp.site_id = sa.site_id
-       AND LOWER(TRIM(sp.profile_code)) = LOWER(TRIM(hp.code))
-      WHERE sa.status = 'PAID'
-        AND (
-          CASE
-            WHEN TO_CHAR(
-              sa.sold_at AT TIME ZONE 'Indian/Antananarivo',
-              'HH24:MI'
-            ) > TO_CHAR(pos.closing_time, 'HH24:MI')
-            THEN (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
-            ELSE (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date
-          END
-        ) = (
-          CASE
-            WHEN TO_CHAR(
-              NOW() AT TIME ZONE 'Indian/Antananarivo',
-              'HH24:MI'
-            ) > TO_CHAR(pos.closing_time, 'HH24:MI')
-            THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
-            ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
-          END
-        )
     `
   );
   const todayRevenue = Number(todaySalesResult.rows[0]?.revenue ?? 0);
@@ -485,29 +519,28 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   }>(
     `
       SELECT
-        COALESCE(
-          SUM(
-            sa.quantity * COALESCE(
-              sp.price,
-              hp.default_price,
-              sa.unit_price
-            )
-          ),
-          0
-        )::float8 AS revenue,
+        COALESCE(SUM(e.unit_price), 0)::float8 AS revenue,
         COUNT(*)::int AS count
-      FROM sale sa
+      FROM point_of_sale_ticket_event e
       JOIN point_of_sale pos
-        ON pos.id = sa.point_of_sale_id
-      LEFT JOIN hotspot_profile hp
-        ON hp.code = LOWER(TRIM(COALESCE(sa.profile_code, '')))
-      LEFT JOIN site_hotspot_profile_price sp
-        ON sp.site_id = sa.site_id
-       AND sp.profile_code = hp.code
-      WHERE sa.status = 'PAID'
+        ON pos.id = e.point_of_sale_id
+      WHERE e.event_type = 'SOLD'
         AND pos.type = 'EXTERNAL'
-        AND sa.sold_at >= CURRENT_DATE
-        AND sa.sold_at < CURRENT_DATE + INTERVAL '1 day'
+        AND (
+          CASE
+            WHEN TO_CHAR(e.occurred_at AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                 > TO_CHAR(pos.closing_time, 'HH24:MI')
+            THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+            ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date
+          END
+        ) = (
+          CASE
+            WHEN TO_CHAR(NOW() AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
+                 > TO_CHAR(pos.closing_time, 'HH24:MI')
+            THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
+            ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+          END
+        )
     `
   );
 
