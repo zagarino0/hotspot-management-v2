@@ -50,6 +50,22 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
+        'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
+      )
+        AND COALESCE(first_connection.first_connected_at, v.activated_at) IS NOT NULL
+      THEN GREATEST(
+        (
+          (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+          - (COALESCE(first_connection.first_connected_at, v.activated_at)
+             AT TIME ZONE 'Indian/Antananarivo')::date
+        ),
+        0
+      )::integer
+      ELSE NULL
+    END AS "voucherCalendarDaysUsed",
+
+    CASE
+      WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
       'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(
