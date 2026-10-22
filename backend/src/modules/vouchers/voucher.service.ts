@@ -314,6 +314,7 @@ export async function getVoucherStats(): Promise<VoucherStats> {
     used: vouchers.filter((voucher) => voucher.status === "ACTIVE").length,
     expired: vouchers.filter((voucher) => voucher.status === "EXPIRED").length,
   };
+}
 
 /* ============================================================
    CHANGE STATUS (désactiver / révoquer)
