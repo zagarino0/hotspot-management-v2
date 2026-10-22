@@ -84,11 +84,15 @@ const SESSION_SELECT = `
       THEN GREATEST(
         FLOOR(EXTRACT(EPOCH FROM (
           COALESCE(
-            first_connection.first_connected_at + make_interval(
-              secs => COALESCE(
-                v.duration_seconds,
-                s.mikrotik_limit_uptime_seconds
-              )::double precision
+            (
+              (
+                (COALESCE(first_connection.first_connected_at, v.activated_at)
+                  AT TIME ZONE 'Indian/Antananarivo')::date
+                + CEIL(
+                    COALESCE(v.duration_seconds, s.mikrotik_limit_uptime_seconds)::numeric
+                    / 86400
+                  )::integer
+              )::timestamp AT TIME ZONE 'Indian/Antananarivo'
             ),
             v.expires_at
           ) - NOW()
