@@ -169,8 +169,6 @@ export default function Sales() {
   }
 
   async function loadPosData(id: string) {
-    const point = points.find((item) => item.id === id);
-
     if (!id) {
       setEvents([]);
       setClosures([]);
@@ -224,8 +222,6 @@ setClosures(
     let active = true;
     setLoading(true);
     setError("");
-
-    const point = points.find((item) => item.id === selectedId);
 
     if (!selectedId) {
       setEvents([]);
