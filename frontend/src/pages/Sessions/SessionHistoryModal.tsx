@@ -682,11 +682,9 @@ function isCalendarProfile(profile: string | null): boolean {
 
     "profil_24h",
 
+    "profil_30d",
+
     "profil_week",
-
-    "profil_mothe_1",
-
-    "profil_mothe_2",
 
     "profil_bonus",
   ].indexOf((profile ?? "").trim().toLowerCase()) !== -1;
