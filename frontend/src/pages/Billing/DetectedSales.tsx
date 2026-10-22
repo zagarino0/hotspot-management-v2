@@ -175,18 +175,21 @@ export default function Sales() {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
+      setSalesSummary(null);
       setBusinessDate("");
       return;
     }
 
     // Lecture des historiques autorisée pour les points internes et externes.
     // Les contrôles des opérations d'écriture restent appliqués côté backend.
-    const [eventRows, closureRows, remittanceRows] = await Promise.all([
+    const [eventRows, closureRows, remittanceRows, summaryData] = await Promise.all([
       getPosTicketEvents(id),
       getPosDailyClosures(id),
       getPosRemittances(id),
+      getSalesSummary(),
     ]);
     setEvents(eventRows);
+    setSalesSummary(summaryData);
 setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -229,6 +232,7 @@ setClosures(
       setEvents([]);
       setClosures([]);
       setRemittances([]);
+      setSalesSummary(null);
       setBusinessDate("");
       setLoading(false);
       return () => { active = false; };
