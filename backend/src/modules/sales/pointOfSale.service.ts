@@ -2,7 +2,7 @@ import type { RouterOSAPI } from "node-routeros";
 
 import { pool } from "../../database/pool.js";
 import { decryptSecret } from "../../lib/crypto.js";
-import { badRequest, conflict, notFoundError } from "../../lib/errors.js";
+import { conflict, notFoundError } from "../../lib/errors.js";
 import { connectMikroTik } from "../../mikrotik/connection.js";
 import {
   fetchHotspotUsers,
