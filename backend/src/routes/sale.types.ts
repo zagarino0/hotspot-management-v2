@@ -80,6 +80,7 @@ export interface CreateSaleData {
 export interface SalesSummary {
   totalRevenue: number;
   todayRevenue: number;
+  todayConfirmedRemittance: number;
   externalTodayRevenue: number;
   externalTodaySalesCount: number;
   salesCount: number;
