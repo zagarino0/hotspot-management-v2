@@ -189,13 +189,29 @@ export default function SessionHistoryModal({
       ? Math.max(0, Math.floor((Date.now() - firstActivationAt) / 1000))
       : null;
   const usedDays =
-    usedCalendarSeconds !== null
+
+    usedCalendarSeconds !== null && firstActivationAt !== null
+
       ? Math.min(
+
           totalQuota !== null
+
             ? Math.ceil(totalQuota / 86400)
+
             : Number.POSITIVE_INFINITY,
-          Math.floor(usedCalendarSeconds / 86400)
+
+          Math.max(
+
+            0,
+
+            calendarDateOrdinal(Date.now()) -
+
+              calendarDateOrdinal(firstActivationAt)
+
+          )
+
         )
+
       : null;
 
   const displayStatus = getDisplayStatus(latestSession);
@@ -676,13 +692,47 @@ function Detail({
 
 }
 
+function calendarDateOrdinal(timestamp: number): number {
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+
+    timeZone: "Indian/Antananarivo",
+
+    year: "numeric",
+
+    month: "2-digit",
+
+    day: "2-digit",
+
+  }).formatToParts(new Date(timestamp));
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return Math.floor(
+
+    Date.UTC(
+
+      Number(values.year),
+
+      Number(values.month) - 1,
+
+      Number(values.day)
+
+    ) / 86400000
+
+  );
+
+}
+
 function isCalendarProfile(profile: string | null): boolean {
 
   return [
 
     "profil_24h",
 
-    "profil_30d",
+    "profil_mothe_1",
+
+    "profil_mothe_2",
 
     "profil_week",
 
