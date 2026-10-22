@@ -104,6 +104,7 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
             `WITH activation AS (
                SELECT v.id,
                       COALESCE(first_session.first_connected_at, v.activated_at) AS activated_at,
+                      v.activated_at AS voucher_activated_at,
                       COALESCE(v.duration_seconds, first_session.limit_uptime_seconds) AS duration_seconds,
                       v.expires_at
                  FROM voucher v
@@ -129,7 +130,8 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
                             (((activated_at AT TIME ZONE 'Indian/Antananarivo')::date
                               + CEIL(duration_seconds::numeric / 86400)::integer)::timestamp
                               AT TIME ZONE 'Indian/Antananarivo'),
-                            activated_at + INTERVAL '1 second'
+                            activated_at + INTERVAL '1 second',
+                            COALESCE(voucher_activated_at + INTERVAL '1 second', activated_at + INTERVAL '1 second')
                           )
                         ELSE expires_at
                       END AS expires_at
