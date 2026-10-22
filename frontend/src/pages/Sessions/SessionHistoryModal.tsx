@@ -171,15 +171,18 @@ export default function SessionHistoryModal({
     : toNumber(latestSession.voucherUsedSeconds) ?? 0;
 
   const firstActivationAt = useMemo(() => {
-    const activation = latestSession.voucherActivatedAt
-      ? new Date(latestSession.voucherActivatedAt).getTime()
-      : Number.NaN;
-    if (Number.isFinite(activation)) return activation;
-
-    // Repli historique si le voucher n'a pas de date d'activation persistée.
+    // La première connexion historique est la preuve de première activation.
+    // Ne pas privilégier voucherActivatedAt : cette valeur peut être plus récente
+    // après une synchronisation et ferait sous-compter les jours calendaires.
     const timestamps = history
       .map((item) => new Date(item.startedAt).getTime())
       .filter((value) => Number.isFinite(value));
+
+    const activation = latestSession.voucherActivatedAt
+      ? new Date(latestSession.voucherActivatedAt).getTime()
+      : Number.NaN;
+
+    if (Number.isFinite(activation)) timestamps.push(activation);
     return timestamps.length > 0 ? Math.min(...timestamps) : null;
   }, [history, latestSession.voucherActivatedAt]);
 
