@@ -188,13 +188,11 @@ export default function SessionHistoryModal({
     calendarProfile && firstActivationAt !== null
       ? Math.max(0, Math.floor((Date.now() - firstActivationAt) / 1000))
       : null;
-  // Correction ciblée demandée pour le voucher « zusg » uniquement.
-  const isZusgCalendarTarget =
-    calendarProfile &&
-    (latestSession.username ?? "").trim().toLowerCase() === "zusg";
+  // Les profils à validité calendaire utilisent la date de première activation.
+  const isCalendarValidityTarget = calendarProfile;
 
   const usedDays =
-    isZusgCalendarTarget &&
+    isCalendarValidityTarget &&
     usedCalendarSeconds !== null &&
     firstActivationAt !== null
       ? Math.min(
@@ -327,11 +325,11 @@ export default function SessionHistoryModal({
 
           <SummaryCard
 
-            label={isZusgCalendarTarget ? "Jours utilisés" : "Total utilisé"}
+            label={isCalendarValidityTarget ? "Jours utilisés" : "Total utilisé"}
 
             value={
 
-              isZusgCalendarTarget && usedDays !== null
+              isCalendarValidityTarget && usedDays !== null
 
                 ? `${usedDays} j`
 
