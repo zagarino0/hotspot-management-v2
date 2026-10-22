@@ -589,16 +589,7 @@ setClosures(
       </header>
 
       {error && <div role="alert" className="rounded-xl border-0 bg-transparent px-4 py-3 text-sm font-bold text-red-700 dark:text-red-300">{error}</div>}
-
-      {selectedPos?.type === "INTERNAL" && (
-
-        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-
-          « {selectedPos.name} » est le point interne de l’application. Les historiques de ventes et de clôtures sont consultables ; la création de versements reste réservée aux points de vente externes.
-
-        </div>
-
-      )}
+      
 
       <section className="rounded-2xl border-0 bg-white p-5">
 
