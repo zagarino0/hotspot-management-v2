@@ -170,22 +170,6 @@ export default function SessionHistoryModal({
 
     : toNumber(latestSession.voucherUsedSeconds) ?? 0;
 
-  const firstActivationAt = useMemo(() => {
-    // La première connexion historique est la preuve de première activation.
-    // Ne pas privilégier voucherActivatedAt : cette valeur peut être plus récente
-    // après une synchronisation et ferait sous-compter les jours calendaires.
-    const timestamps = history
-      .map((item) => new Date(item.startedAt).getTime())
-      .filter((value) => Number.isFinite(value));
-
-    const activation = latestSession.voucherActivatedAt
-      ? new Date(latestSession.voucherActivatedAt).getTime()
-      : Number.NaN;
-
-    if (Number.isFinite(activation)) timestamps.push(activation);
-    return timestamps.length > 0 ? Math.min(...timestamps) : null;
-  }, [history, latestSession.voucherActivatedAt]);
-
   // Le backend calcule les jours calendaires à partir de la première activation.
   // Le frontend affiche la valeur API sans recalculer la validité.
   const isCalendarValidityTarget = calendarProfile;
@@ -669,21 +653,6 @@ function Detail({
 
   );
 
-}
-
-function calendarDateOrdinal(timestamp: number): number {
-  // sv-SE fournit une date ISO YYYY-MM-DD, sans formatToParts/Object.fromEntries.
-  // Cela reste compatible avec la configuration TypeScript actuelle du frontend.
-  const date = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Indian/Antananarivo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(timestamp));
-
-  const [year, month, day] = date.split("-").map(Number);
-
-  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
 function isCalendarProfile(profile: string | null): boolean {
