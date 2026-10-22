@@ -68,12 +68,6 @@ async function findPointOfSaleById(
     throw notFoundError("Point de vente introuvable.");
   }
 
-  if (pos.type !== "EXTERNAL") {
-    throw badRequest(
-      "Seuls les points de vente externes peuvent être contrôlés par cette fonction."
-    );
-  }
-
   return pos;
 }
 
