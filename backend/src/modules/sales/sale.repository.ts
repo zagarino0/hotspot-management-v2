@@ -443,36 +443,32 @@ export async function getSalesSummary(): Promise<SalesSummary> {
    * Un même voucher ne peut donc être compté qu'une seule fois,
    * même s'il s'est reconnecté plusieurs fois dans la journée.
    */
-  const todayFirstConnectionsResult = await pool.query<{
-    profile: string | null;
-    amount: string;
-  }>(
+  /*
+   * Ventes du jour = total des ventes confirmées (événements SOLD)
+   * des points de vente internes ET externes, comptées une seule fois.
+   * La journée suit l'heure de fermeture configurée pour chaque POS
+   * et le fuseau de Madagascar, comme les clôtures quotidiennes.
+   */
+  const todaySalesResult = await pool.query<{ revenue: string }>(
     `
-      SELECT
-        s.mikrotik_profile AS profile,
-        COALESCE(sp.price, p.default_price, 0)::float8 AS amount
-      FROM session s
-      LEFT JOIN hotspot_profile p
-        ON p.code = LOWER(TRIM(COALESCE(s.mikrotik_profile, '')))
-      LEFT JOIN site_hotspot_profile_price sp
-        ON sp.site_id = s.site_id
-       AND sp.profile_code = p.code
-      WHERE s.started_at >= CURRENT_DATE
-        AND s.started_at < CURRENT_DATE + INTERVAL '1 day'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM session previous
-          WHERE previous.router_id = s.router_id
-            AND previous.username = s.username
-            AND previous.started_at < s.started_at
-        )
+      SELECT COALESCE(SUM(e.unit_price), 0)::float8 AS revenue
+      FROM point_of_sale_ticket_event e
+      JOIN point_of_sale pos ON pos.id = e.point_of_sale_id
+      WHERE e.event_type = 'SOLD'
+        AND (
+          CASE
+            WHEN TO_CHAR(
+              e.occurred_at AT TIME ZONE 'Indian/Antananarivo',
+              'HH24:MI'
+            ) > TO_CHAR(pos.closing_time, 'HH24:MI')
+            THEN (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+            ELSE (e.occurred_at AT TIME ZONE 'Indian/Antananarivo')::date
+          END
+        ) = (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
     `
   );
 
-  const todayRevenue = todayFirstConnectionsResult.rows.reduce(
-    (sum, row) => sum + Number(row.amount ?? 0),
-    0
-  );
+  const todayRevenue = Number(todaySalesResult.rows[0]?.revenue ?? 0);
 
   const externalTodayResult = await pool.query<{
     revenue: string;
