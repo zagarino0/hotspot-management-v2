@@ -50,27 +50,27 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-      'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+      'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(
-          v.expires_at,
           first_connection.first_connected_at + make_interval(
             secs => COALESCE(
               v.duration_seconds,
               s.mikrotik_limit_uptime_seconds
             )::double precision
-          )
+          ),
+          v.expires_at
         ) IS NOT NULL
       THEN GREATEST(
         FLOOR(EXTRACT(EPOCH FROM (
           COALESCE(
-            v.expires_at,
             first_connection.first_connected_at + make_interval(
               secs => COALESCE(
                 v.duration_seconds,
                 s.mikrotik_limit_uptime_seconds
               )::double precision
-            )
+            ),
+            v.expires_at
           ) - NOW()
         ))),
         0
@@ -90,27 +90,27 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(
-          v.expires_at,
           first_connection.first_connected_at + make_interval(
             secs => COALESCE(
               v.duration_seconds,
               s.mikrotik_limit_uptime_seconds
             )::double precision
-          )
+          ),
+          v.expires_at
         ) IS NOT NULL
       THEN GREATEST(
         FLOOR(EXTRACT(EPOCH FROM (
           COALESCE(
-            v.expires_at,
             first_connection.first_connected_at + make_interval(
               secs => COALESCE(
                 v.duration_seconds,
                 s.mikrotik_limit_uptime_seconds
               )::double precision
-            )
+            ),
+            v.expires_at
           ) - COALESCE(s.ended_at, NOW())
         ))),
         0
@@ -777,7 +777,7 @@ export async function activateVoucher(
         END,
         activated_at = CASE
           WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
-            'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+            'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
           )
           THEN COALESCE(
             (
@@ -792,7 +792,7 @@ export async function activateVoucher(
         END,
         expires_at = CASE
           WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
-            'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+            'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
           )
             AND v.duration_seconds IS NOT NULL
           THEN COALESCE(
@@ -827,7 +827,7 @@ export async function syncVoucherUsage(
         status = CASE
           WHEN v.status IN ('DISABLED', 'REVOKED') THEN v.status
           WHEN LOWER(COALESCE(v.mikrotik_profile, '')) IN (
-            'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+            'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
           )
             AND COALESCE(
               v.expires_at,
@@ -839,7 +839,7 @@ export async function syncVoucherUsage(
             ) <= NOW()
             THEN 'EXPIRED'
           WHEN LOWER(COALESCE(v.mikrotik_profile, '')) NOT IN (
-            'profil_24h', 'profil_30d', 'profil_week', 'profil_bonus'
+            'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
           )
             AND v.duration_seconds IS NOT NULL
             AND (
