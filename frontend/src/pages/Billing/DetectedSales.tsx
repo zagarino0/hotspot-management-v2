@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { CalendarClock, CheckCircle2, CircleAlert, LockKeyhole, Pencil, Plus, MoreHorizontal, RefreshCw, Save, Trash2, Wallet, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleAlert, Pencil, Plus, MoreHorizontal, RefreshCw, Save, Trash2, Wallet, X } from "lucide-react";
 
 import {
 
@@ -549,20 +549,6 @@ setClosures(
   return (
 
     <div className="space-y-6">
-
-      <div className="flex items-start gap-3 rounded-xl border-0 bg-transparent p-4 font-bold text-slate-800 dark:text-slate-100">
-
-        <LockKeyhole size={19} className="mt-0.5 shrink-0" />
-
-        <div>
-
-          <p className="text-sm font-semibold">Historique réservé à l’administrateur</p>
-
-          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">Les ventes détectées, clôtures et versements de tous les points de vente sont consultables uniquement par un compte administrateur autorisé. Les responsables n’ont pas encore d’accès.</p>
-
-        </div>
-
-      </div>
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 
