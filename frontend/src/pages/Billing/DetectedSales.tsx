@@ -109,6 +109,8 @@ export default function Sales() {
 
   const [remittances, setRemittances] = useState<PosRemittance[]>([]);
 
+  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
+
   const [businessDate, setBusinessDate] = useState("");
 
   const [amount, setAmount] = useState("");
@@ -236,12 +238,14 @@ setClosures(
       getPosTicketEvents(selectedId),
       getPosDailyClosures(selectedId),
       getPosRemittances(selectedId),
+      getSalesSummary(),
     ]);
 
     dataPromise
-      .then(([eventRows, closureRows, remittanceRows]) => {
+      .then(([eventRows, closureRows, remittanceRows, summaryData]) => {
         if (!active) return;
         setEvents(eventRows);
+        setSalesSummary(summaryData);
         setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -714,6 +718,16 @@ setClosures(
           )}
 
         </div>}
+
+      </section>
+
+      <section aria-label="Recette confirmée du jour" className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm ring-1 ring-emerald-50">
+
+        <p className="text-sm font-semibold text-slate-600">Recette du jour confirmée — interne + externe</p>
+
+        <p className="mt-2 break-words text-3xl font-extrabold tracking-tight text-slate-950">{salesSummary ? money(salesSummary.todayRevenue) : loading ? "Chargement…" : "Indisponible"}</p>
+
+        <p className="mt-1 text-xs font-medium text-slate-500">Total des ventes internes payées et des ventes externes confirmées, selon le jour commercial de Madagascar.</p>
 
       </section>
 
