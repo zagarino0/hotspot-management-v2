@@ -1,6 +1,7 @@
 export const CALENDAR_VALIDITY_PROFILES = new Set([
   "profil_24h",
-  "profil_30d",
+  "profil_mothe_1",
+  "profil_mothe_2",
   "profil_week",
   "profil_bonus",
 ]);
