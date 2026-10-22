@@ -438,41 +438,46 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   const salesCount = engagedVouchers.length;
 
   /*
-   * Ventes aujourd'hui = somme des nouveaux tickets dont la toute
-   * première connexion historique a commencé aujourd'hui.
-   * Un même voucher ne peut donc être compté qu'une seule fois,
-   * même s'il s'est reconnecté plusieurs fois dans la journée.
+   * Ventes du jour = ventes confirmées (PAID) des POS internes et externes.
+   * Le jour commercial suit l'heure de fermeture de chaque POS et le fuseau
+   * de Madagascar. Les sessions/reconnexions ne sont pas des ventes POS.
    */
-  const todayFirstConnectionsResult = await pool.query<{
-    profile: string | null;
-    amount: string;
-  }>(
+  const todaySalesResult = await pool.query<{ revenue: string }>(
     `
-      SELECT
-        s.mikrotik_profile AS profile,
-        COALESCE(sp.price, p.default_price, 0)::float8 AS amount
-      FROM session s
-      LEFT JOIN hotspot_profile p
-        ON p.code = LOWER(TRIM(COALESCE(s.mikrotik_profile, '')))
+      SELECT COALESCE(
+        SUM(sa.quantity * COALESCE(sp.price, hp.default_price, sa.unit_price)),
+        0
+      )::float8 AS revenue
+      FROM sale sa
+      JOIN point_of_sale pos ON pos.id = sa.point_of_sale_id
+      LEFT JOIN hotspot_profile hp
+        ON hp.code = LOWER(TRIM(COALESCE(sa.profile_code, '')))
       LEFT JOIN site_hotspot_profile_price sp
-        ON sp.site_id = s.site_id
-       AND sp.profile_code = p.code
-      WHERE s.started_at >= CURRENT_DATE
-        AND s.started_at < CURRENT_DATE + INTERVAL '1 day'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM session previous
-          WHERE previous.router_id = s.router_id
-            AND previous.username = s.username
-            AND previous.started_at < s.started_at
+        ON sp.site_id = sa.site_id
+       AND LOWER(TRIM(sp.profile_code)) = LOWER(TRIM(hp.code))
+      WHERE sa.status = 'PAID'
+        AND (
+          CASE
+            WHEN TO_CHAR(
+              sa.sold_at AT TIME ZONE 'Indian/Antananarivo',
+              'HH24:MI'
+            ) > TO_CHAR(pos.closing_time, 'HH24:MI')
+            THEN (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date + 1
+            ELSE (sa.sold_at AT TIME ZONE 'Indian/Antananarivo')::date
+          END
+        ) = (
+          CASE
+            WHEN TO_CHAR(
+              NOW() AT TIME ZONE 'Indian/Antananarivo',
+              'HH24:MI'
+            ) > TO_CHAR(pos.closing_time, 'HH24:MI')
+            THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
+            ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+          END
         )
     `
   );
-
-  const todayRevenue = todayFirstConnectionsResult.rows.reduce(
-    (sum, row) => sum + Number(row.amount ?? 0),
-    0
-  );
+  const todayRevenue = Number(todaySalesResult.rows[0]?.revenue ?? 0);
 
   const externalTodayResult = await pool.query<{
     revenue: string;
