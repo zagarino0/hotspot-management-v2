@@ -728,26 +728,28 @@ function getCumulativeUniqueDurationSeconds(history: Session[]): number {
 
 function getDisplayStatus(session: Session): SessionStatus {
 
-  const remaining =
-
-    session.status === "ACTIVE"
-
+  const remaining = isCalendarProfile(session.mikrotikProfile)
+    ? toNumber(session.voucherRemainingSeconds)
+    : session.status === "ACTIVE"
       ? toNumber(session.voucherRemainingSeconds)
-
       : toNumber(session.voucherRemainingSecondsAtEnd);
 
+  // Pour les forfaits calendaires, zéro restant signifie que le voucher
+  // a atteint son échéance, même si la dernière session était interrompue.
   if (
-
-    session.status !== "ACTIVE" &&
-
+    isCalendarProfile(session.mikrotikProfile) &&
     remaining !== null &&
-
-    remaining > 0
-
+    remaining <= 0
   ) {
+    return "COMPLETED";
+  }
 
+  if (
+    session.status !== "ACTIVE" &&
+    remaining !== null &&
+    remaining > 0
+  ) {
     return "TERMINATED";
-
   }
 
   return session.status;
