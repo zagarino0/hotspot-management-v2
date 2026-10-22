@@ -16,6 +16,8 @@ import {
 
   deletePointOfSale,
 
+  getSalesSummary,
+  type SalesSummary,
   type PointOfSale,
 
 } from "../../services/saleService";
@@ -109,7 +111,7 @@ export default function Sales() {
 
   const [remittances, setRemittances] = useState<PosRemittance[]>([]);
 
-  const [confirmedRemittanceTotal, setConfirmedRemittanceTotal] = useState<number | null>(null);
+  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
 
   const [businessDate, setBusinessDate] = useState("");
 
@@ -175,32 +177,21 @@ export default function Sales() {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
-      setConfirmedRemittanceTotal(null);
+      setSalesSummary(null);
       setBusinessDate("");
       return;
     }
 
     // Lecture des historiques autorisée pour les points internes et externes.
     // Les contrôles des opérations d'écriture restent appliqués côté backend.
-    const [eventRows, closureRows, remittanceRows, allRemittanceRows] = await Promise.all([
+    const [eventRows, closureRows, remittanceRows, summaryData] = await Promise.all([
       getPosTicketEvents(id),
       getPosDailyClosures(id),
       getPosRemittances(id),
-      Promise.all(points.map((point) => getPosRemittances(point.id))),
+      getSalesSummary(),
     ]);
     setEvents(eventRows);
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Indian/Antananarivo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-    setConfirmedRemittanceTotal(
-      allRemittanceRows.flat().reduce((sum, item) =>
-        businessDateKey(item.business_date) === today
-          ? sum + Number(item.remitted_amount || 0)
-          : sum, 0)
-    );
+    setSalesSummary(summaryData);
 setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -243,7 +234,7 @@ setClosures(
       setEvents([]);
       setClosures([]);
       setRemittances([]);
-      setConfirmedRemittanceTotal(null);
+      setSalesSummary(null);
       setBusinessDate("");
       setLoading(false);
       return () => { active = false; };
@@ -253,25 +244,14 @@ setClosures(
       getPosTicketEvents(selectedId),
       getPosDailyClosures(selectedId),
       getPosRemittances(selectedId),
-      Promise.all(points.map((point) => getPosRemittances(point.id))),
+      getSalesSummary(),
     ]);
 
     dataPromise
-      .then(([eventRows, closureRows, remittanceRows, allRemittanceRows]) => {
+      .then(([eventRows, closureRows, remittanceRows, summaryData]) => {
         if (!active) return;
         setEvents(eventRows);
-        const today = new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Indian/Antananarivo",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date());
-        setConfirmedRemittanceTotal(
-          allRemittanceRows.flat().reduce((sum, item) =>
-            businessDateKey(item.business_date) === today
-              ? sum + Number(item.remitted_amount || 0)
-              : sum, 0)
-        );
+        setSalesSummary(summaryData);
         setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -751,9 +731,9 @@ setClosures(
 
         <p className="text-sm font-semibold text-slate-600">Recette du jour confirmée — interne + externe</p>
 
-        <p className="mt-2 break-words text-3xl font-extrabold tracking-tight text-slate-950">{confirmedRemittanceTotal !== null ? money(confirmedRemittanceTotal) : loading ? "Chargement…" : "Indisponible"}</p>
+        <p className="mt-2 break-words text-3xl font-extrabold tracking-tight text-slate-950">{salesSummary ? money(salesSummary.todayConfirmedRemittance) : loading ? "Chargement…" : "Indisponible"}</p>
 
-        <p className="mt-1 text-xs font-medium text-slate-500">Somme des versements réellement reçus aujourd’hui pour tous les points de vente internes et externes.</p>
+        <p className="mt-1 text-xs font-medium text-slate-500">Total calculé par le backend à partir des versements réellement reçus, pour la journée commerciale de Madagascar.</p>
 
       </section>
 
