@@ -16,8 +16,6 @@ import {
 
   deletePointOfSale,
 
-  getSalesSummary,
-  type SalesSummary,
   type PointOfSale,
 
 } from "../../services/saleService";
@@ -111,7 +109,7 @@ export default function Sales() {
 
   const [remittances, setRemittances] = useState<PosRemittance[]>([]);
 
-  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
+  const [confirmedRemittanceTotal, setConfirmedRemittanceTotal] = useState<number | null>(null);
 
   const [businessDate, setBusinessDate] = useState("");
 
@@ -177,21 +175,32 @@ export default function Sales() {
       setEvents([]);
       setClosures([]);
       setRemittances([]);
-      setSalesSummary(null);
+      setConfirmedRemittanceTotal(null);
       setBusinessDate("");
       return;
     }
 
     // Lecture des historiques autorisée pour les points internes et externes.
     // Les contrôles des opérations d'écriture restent appliqués côté backend.
-    const [eventRows, closureRows, remittanceRows, summaryData] = await Promise.all([
+    const [eventRows, closureRows, remittanceRows, allRemittanceRows] = await Promise.all([
       getPosTicketEvents(id),
       getPosDailyClosures(id),
       getPosRemittances(id),
-      getSalesSummary(),
+      Promise.all(points.map((point) => getPosRemittances(point.id))),
     ]);
     setEvents(eventRows);
-    setSalesSummary(summaryData);
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Indian/Antananarivo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    setConfirmedRemittanceTotal(
+      allRemittanceRows.flat().reduce((sum, item) =>
+        businessDateKey(item.business_date) === today
+          ? sum + Number(item.remitted_amount || 0)
+          : sum, 0)
+    );
 setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -234,7 +243,7 @@ setClosures(
       setEvents([]);
       setClosures([]);
       setRemittances([]);
-      setSalesSummary(null);
+      setConfirmedRemittanceTotal(null);
       setBusinessDate("");
       setLoading(false);
       return () => { active = false; };
@@ -244,14 +253,25 @@ setClosures(
       getPosTicketEvents(selectedId),
       getPosDailyClosures(selectedId),
       getPosRemittances(selectedId),
-      getSalesSummary(),
+      Promise.all(points.map((point) => getPosRemittances(point.id))),
     ]);
 
     dataPromise
-      .then(([eventRows, closureRows, remittanceRows, summaryData]) => {
+      .then(([eventRows, closureRows, remittanceRows, allRemittanceRows]) => {
         if (!active) return;
         setEvents(eventRows);
-        setSalesSummary(summaryData);
+        const today = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Indian/Antananarivo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date());
+        setConfirmedRemittanceTotal(
+          allRemittanceRows.flat().reduce((sum, item) =>
+            businessDateKey(item.business_date) === today
+              ? sum + Number(item.remitted_amount || 0)
+              : sum, 0)
+        );
         setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -731,9 +751,9 @@ setClosures(
 
         <p className="text-sm font-semibold text-slate-600">Recette du jour confirmée — interne + externe</p>
 
-        <p className="mt-2 break-words text-3xl font-extrabold tracking-tight text-slate-950">{salesSummary ? money(salesSummary.todayRevenue) : loading ? "Chargement…" : "Indisponible"}</p>
+        <p className="mt-2 break-words text-3xl font-extrabold tracking-tight text-slate-950">{confirmedRemittanceTotal !== null ? money(confirmedRemittanceTotal) : loading ? "Chargement…" : "Indisponible"}</p>
 
-        <p className="mt-1 text-xs font-medium text-slate-500">Total des ventes internes payées et des ventes externes confirmées, selon le jour commercial de Madagascar.</p>
+        <p className="mt-1 text-xs font-medium text-slate-500">Somme des versements réellement reçus aujourd’hui pour tous les points de vente internes et externes.</p>
 
       </section>
 
