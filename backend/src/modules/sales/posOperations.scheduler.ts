@@ -1,4 +1,5 @@
 import { pool } from "../../database/pool.js";
+import { firstUseSaleEventKey, resolveFirstUseTariff } from "./posSalesDetection.rules.js";
 
 import {
   POS_TIME_ZONE as TIME_ZONE,
@@ -49,7 +50,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
     net_revenue: Number(old.net_revenue),
   };
 
-  // Évite de réécrire l'audit et la date de clôture si les montants sont déjà exacts.
+  // Ã‰vite de rÃ©Ã©crire l'audit et la date de clÃ´ture si les montants sont dÃ©jÃ  exacts.
   if (
     previousSnapshot.tickets_sold === newSnapshot.tickets_sold &&
     previousSnapshot.gross_revenue === newSnapshot.gross_revenue &&
@@ -89,7 +90,7 @@ export async function refreshClosedDay(client: import("pg").PoolClient, closureI
   );
 }
 
-async function detectFirstUse() {
+export async function detectFirstUse(voucherId?: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -99,33 +100,29 @@ async function detectFirstUse() {
       pointOfSaleId: string;
       code: string;
       firstSessionAt: string;
-      unitPrice: string;
-      currency: string;
-      priceSource: string;
-      priceIssue: string | null;
+      priceSnapshot: string | null;
+      currencySnapshot: string | null;
+      planPrice: string | null;
+      planCurrency: string | null;
+      matchedRows: number;
+      distinctPositivePrices: number;
+      sitePrice: string | null;
+      distinctCurrencies: number;
+      siteCurrency: string | null;
       businessDate: string;
     }>(
       `SELECT v.id AS "voucherId", v.site_id AS "siteId",
               pos.id AS "pointOfSaleId", v.code,
               first_session.started_at AS "firstSessionAt",
-              CASE WHEN v.price_snapshot IS NOT NULL THEN v.price_snapshot
-                   WHEN sp.matched_rows = 0 THEN p.price
-                   WHEN sp.distinct_positive_prices = 1 THEN sp.price
-                   ELSE NULL END::text AS "unitPrice",
-              CASE WHEN v.currency_snapshot IS NOT NULL THEN v.currency_snapshot
-                   WHEN sp.matched_rows = 0 THEN p.currency
-                   WHEN sp.distinct_currencies = 1 THEN sp.currency
-                   ELSE NULL END AS currency,
-              CASE WHEN v.price_snapshot IS NOT NULL THEN 'VOUCHER_SNAPSHOT'
-                   WHEN sp.matched_rows = 0 THEN 'CURRENT_PLAN'
-                   ELSE 'CURRENT_SITE_PROFILE' END AS "priceSource",
-              CASE
-                WHEN v.price_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_positive_prices <> 1
-                  THEN 'Tarif du profil ambigu ou non positif dans la configuration du site.'
-                WHEN v.currency_snapshot IS NULL AND sp.matched_rows > 0 AND sp.distinct_currencies <> 1
-                  THEN 'Devises contradictoires pour le profil dans la configuration du site.'
-                ELSE NULL
-              END AS "priceIssue",
+              v.price_snapshot::text AS "priceSnapshot",
+              v.currency_snapshot AS "currencySnapshot",
+              p.price::text AS "planPrice",
+              p.currency AS "planCurrency",
+              sp.matched_rows AS "matchedRows",
+              sp.distinct_positive_prices AS "distinctPositivePrices",
+              sp.price::text AS "sitePrice",
+              sp.distinct_currencies AS "distinctCurrencies",
+              sp.currency AS "siteCurrency",
               (CASE WHEN to_char(first_session.started_at AT TIME ZONE $1, 'HH24:MI') > TO_CHAR(pos.closing_time, 'HH24:MI')
                 THEN (first_session.started_at AT TIME ZONE $1)::date + 1
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
@@ -154,13 +151,27 @@ async function detectFirstUse() {
          ) first_session ON first_session.started_at IS NOT NULL
         WHERE v.first_use_detected_at IS NULL
           AND COALESCE(setting.detect_sale_on_first_use, TRUE) = TRUE
+          AND ($2::uuid IS NULL OR v.id = $2::uuid)
         ORDER BY first_session.started_at
         LIMIT 50
         FOR UPDATE OF v SKIP LOCKED`,
-      [TIME_ZONE],
+      [TIME_ZONE, voucherId ?? null],
     );
 
     for (const item of candidates.rows) {
+      const tariff = resolveFirstUseTariff({
+        voucherPriceSnapshot: item.priceSnapshot === null ? null : Number(item.priceSnapshot),
+        voucherCurrencySnapshot: item.currencySnapshot,
+        planPrice: item.planPrice === null ? null : Number(item.planPrice),
+        planCurrency: item.planCurrency,
+        siteProfile: {
+          matchedRows: Number(item.matchedRows),
+          distinctPositivePrices: Number(item.distinctPositivePrices),
+          price: item.sitePrice === null ? null : Number(item.sitePrice),
+          distinctCurrencies: Number(item.distinctCurrencies),
+          currency: item.siteCurrency,
+        },
+      });
       const priorSale = await client.query<{ pointOfSaleId: string }>(
         `SELECT point_of_sale_id AS "pointOfSaleId"
            FROM point_of_sale_ticket_event
@@ -176,26 +187,26 @@ async function detectFirstUse() {
           `UPDATE voucher
               SET first_use_detected_at = COALESCE(first_use_detected_at, NOW()),
                   first_use_detection_issue = CASE
-                    WHEN $2 THEN COALESCE(first_use_detection_issue, 'Une vente existe déjà sur un autre point de vente; vérification requise.')
+                    WHEN $2 THEN COALESCE(first_use_detection_issue, 'Une vente existe dÃ©jÃ  sur un autre point de vente; vÃ©rification requise.')
                     ELSE NULL
                   END
             WHERE id = $1 AND first_use_detected_at IS NULL`,
           [item.voucherId, attributionMismatch],
         );
         if (attributionMismatch && updated.rowCount) {
-          console.warn(`[pos-sales] Attribution à vérifier pour le voucher ${item.code}: vente déjà enregistrée sur un autre point de vente.`);
+          console.warn(`[pos-sales] Attribution Ã  vÃ©rifier pour le voucher ${item.code}: vente dÃ©jÃ  enregistrÃ©e sur un autre point de vente.`);
         }
         continue;
       }
 
-      if (Number(item.unitPrice) <= 0 || item.currency !== "MGA") {
+      if (tariff.unitPrice === null || tariff.unitPrice <= 0 || tariff.currency !== "MGA" || tariff.issue !== null) {
         const issue = await client.query(
           `UPDATE voucher SET first_use_detection_issue = $2
             WHERE id = $1 AND first_use_detection_issue IS NULL`,
-          [item.voucherId, item.priceIssue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
+          [item.voucherId, tariff.issue ?? "Prix ou devise du forfait non résolu pour la détection de vente."],
         );
         if (issue.rowCount) {
-          console.warn(`[pos-sales] Détection mise en attente: prix non résolu pour le voucher ${item.code}.`);
+          console.warn(`[pos-sales] DÃ©tection mise en attente: prix non rÃ©solu pour le voucher ${item.code}.`);
         }
         continue;
       }
@@ -212,14 +223,14 @@ async function detectFirstUse() {
           item.siteId,
           item.voucherId,
           item.code,
-          Number(item.unitPrice),
-          item.currency,
-          `voucher-first-use:${item.voucherId}`,
+          tariff.unitPrice,
+          tariff.currency,
+          firstUseSaleEventKey(item.voucherId),
           JSON.stringify({
             detection: "FIRST_SUCCESSFUL_SESSION",
             detectedAt: new Date().toISOString(),
             firstSessionStartedAt: item.firstSessionAt,
-            priceSource: item.priceSource,
+            priceSource: tariff.priceSource,
             saleTimeVerified: false,
           }),
           item.firstSessionAt,
@@ -245,7 +256,7 @@ async function detectFirstUse() {
           await refreshClosedDay(
             client,
             closure.rows[0].id,
-            `Première utilisation détectée tardivement pour le ticket ${item.code}; l'heure réelle de vente n'est pas connue.`,
+            `PremiÃ¨re utilisation dÃ©tectÃ©e tardivement pour le ticket ${item.code}; l'heure rÃ©elle de vente n'est pas connue.`,
           );
         }
       }
@@ -270,12 +281,12 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
       [pointOfSaleId, businessDate],
     );
     if (existing.rows[0]?.status === "CLOSED") {
-      // Recalcule les clôtures existantes selon la règle commerciale actuelle.
-      // Les versements historiques restent inchangés et leur écart est conservé.
+      // Recalcule les clÃ´tures existantes selon la rÃ¨gle commerciale actuelle.
+      // Les versements historiques restent inchangÃ©s et leur Ã©cart est conservÃ©.
       await refreshClosedDay(
         client,
         String(existing.rows[0].id),
-        "Recalcul automatique des montants selon la règle de journée commerciale après 20:00.",
+        "Recalcul automatique des montants selon la rÃ¨gle de journÃ©e commerciale aprÃ¨s 20:00.",
       );
       await client.query("COMMIT");
       return;
@@ -331,7 +342,7 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
                 refunds = $11,
                 net_revenue = $12,
                 status = 'CLOSED',
-                notes = COALESCE(notes || E'\\n', '') || 'Clôture financière automatique; comptage physique du stock à effectuer.',
+                notes = COALESCE(notes || E'\\n', '') || 'ClÃ´ture financiÃ¨re automatique; comptage physique du stock Ã  effectuer.',
                 closed_by = NULL,
                 closed_at = NOW(),
                 stock_review_required = (physical_stock_count IS NULL),
@@ -352,7 +363,7 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
            gross_revenue, refunds, net_revenue, stock_discrepancy, status, notes,
            closed_by, closed_at, physical_stock_count, theoretical_stock, stock_review_required)
          VALUES ($1,$2::date,$3,0,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,0,
-           'CLOSED','Clôture financière automatique; comptage physique du stock à effectuer.',NULL,NOW(),NULL,NULL,TRUE)
+           'CLOSED','ClÃ´ture financiÃ¨re automatique; comptage physique du stock Ã  effectuer.',NULL,NOW(),NULL,NULL,TRUE)
          ON CONFLICT (point_of_sale_id, business_date) DO NOTHING
          RETURNING id`,
         [
@@ -367,7 +378,7 @@ export async function closeFinancialDay(pointOfSaleId: string, businessDate: str
       await client.query(
         `INSERT INTO point_of_sale_closure_audit
           (closure_id, action, previous_snapshot, new_snapshot, reason, source)
-         VALUES ($1,'AUTO_CLOSED',$2::jsonb,$3::jsonb,'Clôture financière automatique planifiée','SYSTEM')`,
+         VALUES ($1,'AUTO_CLOSED',$2::jsonb,$3::jsonb,'ClÃ´ture financiÃ¨re automatique planifiÃ©e','SYSTEM')`,
         [
           closureId,
           previous ? JSON.stringify(previous) : null,
@@ -423,9 +434,9 @@ async function runSchedulerCycle() {
         [setting.organizationId],
       );
       for (const pos of posResult.rows) {
-        // Recalcule régulièrement les clôtures récentes déjà CLOSED, même avant
-        // l'heure de clôture. Cela corrige les ventes tardives attribuées au lendemain
-        // sans attendre le prochain cycle de clôture financière.
+        // Recalcule rÃ©guliÃ¨rement les clÃ´tures rÃ©centes dÃ©jÃ  CLOSED, mÃªme avant
+        // l'heure de clÃ´ture. Cela corrige les ventes tardives attribuÃ©es au lendemain
+        // sans attendre le prochain cycle de clÃ´ture financiÃ¨re.
         const recentClosures = await pool.query<{ id: string }>(
           `SELECT id
              FROM point_of_sale_daily_closure
@@ -444,17 +455,17 @@ async function runSchedulerCycle() {
           )).rows[0].businessDate);
         }
 
-        // Ne clôturer qu'à partir de l'heure configurée (20:00 par défaut).
-        if (!isClosureDue(nowTime, pos.closingTime)) continue;
-        // La journée commerciale porte la date de clôture : le cycle ouvert la veille à 20:10 est clôturé à 20:00 aujourd'hui.
+        // Ne clÃ´turer qu'Ã  partir de l'heure configurÃ©e (20:00 par dÃ©faut).
+        if (!isClosureDue(nowTime, setting.closureTime)) continue;
+        // La journÃ©e commerciale porte la date de clÃ´ture : le cycle ouvert la veille Ã  20:10 est clÃ´turÃ© Ã  20:00 aujourd'hui.
         const existing = await pool.query<{ lastDate: string | null }>(
           `SELECT MAX(business_date)::text AS "lastDate"
              FROM point_of_sale_daily_closure WHERE point_of_sale_id = $1`,
           [pos.id],
         );
-        // Au premier lancement de cette fonctionnalité, ne pas créer rétroactivement
-        // des centaines de clôtures vides: commencer à la date cible. Ensuite, rattraper
-        // chaque journée manquée depuis la dernière clôture persistée.
+        // Au premier lancement de cette fonctionnalitÃ©, ne pas crÃ©er rÃ©troactivement
+        // des centaines de clÃ´tures vides: commencer Ã  la date cible. Ensuite, rattraper
+        // chaque journÃ©e manquÃ©e depuis la derniÃ¨re clÃ´ture persistÃ©e.
         let date = existing.rows[0]?.lastDate
           ? addDays(existing.rows[0].lastDate as string, 1)
           : targetDate;
@@ -464,9 +475,9 @@ async function runSchedulerCycle() {
           await closeFinancialDay(pos.id, date);
         }
 
-        // Garantit la clôture de la journée cible même si une clôture future
-        // existe déjà : MAX(business_date) seul ne détecte pas les trous antérieurs.
-        // closeFinancialDay est idempotente pour une journée déjà clôturée.
+        // Garantit la clÃ´ture de la journÃ©e cible mÃªme si une clÃ´ture future
+        // existe dÃ©jÃ  : MAX(business_date) seul ne dÃ©tecte pas les trous antÃ©rieurs.
+        // closeFinancialDay est idempotente pour une journÃ©e dÃ©jÃ  clÃ´turÃ©e.
         await closeFinancialDay(pos.id, targetDate);
       }
     }
@@ -476,7 +487,7 @@ async function runSchedulerCycle() {
     if (lockClient) {
       if (lockAcquired) {
         try { await lockClient.query("SELECT pg_advisory_unlock(hashtext('pos-operations-scheduler'))"); }
-        catch (error) { console.error("[pos-operations] Impossible de libérer le verrou:", error); }
+        catch (error) { console.error("[pos-operations] Impossible de libÃ©rer le verrou:", error); }
       }
       lockClient.release();
     }
@@ -486,7 +497,7 @@ async function runSchedulerCycle() {
 
 export function startPosOperationsScheduler() {
   if (timer) return;
-  console.log(`[pos-operations] Planificateur actif; fuseau ${TIME_ZONE}; contrôle toutes les ${POLL_INTERVAL_MS / 1000}s.`);
+  console.log(`[pos-operations] Planificateur actif; fuseau ${TIME_ZONE}; contrÃ´le toutes les ${POLL_INTERVAL_MS / 1000}s.`);
   void runSchedulerCycle();
   timer = setInterval(() => void runSchedulerCycle(), POLL_INTERVAL_MS);
 }

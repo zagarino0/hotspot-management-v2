@@ -50,7 +50,7 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+      'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
       )
         AND COALESCE(
           v.expires_at,
@@ -90,7 +90,7 @@ const SESSION_SELECT = `
 
     CASE
       WHEN LOWER(COALESCE(v.mikrotik_profile, s.mikrotik_profile, '')) IN (
-        'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
+'profil_24h', 'profil_week', 'profil_mothe_1', 'profil_mothe_2', 'profil_bonus'
       )
         AND COALESCE(
           v.expires_at,
@@ -129,6 +129,7 @@ const SESSION_SELECT = `
     END AS "voucherRemainingSecondsAtEnd",
 
     v.code AS "voucherCode",
+    v.activated_at AS "voucherActivatedAt",
 
     CASE
       WHEN s.voucher_id IS NOT NULL THEN (
@@ -512,21 +513,68 @@ export async function upsertActiveSession(
     throw new Error(`Impossible d'enregistrer la session MikroTik : aucun site associé au routeur ${data.routerId}.`);
   }
 
-  const existing = await pool.query<{ id: string }>(
+  // Le compteur uptime de /ip/hotspot/active/print est relatif à la
+  // connexion active courante. Si son heure de début estimée diffère
+  // fortement de started_at, il s'agit d'une reconnexion que le cycle
+  // précédent n'a pas observée. Ne pas réutiliser l'ancienne ligne.
+  const existing = await pool.query<{
+    id: string;
+    durationSeconds: number | string | null;
+  }>(
     `
-      SELECT id
+      SELECT
+        id,
+        duration_seconds AS "durationSeconds"
       FROM session
       WHERE router_id = $1
         AND mac_address = $2
         AND status = 'ACTIVE'
         AND ended_at IS NULL
+      ORDER BY started_at DESC
       LIMIT 1
     `,
     [data.routerId, data.macAddress]
   );
 
-  if (existing.rows[0]) {
-    const sessionId = existing.rows[0].id;
+  const existingRow = existing.rows[0];
+  const previousMikrotikUptime = existingRow?.durationSeconds == null
+    ? null
+    : Number(existingRow.durationSeconds);
+
+  // Détection fondée exclusivement sur le compteur uptime renvoyé par
+  // MikroTik, jamais sur l'horloge du backend ou celle de PostgreSQL.
+  // Une baisse nette de l'uptime courant par rapport au maximum observé
+  // indique que la connexion active a été réinitialisée/recréée.
+  // La petite tolérance absorbe les variations d'ordre des observations.
+  const MIKROTIK_UPTIME_JITTER_SECONDS = 5;
+  const sameConnection =
+    existingRow !== undefined &&
+    previousMikrotikUptime !== null &&
+    Number.isFinite(previousMikrotikUptime) &&
+    data.uptimeSeconds + MIKROTIK_UPTIME_JITTER_SECONDS >= previousMikrotikUptime;
+
+  if (existingRow && !sameConnection) {
+    // L'uptime MikroTik a diminué : on clôt l'ancienne connexion et on
+    // ouvre une nouvelle ligne. On conserve la dernière durée observée ;
+    // on ne compte jamais le temps passé hors ligne.
+    await pool.query(
+      `
+        UPDATE session
+        SET
+          status = 'TERMINATED',
+          ended_at = LEAST(COALESCE(updated_at, NOW()), NOW()),
+          termination_reason = 'RECONNECTED',
+          updated_at = NOW()
+        WHERE id = $1
+          AND status = 'ACTIVE'
+          AND ended_at IS NULL
+      `,
+      [existingRow.id]
+    );
+  }
+
+  if (existingRow && sameConnection) {
+    const sessionId = existingRow.id;
 
     await pool.query(
       `
