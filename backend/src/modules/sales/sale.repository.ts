@@ -513,21 +513,16 @@ export async function getSalesSummary(): Promise<SalesSummary> {
   );
   const todayRevenue = Number(todaySalesResult.rows[0]?.revenue ?? 0);
 
-  // Total encaissé : somme des versements réellement enregistrés, par journée commerciale.
+  // Recette confirmée = somme des versements réels de la date locale courante.
+  // business_date est déjà la date commerciale enregistrée lors du versement :
+  // ne pas lui appliquer une seconde fois le décalage après l'heure de clôture.
   const todayConfirmedRemittanceResult = await pool.query<{ revenue: string }>(
     `
       SELECT COALESCE(SUM(r.remitted_amount), 0)::float8 AS revenue
       FROM point_of_sale_remittance r
       JOIN point_of_sale pos ON pos.id = r.point_of_sale_id
       WHERE r.currency = 'MGA'
-        AND r.business_date = (
-          CASE
-            WHEN TO_CHAR(NOW() AT TIME ZONE 'Indian/Antananarivo', 'HH24:MI')
-                 > TO_CHAR(pos.closing_time, 'HH24:MI')
-            THEN (NOW() AT TIME ZONE 'Indian/Antananarivo')::date + 1
-            ELSE (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
-          END
-        )
+        AND r.business_date = (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
     `
   );
   const todayConfirmedRemittance = Number(
