@@ -156,17 +156,16 @@ export default function Sales() {
     const result = await getPointOfSales();
 
     setPoints(result);
+    setSelectedId((current) => {
+      if (current && result.some((point) => point.id === current)) return current;
 
-    setSelectedId((current) =>
+      const preferredPoint =
+        result.find((point) => point.type === "EXTERNAL" && point.status === "ACTIVE") ??
+        result.find((point) => point.status === "ACTIVE") ??
+        result[0];
 
-      current && result.some((point) => point.id === current)
-
-        ? current
-
-        : result.find((point) => point.status === "ACTIVE")?.id ?? result[0]?.id ?? ""
-
-    );
-
+      return preferredPoint?.id ?? "";
+    });
   }
 
   async function loadPosData(id: string) {
@@ -196,11 +195,21 @@ export default function Sales() {
       getPosDailyClosures(id),
       getPosRemittances(id),
     ]);
-    setClosures(closureRows);
-    setRemittances(remittanceRows);
-    setBusinessDate(
-      (current) => current || businessDateKey(closureRows[0]?.business_date) || ""
-    );
+setClosures(
+          [...closureRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
+        setRemittances(
+          [...remittanceRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
+        setBusinessDate((current) =>
+          closureRows.some((c) => businessDateKey(c.business_date) === current)
+            ? current
+            : businessDateKey(closureRows[0]?.business_date) || ""
+        );
   }
 
   useEffect(() => {
@@ -253,8 +262,16 @@ export default function Sales() {
       .then(([eventRows, closureRows, remittanceRows]) => {
         if (!active) return;
         setEvents(eventRows);
-        setClosures([...closureRows].sort((a, b) => new Date(b.business_date).getTime() - new Date(a.business_date).getTime()));
-        setRemittances([...remittanceRows].sort((a, b) => new Date(b.business_date).getTime() - new Date(a.business_date).getTime()));
+        setClosures(
+          [...closureRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
+        setRemittances(
+          [...remittanceRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
         setBusinessDate((current) =>
           closureRows.some((c) => businessDateKey(c.business_date) === current)
             ? current
