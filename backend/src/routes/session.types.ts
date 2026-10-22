@@ -45,6 +45,7 @@ export interface SessionRow {
 
   voucherUsedSeconds: number;
   voucherDurationSeconds: number | null;
+  voucherCalendarDaysUsed: number | null;
   voucherRemainingSeconds: number | null;
   voucherRemainingSecondsAtEnd: number | null;
   voucherCode: string | null;
