@@ -16,6 +16,8 @@ import {
 
   deletePointOfSale,
 
+  getSalesSummary,
+  type SalesSummary,
   type PointOfSale,
 
 } from "../../services/saleService";
@@ -201,7 +203,7 @@ setClosures(
           )
         );
         setBusinessDate((current) =>
-          closureRows.some((c) => businessDateKey(c.business_date) === current)
+          closureRows.some((c: PosDailyClosure) => businessDateKey(c.business_date) === current)
             ? current
             : businessDateKey(closureRows[0]?.business_date) || ""
         );
@@ -261,7 +263,7 @@ setClosures(
           )
         );
         setBusinessDate((current) =>
-          closureRows.some((c) => businessDateKey(c.business_date) === current)
+          closureRows.some((c: PosDailyClosure) => businessDateKey(c.business_date) === current)
             ? current
             : businessDateKey(closureRows[0]?.business_date) || ""
         );
