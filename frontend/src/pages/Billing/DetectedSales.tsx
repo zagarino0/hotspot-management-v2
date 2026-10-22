@@ -89,11 +89,17 @@ export default function Sales() {
   async function loadPoints() {
     const result = await getPointOfSales();
     setPoints(result);
-    setSelectedId((current) =>
-      current && result.some((point) => point.id === current)
-        ? current
-        : result.find((point) => point.status === "ACTIVE")?.id ?? result[0]?.id ?? ""
-    );
+    setSelectedId((current) => {
+      if (current && result.some((point) => point.id === current)) return current;
+
+      // Prioriser un point de vente externe actif pour afficher les historiques commerciaux.
+      const preferredPoint =
+        result.find((point) => point.type === "EXTERNAL" && point.status === "ACTIVE") ??
+        result.find((point) => point.status === "ACTIVE") ??
+        result[0];
+
+      return preferredPoint?.id ?? "";
+    });
   }
 
   async function loadPosData(id: string) {
@@ -111,8 +117,16 @@ export default function Sales() {
       getPosRemittances(id),
     ]);
     setEvents(eventRows);
-    setClosures(closureRows);
-    setRemittances(remittanceRows);
+    setClosures(
+      [...closureRows].sort((a, b) =>
+        businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+      )
+    );
+    setRemittances(
+      [...remittanceRows].sort((a, b) =>
+        businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+      )
+    );
     setBusinessDate((current) => current || businessDateKey(closureRows[0]?.business_date) || "");
   }
 
@@ -145,8 +159,16 @@ export default function Sales() {
       .then(([eventRows, closureRows, remittanceRows]) => {
         if (!active) return;
         setEvents(eventRows);
-        setClosures(closureRows);
-        setRemittances(remittanceRows);
+        setClosures(
+          [...closureRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
+        setRemittances(
+          [...remittanceRows].sort((a, b) =>
+            businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
+          )
+        );
         setBusinessDate((current) => closureRows.some((c) => businessDateKey(c.business_date) === current)
           ? current
           : businessDateKey(closureRows[0]?.business_date) || "");
