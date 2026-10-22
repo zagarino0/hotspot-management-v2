@@ -128,7 +128,7 @@ export async function listPosClosureAudit(
   await assertPermission(userId, organizationId, "POS_DAILY_CLOSURES_READ");
   const pos = await pool.query(
     `SELECT id FROM point_of_sale
-      WHERE id = $1 AND organization_id = $2 AND type = 'EXTERNAL'`,
+      WHERE id = $1 AND organization_id = $2`,
     [pointOfSaleId, organizationId],
   );
   if (!pos.rows[0]) throw notFoundError("Point de vente introuvable.");
