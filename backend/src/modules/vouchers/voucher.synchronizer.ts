@@ -285,48 +285,55 @@ export async function syncMikrotikVouchers(
 
     const planId = await findPlanIdForProfile(router.siteId, user.profile);
 
-    // Calendar expiry is authoritative only for the four explicitly targeted profiles.
-    // Read PostgreSQL expiry before deriving status from the RouterOS uptime counters.
+    // Calendar validity is measured in calendar days in Madagascar, not accumulated uptime.
+    // First activation comes from the earliest session; activated_at covers vouchers
+    // activated without a recorded session. Unactivated vouchers have no calendar start.
     const calendarExpiry = isCalendarValidityProfile(user.profile)
       ? await pool.query<{ id: string; expiresAt: string; username: string }>(
-          `SELECT v.id,
-                  COALESCE(
-                    first_session.first_connected_at + make_interval(
-                      secs => COALESCE(
-                        v.duration_seconds,
-                        first_session.limit_uptime_seconds
-                      )::double precision
-                    ),
+          `WITH voucher_calendar AS (
+             SELECT v.id,
+                    COALESCE(v.mikrotik_username, v.code) AS username,
+                    COALESCE(first_session.first_connected_at, v.activated_at) AS activated_at,
+                    COALESCE(v.duration_seconds, first_session.limit_uptime_seconds) AS duration_seconds,
                     v.expires_at
-                  ) AS "expiresAt",
-                  COALESCE(v.mikrotik_username, v.code) AS username
-             FROM voucher v
-             LEFT JOIN LATERAL (
-               SELECT MIN(s.started_at) AS first_connected_at,
-                      MAX(s.mikrotik_limit_uptime_seconds) AS limit_uptime_seconds
-                 FROM session s
-                WHERE (
-                  (s.voucher_id IS NOT NULL AND s.voucher_id = v.id)
-                  OR (
-                    s.voucher_id IS NULL
-                    AND s.site_id = v.site_id
-                    AND s.router_id = v.router_id
-                    AND lower(s.username) = lower(COALESCE(v.mikrotik_username, v.code))
+               FROM voucher v
+               LEFT JOIN LATERAL (
+                 SELECT MIN(s.started_at) AS first_connected_at,
+                        MAX(s.mikrotik_limit_uptime_seconds) AS limit_uptime_seconds
+                   FROM session s
+                  WHERE (
+                    (s.voucher_id IS NOT NULL AND s.voucher_id = v.id)
+                    OR (
+                      s.voucher_id IS NULL
+                      AND s.site_id = v.site_id
+                      AND s.router_id = v.router_id
+                      AND lower(s.username) = lower(COALESCE(v.mikrotik_username, v.code))
+                    )
                   )
-                )
-             ) first_session ON TRUE
-            WHERE v.router_id = $1
-              AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
-              AND lower(v.mikrotik_profile) = lower($3)
-              AND COALESCE(
-                first_session.first_connected_at + make_interval(
-                  secs => COALESCE(
-                    v.duration_seconds,
-                    first_session.limit_uptime_seconds
-                  )::double precision
-                ),
-                v.expires_at
-              ) <= NOW()
+               ) first_session ON TRUE
+              WHERE v.router_id = $1
+                AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
+                AND lower(v.mikrotik_profile) = lower($3)
+           ),
+           expiry AS (
+             SELECT id, username,
+                    CASE
+                      WHEN activated_at IS NOT NULL AND duration_seconds > 0 THEN
+                        (
+                          (
+                            (activated_at AT TIME ZONE 'Indian/Antananarivo')::date
+                            + CEIL(duration_seconds::numeric / 86400)::integer
+                          )::timestamp AT TIME ZONE 'Indian/Antananarivo'
+                        )
+                      ELSE expires_at
+                    END AS expires_at
+               FROM voucher_calendar
+           )
+           SELECT id, username, expires_at AS "expiresAt"
+             FROM expiry
+            WHERE expires_at IS NOT NULL
+              AND (NOW() AT TIME ZONE 'Indian/Antananarivo')::date >=
+                  (expires_at AT TIME ZONE 'Indian/Antananarivo')::date
             LIMIT 1`,
           [router.id, username, user.profile]
         )
