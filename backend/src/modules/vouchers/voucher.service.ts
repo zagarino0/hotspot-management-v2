@@ -125,9 +125,12 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
                SELECT id, activated_at,
                       CASE
                         WHEN activated_at IS NOT NULL AND duration_seconds > 0 THEN
-                          (((activated_at AT TIME ZONE 'Indian/Antananarivo')::date
-                            + CEIL(duration_seconds::numeric / 86400)::integer)::timestamp
-                            AT TIME ZONE 'Indian/Antananarivo')
+                          GREATEST(
+                            (((activated_at AT TIME ZONE 'Indian/Antananarivo')::date
+                              + CEIL(duration_seconds::numeric / 86400)::integer)::timestamp
+                              AT TIME ZONE 'Indian/Antananarivo'),
+                            activated_at + INTERVAL '1 second'
+                          )
                         ELSE expires_at
                       END AS expires_at
                  FROM activation
