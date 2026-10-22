@@ -16,7 +16,9 @@ import {
 } from "../routers/router.repository.js";
 
 import { connectMikroTik } from "../../mikrotik/connection.js";
-import { createHotspotUser, deleteHotspotUser, fetchHotspotUsers, updateHotspotUserComment } from "../../mikrotik/hotspotUsers.js";
+import { createHotspotUser, deleteHotspotUser, fetchHotspotUsers, updateHotspotUserComment, setHotspotUserDisabled } from "../../mikrotik/hotspotUsers.js";
+import { fetchActiveHotspotUsers, removeActiveHotspotUser } from "../../mikrotik/hotspotActive.js";
+import { enforceCalendarExpiry, isCalendarValidityProfile } from "./calendarValidity.js";
 import { pool } from "../../database/pool.js";
 import { decryptSecret } from "../../lib/crypto.js";
 
@@ -93,23 +95,91 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
       const users = await fetchHotspotUsers(api);
 
       for (const user of users) {
-        // Règle métier définitive, basée sur les valeurs MikroTik :
-        // 1. Uptime = Limit Uptime -> EXPIRED (prioritaire)
-        // 2. MAC renseignée + Uptime <= Limit Uptime -> ACTIVE/Utilisé
-        // 3. MAC vide + Uptime = 0 -> UNUSED/Disponible
-        let status: MikrotikVoucherRow["status"] = "UNUSED";
+        // MikroTik reste la source de vérité pour l'uptime et la limite.
+        // Pour les profils à validité calendaire, le backend vérifie aussi
+        // la première activation/session et applique l'expiration sur MikroTik.
+        let calendarExpired = false;
+        if (isCalendarValidityProfile(user.profile)) {
+          const expiryResult = await pool.query<{ id: string; expiresAt: string; activatedAt: string }>(
+            `WITH activation AS (
+               SELECT v.id,
+                      COALESCE(first_session.first_connected_at, v.activated_at) AS activated_at,
+                      COALESCE(v.duration_seconds, first_session.limit_uptime_seconds) AS duration_seconds,
+                      v.expires_at
+                 FROM voucher v
+                 LEFT JOIN LATERAL (
+                   SELECT MIN(s.started_at) AS first_connected_at,
+                          MAX(s.mikrotik_limit_uptime_seconds) AS limit_uptime_seconds
+                     FROM session s
+                    WHERE (s.voucher_id = v.id)
+                       OR (s.voucher_id IS NULL
+                           AND s.site_id = v.site_id
+                           AND s.router_id = v.router_id
+                           AND LOWER(s.username) = LOWER(COALESCE(v.mikrotik_username, v.code)))
+                 ) first_session ON TRUE
+                WHERE v.router_id = $1
+                  AND LOWER(COALESCE(v.mikrotik_username, v.code)) = LOWER($2)
+                  AND LOWER(v.mikrotik_profile) = LOWER($3)
+                LIMIT 1
+             ), calculated AS (
+               SELECT id, activated_at,
+                      CASE
+                        WHEN activated_at IS NOT NULL AND duration_seconds > 0 THEN
+                          (((activated_at AT TIME ZONE 'Indian/Antananarivo')::date
+                            + CEIL(duration_seconds::numeric / 86400)::integer)::timestamp
+                            AT TIME ZONE 'Indian/Antananarivo')
+                        ELSE expires_at
+                      END AS expires_at
+                 FROM activation
+             )
+             SELECT id, activated_at AS "activatedAt", expires_at AS "expiresAt"
+               FROM calculated
+              WHERE activated_at IS NOT NULL
+                AND expires_at IS NOT NULL
+                AND (NOW() AT TIME ZONE 'Indian/Antananarivo')::date >=
+                    (expires_at AT TIME ZONE 'Indian/Antananarivo')::date
+              LIMIT 1`,
+            [router.id, user.username, user.profile]
+          );
+          const expired = expiryResult.rows[0];
+          if (expired) {
+            const enforced = await enforceCalendarExpiry({
+              profile: user.profile,
+              expiresAt: expired.expiresAt,
+              username: user.username,
+              disabled: user.disabled,
+              disableUser: async (username) => setHotspotUserDisabled(api, username, true),
+              listActiveUsers: async () => fetchActiveHotspotUsers(api),
+              removeActiveUser: async (routerInternalId) => removeActiveHotspotUser(api, routerInternalId),
+            });
+            calendarExpired = enforced;
+            if (enforced) {
+              user.disabled = true;
+              await pool.query(
+                `UPDATE voucher
+                    SET status = 'EXPIRED',
+                        expires_at = $2,
+                        mikrotik_disabled = TRUE,
+                        mikrotik_disabled_reason = 'CALENDAR_EXPIRY',
+                        updated_at = NOW()
+                  WHERE id = $1`,
+                [expired.id, expired.expiresAt]
+              );
+            }
+          }
+        }
 
+        let status: MikrotikVoucherRow["status"] = "UNUSED";
         const quotaExhausted =
           user.limitUptimeSeconds !== null &&
           user.limitUptimeSeconds > 0 &&
           user.uptimeSeconds >= user.limitUptimeSeconds;
-
         const hasMac = Boolean(user.macAddress?.trim());
         const withinQuota =
           user.limitUptimeSeconds === null ||
           user.uptimeSeconds <= user.limitUptimeSeconds;
 
-        if (quotaExhausted) {
+        if (calendarExpired || quotaExhausted || user.disabled) {
           status = "EXPIRED";
         } else if (hasMac && withinQuota) {
           status = "ACTIVE";
