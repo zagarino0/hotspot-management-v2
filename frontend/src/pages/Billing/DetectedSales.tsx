@@ -177,14 +177,14 @@ export default function Sales() {
       return;
     }
 
-    // Les événements sont consultables pour les points internes et externes.
-    const eventRows = await getPosTicketEvents(id);
-    setEvents(eventRows);    // Clôtures et versements suivent les mêmes règles pour INTERNAL et EXTERNAL.
-
-const [closureRows, remittanceRows] = await Promise.all([
+    // Lecture des historiques autorisée pour les points internes et externes.
+    // Les contrôles des opérations d'écriture restent appliqués côté backend.
+    const [eventRows, closureRows, remittanceRows] = await Promise.all([
+      getPosTicketEvents(id),
       getPosDailyClosures(id),
       getPosRemittances(id),
     ]);
+    setEvents(eventRows);
 setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -232,13 +232,11 @@ setClosures(
       return () => { active = false; };
     }
 
-    const dataPromise = (async () => {
-      const eventRows = await getPosTicketEvents(selectedId);const [closureRows, remittanceRows] = await Promise.all([
-        getPosDailyClosures(selectedId),
-        getPosRemittances(selectedId),
-      ]);
-      return [eventRows, closureRows, remittanceRows] as const;
-    })();
+    const dataPromise = Promise.all([
+      getPosTicketEvents(selectedId),
+      getPosDailyClosures(selectedId),
+      getPosRemittances(selectedId),
+    ]);
 
     dataPromise
       .then(([eventRows, closureRows, remittanceRows]) => {
@@ -596,7 +594,7 @@ setClosures(
 
         <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
 
-          « {selectedPos.name} » est un point de vente interne. Les ventes, clôtures et versements suivent les mêmes règles que pour les points externes.
+          « {selectedPos.name} » est le point interne de l’application. Les historiques de ventes et de clôtures sont consultables ; la création de versements reste réservée aux points de vente externes.
 
         </div>
 
