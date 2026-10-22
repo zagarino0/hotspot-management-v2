@@ -1098,6 +1098,11 @@ function SessionRow({
             <div className="mt-0.5 text-[10px] text-slate-400">
               restant maintenant
             </div>
+            {calendarProfile && session.voucherCalendarDaysUsed !== null && (
+              <div className="mt-1 text-[10px] font-medium text-slate-500">
+                {session.voucherCalendarDaysUsed} j utilisés
+              </div>
+            )}
           </>
         ) : displayedRemainingAfterEnd !== null ? (
           <>
@@ -1108,6 +1113,11 @@ function SessionRow({
             <div className="mt-0.5 text-[10px] text-slate-400">
               restant à la déconnexion
             </div>
+            {calendarProfile && session.voucherCalendarDaysUsed !== null && (
+              <div className="mt-1 text-[10px] font-medium text-slate-500">
+                {session.voucherCalendarDaysUsed} j utilisés
+              </div>
+            )}
           </>
         ) : (
           <div className="text-xs text-slate-400">
