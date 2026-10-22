@@ -736,10 +736,24 @@ function getDisplayStatus(session: Session): SessionStatus {
 
   // Pour les forfaits calendaires, zéro restant signifie que le voucher
   // a atteint son échéance, même si la dernière session était interrompue.
+  const calendarQuotaDays = Math.ceil(
+    toNumber(session.voucherDurationSeconds) / 86400
+  );
+  const calendarDaysUsed = toNumber(session.voucherCalendarDaysUsed);
+
+  // Pour les profils à validité calendaire, l'échéance est atteinte dès
+  // que le temps restant est nul OU que les jours calendaires utilisés
+  // atteignent le quota du forfait. Ne pas conserver « Interrompue ».
   if (
     isCalendarProfile(session.mikrotikProfile) &&
-    remaining !== null &&
-    remaining <= 0
+    (
+      (remaining !== null && remaining <= 0) ||
+      (
+        calendarQuotaDays > 0 &&
+        calendarDaysUsed !== null &&
+        calendarDaysUsed >= calendarQuotaDays
+      )
+    )
   ) {
     return "COMPLETED";
   }
