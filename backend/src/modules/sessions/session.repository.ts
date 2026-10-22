@@ -53,13 +53,19 @@ const SESSION_SELECT = `
         'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(first_connection.first_connected_at, v.activated_at) IS NOT NULL
-      THEN GREATEST(
-        (
-          (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
-          - (COALESCE(first_connection.first_connected_at, v.activated_at)
-             AT TIME ZONE 'Indian/Antananarivo')::date
+      THEN LEAST(
+        GREATEST(
+          (
+            (NOW() AT TIME ZONE 'Indian/Antananarivo')::date
+            - (COALESCE(first_connection.first_connected_at, v.activated_at)
+               AT TIME ZONE 'Indian/Antananarivo')::date
+          ),
+          0
         ),
-        0
+        CEIL(
+          COALESCE(v.duration_seconds, s.mikrotik_limit_uptime_seconds)::numeric
+          / 86400
+        )::integer
       )::integer
       ELSE NULL
     END AS "voucherCalendarDaysUsed",
