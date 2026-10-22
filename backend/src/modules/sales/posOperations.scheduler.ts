@@ -119,7 +119,7 @@ async function detectFirstUse() {
                 ELSE (first_session.started_at AT TIME ZONE $1)::date END)::text AS "businessDate"
          FROM voucher v
          JOIN point_of_sale pos ON pos.id = v.point_of_sale_id
-           AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'
+           AND pos.status = 'ACTIVE'
          LEFT JOIN plan p ON p.id = v.plan_id AND p.site_id = v.site_id
          LEFT JOIN pos_sales_settings setting ON setting.organization_id = pos.organization_id
          LEFT JOIN site_hotspot_profile_price sp
@@ -396,7 +396,7 @@ async function runSchedulerCycle() {
       const posResult = await pool.query<{ id: string; closingTime: string }>(
         `SELECT pos.id, TO_CHAR(pos.closing_time, 'HH24:MI') AS "closingTime"
            FROM point_of_sale pos
-          WHERE pos.organization_id = $1 AND pos.type = 'EXTERNAL' AND pos.status = 'ACTIVE'`,
+          WHERE pos.organization_id = $1 AND pos.status = 'ACTIVE'`,
         [setting.organizationId],
       );
       for (const pos of posResult.rows) {
