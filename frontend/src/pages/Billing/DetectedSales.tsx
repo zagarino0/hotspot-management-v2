@@ -179,22 +179,14 @@ export default function Sales() {
       return;
     }
 
-    // Les événements sont consultables pour les points internes et externes.
-    const eventRows = await getPosTicketEvents(id);
-    setEvents(eventRows);
-
-    // Les clôtures et versements sont réservés aux points externes.
-    if (point?.type === "INTERNAL") {
-      setClosures([]);
-      setRemittances([]);
-      setBusinessDate("");
-      return;
-    }
-
-    const [closureRows, remittanceRows] = await Promise.all([
+    // Lecture des historiques autorisée pour les points internes et externes.
+    // Les restrictions sur les opérations d'écriture restent appliquées côté backend.
+    const [eventRows, closureRows, remittanceRows] = await Promise.all([
+      getPosTicketEvents(id),
       getPosDailyClosures(id),
       getPosRemittances(id),
     ]);
+    setEvents(eventRows);
 setClosures(
           [...closureRows].sort((a, b) =>
             businessDateKey(b.business_date).localeCompare(businessDateKey(a.business_date))
@@ -244,19 +236,11 @@ setClosures(
       return () => { active = false; };
     }
 
-    const dataPromise = (async () => {
-      const eventRows = await getPosTicketEvents(selectedId);
-
-      if (point?.type === "INTERNAL") {
-        return [eventRows, [], []] as const;
-      }
-
-      const [closureRows, remittanceRows] = await Promise.all([
-        getPosDailyClosures(selectedId),
-        getPosRemittances(selectedId),
-      ]);
-      return [eventRows, closureRows, remittanceRows] as const;
-    })();
+    const dataPromise = Promise.all([
+      getPosTicketEvents(selectedId),
+      getPosDailyClosures(selectedId),
+      getPosRemittances(selectedId),
+    ]);
 
     dataPromise
       .then(([eventRows, closureRows, remittanceRows]) => {
@@ -624,7 +608,7 @@ setClosures(
 
         <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
 
-          « {selectedPos.name} » est le point interne de l’application. Les événements de vente restent consultables ; les clôtures journalières et les versements sont réservés aux points de vente externes.
+          « {selectedPos.name} » est le point interne de l’application. Les historiques de ventes et de clôtures sont consultables ; la création de versements reste réservée aux points de vente externes.
 
         </div>
 
