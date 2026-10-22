@@ -186,29 +186,12 @@ export default function SessionHistoryModal({
     return timestamps.length > 0 ? Math.min(...timestamps) : null;
   }, [history, latestSession.voucherActivatedAt]);
 
-  // Calcul basé sur le temps écoulé depuis la première activation.
-  const usedCalendarSeconds =
-    calendarProfile && firstActivationAt !== null
-      ? Math.max(0, Math.floor((Date.now() - firstActivationAt) / 1000))
-      : null;
-  // Les profils à validité calendaire utilisent la date de première activation.
+  // Le backend calcule les jours calendaires à partir de la première activation.
+  // Le frontend affiche la valeur API sans recalculer la validité.
   const isCalendarValidityTarget = calendarProfile;
-
-  const usedDays =
-    isCalendarValidityTarget &&
-    usedCalendarSeconds !== null &&
-    firstActivationAt !== null
-      ? Math.min(
-          totalQuota !== null
-            ? Math.ceil(totalQuota / 86400)
-            : Number.POSITIVE_INFINITY,
-          Math.max(
-            0,
-            calendarDateOrdinal(Date.now()) -
-              calendarDateOrdinal(firstActivationAt)
-          )
-        )
-      : null;
+  const usedDays = isCalendarValidityTarget
+    ? toNumber(latestSession.voucherCalendarDaysUsed)
+    : null;
 
   const displayStatus = getDisplayStatus(latestSession);
 
