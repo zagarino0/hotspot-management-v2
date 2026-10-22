@@ -736,9 +736,10 @@ function getDisplayStatus(session: Session): SessionStatus {
 
   // Pour les forfaits calendaires, zéro restant signifie que le voucher
   // a atteint son échéance, même si la dernière session était interrompue.
-  const calendarQuotaDays = Math.ceil(
-    toNumber(session.voucherDurationSeconds) / 86400
-  );
+  const calendarQuotaSeconds = toNumber(session.voucherDurationSeconds);
+  const calendarQuotaDays = calendarQuotaSeconds !== null
+    ? Math.ceil(calendarQuotaSeconds / 86400)
+    : 0;
   const calendarDaysUsed = toNumber(session.voucherCalendarDaysUsed);
 
   // Pour les profils à validité calendaire, l'échéance est atteinte dès
