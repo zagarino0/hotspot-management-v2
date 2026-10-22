@@ -745,13 +745,13 @@ setClosures(
 
       </section>
 
-      <section className="overflow-hidden rounded-2xl border-0 bg-white">
+      <section className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        <div className="flex items-center gap-2 border-b border-slate-100 p-4"><CalendarClock size={18} /><div><h2 className="font-bold font-semibold text-slate-950">Clôtures quotidiennes</h2><p className="text-sm font-medium text-slate-600">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
+        <div className="flex items-center gap-2 rounded-t-2xl border-b border-slate-200 bg-white p-4"><CalendarClock size={18} className="shrink-0 text-slate-600" /><div><h2 className="font-bold text-slate-950">Clôtures quotidiennes</h2><p className="text-sm font-medium text-slate-600">La clôture automatique est prévue à 20 h, heure de Madagascar.</p></div></div>
 
         {closures.length === 0 ? <p className="p-5 text-sm font-medium text-slate-600">Aucune clôture disponible pour ce point de vente.</p> :
 
-          <div className="max-h-[50vh] overflow-auto overscroll-contain"><table className="w-full min-w-[800px] text-left text-sm"><thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{businessDateKey(closure.business_date)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="px-4 py-3">{money(closure.gross_revenue)}</td><td className="px-4 py-3">{money(closure.refunds)}</td><td className="px-4 py-3 font-bold">{money(closure.net_revenue)}</td><td className="px-4 py-3">{(() => {
+          <div className="w-full overflow-x-auto rounded-b-2xl"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Journée</th><th className="px-4 py-3">Tickets</th><th className="px-4 py-3">Montant brut</th><th className="px-4 py-3">Remboursements</th><th className="px-4 py-3">Montant attendu</th><th className="px-4 py-3">Versement</th><th className="px-4 py-3">Versement réel</th></tr></thead><tbody>{closures.map((closure) => <tr key={closure.id} className="border-t border-slate-100 hover:bg-slate-50/70"><td className="whitespace-nowrap px-4 py-3 font-medium">{businessDateKey(closure.business_date)}</td><td className="px-4 py-3">{closure.tickets_sold}</td><td className="whitespace-nowrap px-4 py-3">{money(closure.gross_revenue)}</td><td className="whitespace-nowrap px-4 py-3">{money(closure.refunds)}</td><td className="whitespace-nowrap px-4 py-3 font-bold">{money(closure.net_revenue)}</td><td className="whitespace-nowrap px-4 py-3">{(() => {
 
               const remittance = remittances.find((item) => businessDateKey(item.business_date) === businessDateKey(closure.business_date));
 
@@ -761,7 +761,7 @@ setClosures(
 
                 : <span className="inline-flex items-center gap-1 text-amber-700"><CircleAlert size={14} /> En attente</span>;
 
-            })()}</td><td className="px-4 py-3 font-semibold">{(() => {
+            })()}</td><td className="whitespace-nowrap px-4 py-3 font-semibold">{(() => {
 
               const remittance = remittances.find((item) => businessDateKey(item.business_date) === businessDateKey(closure.business_date));
 
