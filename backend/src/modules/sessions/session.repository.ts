@@ -53,11 +53,15 @@ const SESSION_SELECT = `
       'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(
-          first_connection.first_connected_at + make_interval(
-            secs => COALESCE(
-              v.duration_seconds,
-              s.mikrotik_limit_uptime_seconds
-            )::double precision
+          (
+            (
+              (COALESCE(first_connection.first_connected_at, v.activated_at)
+                AT TIME ZONE 'Indian/Antananarivo')::date
+              + CEIL(
+                  COALESCE(v.duration_seconds, s.mikrotik_limit_uptime_seconds)::numeric
+                  / 86400
+                )::integer
+            )::timestamp AT TIME ZONE 'Indian/Antananarivo'
           ),
           v.expires_at
         ) IS NOT NULL
@@ -93,11 +97,15 @@ const SESSION_SELECT = `
 'profil_24h', 'profil_mothe_1', 'profil_mothe_2', 'profil_week', 'profil_bonus'
       )
         AND COALESCE(
-          first_connection.first_connected_at + make_interval(
-            secs => COALESCE(
-              v.duration_seconds,
-              s.mikrotik_limit_uptime_seconds
-            )::double precision
+          (
+            (
+              (COALESCE(first_connection.first_connected_at, v.activated_at)
+                AT TIME ZONE 'Indian/Antananarivo')::date
+              + CEIL(
+                  COALESCE(v.duration_seconds, s.mikrotik_limit_uptime_seconds)::numeric
+                  / 86400
+                )::integer
+            )::timestamp AT TIME ZONE 'Indian/Antananarivo'
           ),
           v.expires_at
         ) IS NOT NULL
@@ -186,16 +194,9 @@ const SESSION_SELECT = `
   LEFT JOIN LATERAL (
     SELECT MIN(s2.started_at) AS first_connected_at
     FROM session s2
-    WHERE (
-      (s.voucher_id IS NOT NULL AND s2.voucher_id = s.voucher_id)
-      OR (
-        s.voucher_id IS NULL
-        AND s2.voucher_id IS NULL
-        AND s2.site_id = s.site_id
-        AND s2.router_id = s.router_id
-        AND s2.username = s.username
-      )
-    )
+    WHERE s2.site_id = s.site_id
+      AND s2.router_id = s.router_id
+      AND LOWER(BTRIM(s2.username)) = LOWER(BTRIM(s.username))
   ) first_connection ON TRUE
   LEFT JOIN LATERAL (
     SELECT
