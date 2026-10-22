@@ -179,7 +179,7 @@ export async function getMikrotikVouchers(): Promise<MikrotikVoucherRow[]> {
           user.limitUptimeSeconds === null ||
           user.uptimeSeconds <= user.limitUptimeSeconds;
 
-        if (calendarExpired || quotaExhausted || user.disabled) {
+        if (calendarExpired || quotaExhausted) {
           status = "EXPIRED";
         } else if (hasMac && withinQuota) {
           status = "ACTIVE";
@@ -305,73 +305,15 @@ export interface VoucherStats {
 }
 
 export async function getVoucherStats(): Promise<VoucherStats> {
-  const routers = await findRoutersForSync();
-
-  let total = 0;
-  let available = 0;
-  let used = 0;
-  let expired = 0;
-
-  for (const router of routers) {
-    const credential = await findRouterCredential(router.id);
-
-    if (!credential) {
-      throw new Error(
-        `Aucun identifiant MikroTik enregistré pour le routeur "${router.name}".`
-      );
-    }
-
-    const password = decryptSecret(credential.encryptedSecret);
-    const host = router.managementIp.split("/")[0].trim();
-
-    const api = await connectMikroTik({
-      host,
-      port: router.apiPort,
-      user: credential.username,
-      password,
-    });
-
-    try {
-      const hotspotUsers = await fetchHotspotUsers(api);
-
-      const isQuotaExhausted = (user: Awaited<ReturnType<typeof fetchHotspotUsers>>[number]) =>
-        user.limitUptimeSeconds !== null &&
-        user.limitUptimeSeconds > 0 &&
-        user.uptimeSeconds >= user.limitUptimeSeconds;
-
-      const expiredUsers = hotspotUsers.filter(isQuotaExhausted);
-
-      const usedCount = hotspotUsers.filter(
-        (user) => {
-          if (isQuotaExhausted(user) || !user.macAddress?.trim()) {
-            return false;
-          }
-
-          return (
-            user.limitUptimeSeconds === null ||
-            user.uptimeSeconds <= user.limitUptimeSeconds
-          );
-        }
-      ).length;
-
-      const availableCount = hotspotUsers.filter(
-        (user) =>
-          !isQuotaExhausted(user) &&
-          !user.macAddress?.trim() &&
-          user.uptimeSeconds === 0
-      ).length;
-
-      total += hotspotUsers.length;
-      used += usedCount;
-      available += availableCount;
-      expired += expiredUsers.length;
-    } finally {
-      await api.close();
-    }
-  }
-
-  return { total, available, used, expired };
-}
+  // Utilise exactement la même règle que la liste des vouchers :
+  // quota MikroTik épuisé OU validité calendaire échue pour les profils ciblés.
+  const vouchers = await getMikrotikVouchers();
+  return {
+    total: vouchers.length,
+    available: vouchers.filter((voucher) => voucher.status === "UNUSED").length,
+    used: vouchers.filter((voucher) => voucher.status === "ACTIVE").length,
+    expired: vouchers.filter((voucher) => voucher.status === "EXPIRED").length,
+  };
 
 /* ============================================================
    CHANGE STATUS (désactiver / révoquer)
