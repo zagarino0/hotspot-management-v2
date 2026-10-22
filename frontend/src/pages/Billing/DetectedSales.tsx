@@ -181,17 +181,9 @@ export default function Sales() {
 
     // Les événements sont consultables pour les points internes et externes.
     const eventRows = await getPosTicketEvents(id);
-    setEvents(eventRows);
+    setEvents(eventRows);    // Clôtures et versements suivent les mêmes règles pour INTERNAL et EXTERNAL.
 
-    // Les clôtures et versements sont réservés aux points externes.
-    if (point?.type === "INTERNAL") {
-      setClosures([]);
-      setRemittances([]);
-      setBusinessDate("");
-      return;
-    }
-
-    const [closureRows, remittanceRows] = await Promise.all([
+const [closureRows, remittanceRows] = await Promise.all([
       getPosDailyClosures(id),
       getPosRemittances(id),
     ]);
@@ -245,13 +237,7 @@ setClosures(
     }
 
     const dataPromise = (async () => {
-      const eventRows = await getPosTicketEvents(selectedId);
-
-      if (point?.type === "INTERNAL") {
-        return [eventRows, [], []] as const;
-      }
-
-      const [closureRows, remittanceRows] = await Promise.all([
+      const eventRows = await getPosTicketEvents(selectedId);const [closureRows, remittanceRows] = await Promise.all([
         getPosDailyClosures(selectedId),
         getPosRemittances(selectedId),
       ]);
@@ -488,17 +474,7 @@ setClosures(
 
   async function handleRemittance() {
 
-    if (busy) return;
-
-    if (selectedPos?.type === "INTERNAL") {
-
-      setError("Les versements sont disponibles uniquement pour les points de vente externes.");
-
-      return;
-
-    }
-
-    if (!selectedId || !businessDate || !selectedClosure) {
+    if (busy) return;if (!selectedId || !businessDate || !selectedClosure) {
 
       setError("Sélectionnez une clôture existante avant de confirmer le versement.");
 
@@ -624,7 +600,7 @@ setClosures(
 
         <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
 
-          « {selectedPos.name} » est le point interne de l’application. Les événements de vente restent consultables ; les clôtures journalières et les versements sont réservés aux points de vente externes.
+          « {selectedPos.name} » est un point de vente interne. Les ventes, clôtures et versements suivent les mêmes règles que pour les points externes.
 
         </div>
 
