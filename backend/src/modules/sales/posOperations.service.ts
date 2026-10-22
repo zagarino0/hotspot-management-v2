@@ -89,7 +89,7 @@ export async function listPosRemittances(
       WHERE id = $1 AND organization_id = $2`,
     [pointOfSaleId, organizationId],
   );
-  if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
+  if (!pos.rows[0]) throw notFoundError("Point de vente introuvable.");
   const result = await pool.query(
     `SELECT
         r.id,
@@ -131,7 +131,7 @@ export async function listPosClosureAudit(
       WHERE id = $1 AND organization_id = $2 AND type = 'EXTERNAL'`,
     [pointOfSaleId, organizationId],
   );
-  if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
+  if (!pos.rows[0]) throw notFoundError("Point de vente introuvable.");
   const result = await pool.query(
     `SELECT a.*, c.business_date AS "businessDate", c.point_of_sale_id AS "pointOfSaleId"
        FROM point_of_sale_closure_audit a
@@ -171,7 +171,7 @@ export async function recordPosRemittance(
         WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
       [pointOfSaleId, organizationId],
     );
-    if (!pos.rows[0]) throw notFoundError("Point de vente externe introuvable.");
+    if (!pos.rows[0]) throw notFoundError("Point de vente introuvable.");
 
     const closure = await client.query<{ netRevenue: string }>(
       `SELECT net_revenue::text AS "netRevenue"
