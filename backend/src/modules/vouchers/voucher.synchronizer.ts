@@ -291,13 +291,13 @@ export async function syncMikrotikVouchers(
       ? await pool.query<{ id: string; expiresAt: string; username: string }>(
           `SELECT v.id,
                   COALESCE(
-                    v.expires_at,
                     first_session.first_connected_at + make_interval(
                       secs => COALESCE(
                         v.duration_seconds,
                         first_session.limit_uptime_seconds
                       )::double precision
-                    )
+                    ),
+                    v.expires_at
                   ) AS "expiresAt",
                   COALESCE(v.mikrotik_username, v.code) AS username
              FROM voucher v
@@ -319,13 +319,13 @@ export async function syncMikrotikVouchers(
               AND lower(COALESCE(v.mikrotik_username, v.code)) = lower($2)
               AND lower(v.mikrotik_profile) = lower($3)
               AND COALESCE(
-                v.expires_at,
                 first_session.first_connected_at + make_interval(
                   secs => COALESCE(
                     v.duration_seconds,
                     first_session.limit_uptime_seconds
                   )::double precision
-                )
+                ),
+                v.expires_at
               ) <= NOW()
             LIMIT 1`,
           [router.id, username, user.profile]
