@@ -705,24 +705,38 @@ function isNewerSession(candidate: Session, current: Session): boolean {
   return candidateTime >= currentTime;
 }
 
+function isCalendarValidityProfile(profile: string | null): boolean {
+  return [
+    "profil_24h",
+    "profil_mothe_1",
+    "profil_mothe_2",
+    "profil_week",
+    "profil_bonus",
+  ].includes((profile ?? "").trim().toLowerCase());
+}
+
 function getRealStatus(session: Session): SessionStatus {
-  // Le statut ACTIVE du dernier état reçu depuis le backend est
-  // toujours prioritaire. Une session active ne doit jamais être
-  // classée comme "Interrompue" par le filtre.
   if (session.status === "ACTIVE") {
     return "ACTIVE";
   }
 
-  // Une déconnexion avec du temps restant est une interruption,
-  // même si l'ancien statut persistant est encore COMPLETED.
-  const endedRemainingSeconds = toFiniteNumber(
-    session.voucherRemainingSecondsAtEnd
+  const calendarProfile = isCalendarValidityProfile(session.mikrotikProfile);
+  const remainingSeconds = calendarProfile
+    ? toFiniteNumber(session.voucherRemainingSeconds)
+    : toFiniteNumber(session.voucherRemainingSecondsAtEnd);
+  const quotaSeconds = toFiniteNumber(session.voucherDurationSeconds);
+  const calendarDaysUsed = toFiniteNumber(session.voucherCalendarDaysUsed);
+  const quotaDays = quotaSeconds !== null ? Math.ceil(quotaSeconds / 86400) : 0;
+  const calendarExpired = calendarProfile && (
+    (remainingSeconds !== null && remainingSeconds <= 0) ||
+    (quotaDays > 0 && calendarDaysUsed !== null && calendarDaysUsed >= quotaDays)
   );
 
-  if (
-    endedRemainingSeconds !== null &&
-    endedRemainingSeconds > 0
-  ) {
+  if (calendarExpired || (remainingSeconds !== null && remainingSeconds <= 0)) {
+    return "COMPLETED";
+  }
+
+  if (remainingSeconds !== null && remainingSeconds > 0) {
     return "TERMINATED";
   }
 
@@ -917,12 +931,12 @@ function SessionRow({
 
 
 
-  const displayedRemainingAfterEnd =
-    session.status === "ACTIVE"
-      ? null
-      : endedRemainingSeconds !== null
-        ? endedRemainingSeconds
-        : null;
+  const calendarProfile = isCalendarValidityProfile(session.mikrotikProfile);
+  const displayedRemainingAfterEnd = session.status === "ACTIVE"
+    ? toFiniteNumber(session.voucherRemainingSeconds)
+    : calendarProfile
+      ? toFiniteNumber(session.voucherRemainingSeconds)
+      : endedRemainingSeconds;
 
   const now = Date.now();
 
