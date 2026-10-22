@@ -466,7 +466,7 @@ export default function Sales() {
           KPI (calculés depuis les vraies données, pas simulés)
       ============================================================ */}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
+      <section className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SalesStat
           label="Chiffre d'affaires"
           value={
@@ -493,6 +493,7 @@ export default function Sales() {
           }
           icon={CalendarDays}
           positive
+          highlighted
         />
 
         <SalesStat
@@ -1015,6 +1016,7 @@ interface SalesStatProps {
   value: string;
   icon: typeof Wallet;
   positive?: boolean;
+  highlighted?: boolean;
 }
 
 function SalesStat({
@@ -1022,16 +1024,17 @@ function SalesStat({
   value,
   icon: Icon,
   positive,
+  highlighted,
 }: SalesStatProps) {
   return (
-    <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_25px_rgba(15,23,42,0.07)]">
+    <div className={["group min-w-0 rounded-2xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(15,23,42,0.07)]", highlighted ? "border-emerald-300 ring-1 ring-emerald-100" : "border-slate-200 hover:border-slate-300"].join(" ")}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[13px] font-medium text-slate-500">
+          <p className="break-words text-[13px] font-medium text-slate-500">
             {label}
           </p>
 
-          <p className="mt-2 text-[26px] font-bold tracking-[-0.03em] text-slate-950">
+          <p className="mt-2 break-words text-[clamp(1.2rem,1.5vw,1.625rem)] font-bold tracking-[-0.03em] text-slate-950">
             {value}
           </p>
         </div>
