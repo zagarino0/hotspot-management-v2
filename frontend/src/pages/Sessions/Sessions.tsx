@@ -166,9 +166,14 @@ export default function Sessions() {
       // Ne pas empiler les GET si le backend ou la base répond lentement.
       if (sessionsRefreshInFlight.current) return;
       sessionsRefreshInFlight.current = true;
-      void loadSessions(true).finally(() => {
-        sessionsRefreshInFlight.current = false;
-      });
+      void loadSessions(true).then(
+        () => {
+          sessionsRefreshInFlight.current = false;
+        },
+        () => {
+          sessionsRefreshInFlight.current = false;
+        }
+      );
     }, LIVE_SYNC_INTERVAL_MS);
 
     return () => clearInterval(interval);
