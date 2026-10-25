@@ -713,7 +713,7 @@ function isCalendarValidityProfile(profile: string | null): boolean {
     "profil_mothe_2",
     "profil_week",
     "profil_bonus",
-  ].includes((profile ?? "").trim().toLowerCase());
+  ].indexOf((profile ?? "").trim().toLowerCase()) !== -1;
 }
 
 function getRealStatus(session: Session): SessionStatus {
