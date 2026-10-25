@@ -27,12 +27,13 @@ import {
 
 /* ============================================================
    LIVE SYNC
-   Le backend global reste à 5 s. Cette page synchronise
-   uniquement le routeur actuellement consulté, toutes les 1 s.
+   Le backend global synchronise déjà périodiquement les routeurs.
+   Cette page actualise le routeur sélectionné toutes les 5 s afin
+   d'éviter de multiplier les requêtes HTTP et les cycles MikroTik.
    Aucun autre routeur n'est interrogé par cette vue.
 ============================================================ */
 
-const LIVE_SYNC_INTERVAL_MS = 1_000;
+const LIVE_SYNC_INTERVAL_MS = 5_000;
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
