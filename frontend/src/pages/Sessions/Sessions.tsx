@@ -51,7 +51,9 @@ export default function Sessions() {
   const [syncResults, setSyncResults] = useState<
     RouterSyncResult[]
   >([]);
-  const liveSyncInFlight = useRef(false);
+  // Verrou commun au live sync et au bouton manuel : un seul POST de
+  // synchronisation peut partir depuis cette page à la fois.
+  const syncRequestInFlight = useRef(false);
 
   const [historySession, setHistorySession] =
     useState<Session | null>(null);
@@ -162,11 +164,11 @@ export default function Sessions() {
     let active = true;
 
     const syncSelectedRouter = async () => {
-      if (!active || liveSyncInFlight.current) {
+      if (!active || syncRequestInFlight.current) {
         return;
       }
 
-      liveSyncInFlight.current = true;
+      syncRequestInFlight.current = true;
 
       try {
         const result = await syncSingleRouter(selectedRouterId);
@@ -186,8 +188,13 @@ export default function Sessions() {
           "Erreur lors de la synchronisation du routeur sélectionné :",
           err
         );
+        const message = axiosErrorMessage(
+          err,
+          "La synchronisation a échoué. Vérifiez la connexion au routeur sélectionné."
+        );
+        setError(message);
       } finally {
-        liveSyncInFlight.current = false;
+        syncRequestInFlight.current = false;
       }
     };
 
@@ -239,6 +246,14 @@ export default function Sessions() {
       return;
     }
 
+    // Ne pas lancer de seconde synchronisation si le cycle automatique
+    // est encore en cours.
+    if (syncRequestInFlight.current) {
+      return;
+    }
+
+    syncRequestInFlight.current = true;
+
     try {
       setSyncing(true);
       setError(null);
@@ -254,9 +269,13 @@ export default function Sessions() {
       );
 
       setError(
-        "La synchronisation a échoué. Vérifiez la connexion au routeur sélectionné."
+        axiosErrorMessage(
+          err,
+          "La synchronisation a échoué. Vérifiez la connexion au routeur sélectionné."
+        )
       );
     } finally {
+      syncRequestInFlight.current = false;
       setSyncing(false);
     }
   }
@@ -768,6 +787,27 @@ function formatDateTime(value: string | Date): string {
     minute: "2-digit",
     second: "2-digit",
   }).format(date);
+}
+
+function axiosErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null) {
+    const candidate = error as {
+      code?: string;
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    const serverMessage = candidate.response?.data?.message;
+    if (typeof serverMessage === "string" && serverMessage.trim()) {
+      return serverMessage;
+    }
+    if (candidate.code === "ECONNABORTED") {
+      return "La synchronisation dépasse 60 secondes. Vérifiez la connexion au routeur et les journaux backend.";
+    }
+    if (candidate.message === "Network Error") {
+      return "Le backend n'a pas renvoyé de réponse. Vérifiez qu'il est accessible et consultez ses journaux.";
+    }
+  }
+  return fallback;
 }
 
 function toFiniteNumber(value: number | string | null): number | null {
