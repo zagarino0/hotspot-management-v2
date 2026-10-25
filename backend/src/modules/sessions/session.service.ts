@@ -259,7 +259,6 @@ async function performRouterSyncSessions(
   try {
     const activeUsers = await fetchActiveHotspotUsers(api);
     const hotspotUsers = await fetchHotspotUsers(api);
-    await syncMikrotikVouchers(router, hotspotUsers, api);
 
     let logoutEvents: Array<{
       username: string;
@@ -438,6 +437,12 @@ async function performRouterSyncSessions(
       usableUsers.map((user) => user.macAddress as string),
       logoutEvents
     );
+
+    // Réconcilier d'abord les connexions live dans PostgreSQL. La
+    // réconciliation complète des vouchers peut être longue sur un routeur
+    // avec beaucoup d'utilisateurs ; elle ne doit pas retarder la clôture
+    // des sessions absentes de /ip/hotspot/active/print.
+    await syncMikrotikVouchers(router, hotspotUsers, api);
 
     // Recalcule le temps cumulé des vouchers concernés.
     // Une reconnexion crée une nouvelle session, mais le cumul
