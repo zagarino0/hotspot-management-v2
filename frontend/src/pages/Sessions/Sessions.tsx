@@ -26,11 +26,10 @@ import {
 } from "../../services/routerService";
 
 /* ============================================================
-   LIVE SYNC
-   Le backend global synchronise déjà périodiquement les routeurs.
-   Cette page actualise le routeur sélectionné toutes les 5 s afin
-   d'éviter de multiplier les requêtes HTTP et les cycles MikroTik.
-   Aucun autre routeur n'est interrogé par cette vue.
+   ACTUALISATION DES SESSIONS
+   Le backend gère la synchronisation périodique MikroTik.
+   Cette page rafraîchit les données en lecture seule toutes les 5 s ;
+   un POST de synchronisation n'est déclenché que par le bouton manuel.
 ============================================================ */
 
 const LIVE_SYNC_INTERVAL_MS = 5_000;
@@ -156,59 +155,17 @@ export default function Sessions() {
     };
   }, [loadSessions]);
 
+  // Le backend possède déjà son propre cycle de synchronisation des routeurs.
+  // Cette page ne doit pas lancer un POST automatiquement : cela pouvait
+  // maintenir le verrou occupé et empêcher le bouton manuel de fonctionner.
+  // On actualise uniquement les données de session en lecture seule.
   useEffect(() => {
-    if (!selectedRouterId) {
-      return;
-    }
-
-    let active = true;
-
-    const syncSelectedRouter = async () => {
-      if (!active || syncRequestInFlight.current) {
-        return;
-      }
-
-      syncRequestInFlight.current = true;
-
-      try {
-        const result = await syncSingleRouter(selectedRouterId);
-
-        if (!active) {
-          return;
-        }
-
-        setSyncResults([result]);
-        await loadSessions(true);
-      } catch (err) {
-        if (!active) {
-          return;
-        }
-
-        console.error(
-          "Erreur lors de la synchronisation du routeur sélectionné :",
-          err
-        );
-        const message = axiosErrorMessage(
-          err,
-          "La synchronisation a échoué. Vérifiez la connexion au routeur sélectionné."
-        );
-        setError(message);
-      } finally {
-        syncRequestInFlight.current = false;
-      }
-    };
-
-    void syncSelectedRouter();
-
     const interval = setInterval(() => {
-      void syncSelectedRouter();
+      void loadSessions(true);
     }, LIVE_SYNC_INTERVAL_MS);
 
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [selectedRouterId, loadSessions]);
+    return () => clearInterval(interval);
+  }, [loadSessions]);
 
   /* ============================================================
      DÉCONNEXION MANUELLE
