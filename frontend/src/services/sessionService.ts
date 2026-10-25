@@ -135,8 +135,13 @@ export async function syncSessions(): Promise<
 export async function syncSingleRouter(
   routerId: string
 ): Promise<RouterSyncResult> {
+  // Une synchronisation lit plusieurs ressources MikroTik et peut dépasser
+  // le timeout HTTP générique de 10 s. Ne pas laisser Axios annuler le POST
+  // pendant que le backend poursuit le cycle de synchronisation.
   const response = await api.post<ApiEnvelope<RouterSyncResult>>(
-    `/api/sessions/sync/${routerId}`
+    `/api/sessions/sync/${routerId}`,
+    undefined,
+    { timeout: 60_000 }
   );
 
   return response.data.data;
