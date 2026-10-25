@@ -1,4 +1,5 @@
 import { pool } from "../../database/pool.js";
+import { withShortCache } from "../../lib/shortCache.js";
 
 import type {
   CreateSaleData,
@@ -378,7 +379,7 @@ export async function deleteSale(id: string): Promise<void> {
    SUMMARY (revenus, panier moyen, part mobile money, courbe)
 ============================================================ */
 
-export async function getSalesSummary(): Promise<SalesSummary> {
+async function computeSalesSummary(): Promise<SalesSummary> {
   /*
    * Règle métier Ventes :
    * - Un ticket est considéré comme engagé lorsqu'il possède une MAC
@@ -656,4 +657,11 @@ export async function getSalesSummary(): Promise<SalesSummary> {
       amount: Number(row.amount),
     })),
   };
+}
+
+
+// Le résumé implique actuellement des lectures MikroTik et plusieurs agrégations SQL.
+// Déduplique les appels simultanés et réutilise le résultat pendant 5 secondes.
+export function getSalesSummary(): Promise<SalesSummary> {
+  return withShortCache("sales-summary", 5_000, computeSalesSummary);
 }

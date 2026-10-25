@@ -1,4 +1,5 @@
 import { pool } from "../../database/pool.js";
+import { withShortCache } from "../../lib/shortCache.js";
 import { checkDatabase } from "../../database/health.js";
 import {
   findRouterCredential,
@@ -227,7 +228,7 @@ async function getEngagedVoucherStats(
   );
 }
 
-export async function getDashboardOverview(
+async function computeDashboardOverview(
   days: 7 | 30 | 90
 ): Promise<DashboardOverview> {
   const now = new Date();
@@ -427,4 +428,15 @@ export async function getDashboardOverview(
     })),
     dbHealthy: database.connected,
   };
+}
+
+
+// Le tableau de bord interroge MikroTik et agrège plusieurs tables SQL.
+// Cache court par fenêtre, avec partage du calcul entre appels simultanés.
+export function getDashboardOverview(
+  days: 7 | 30 | 90
+): Promise<DashboardOverview> {
+  return withShortCache(`dashboard-overview:${days}`, 5_000, () =>
+    computeDashboardOverview(days)
+  );
 }
