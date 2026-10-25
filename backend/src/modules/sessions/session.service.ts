@@ -324,14 +324,21 @@ async function performRouterSyncSessions(
     // déconnectés. /ip/hotspot/user/print est la source du
     // profil et du quota total, contrairement à /active/print
     // qui ne contient que les connexions en cours.
-    for (const hotspotUser of hotspotUsers) {
-      await backfillMikrotikMetadataForUser(
-        router.siteId,
-        router.id,
-        hotspotUser.username,
-        hotspotUser.profile,
-        hotspotUser.limitUptimeSeconds
-      );
+    // Backfill the router's historical users in small batches. Processing
+    // hundreds of users one by one blocked the manual sync response and left
+    // the Sessions table showing stale active connections for too long.
+    const BACKFILL_BATCH_SIZE = 10;
+    for (let index = 0; index < hotspotUsers.length; index += BACKFILL_BATCH_SIZE) {
+      const batch = hotspotUsers.slice(index, index + BACKFILL_BATCH_SIZE);
+      await Promise.all(batch.map((hotspotUser) =>
+        backfillMikrotikMetadataForUser(
+          router.siteId,
+          router.id,
+          hotspotUser.username,
+          hotspotUser.profile,
+          hotspotUser.limitUptimeSeconds
+        )
+      ));
     }
 
     const cookieKeys = new Set(
