@@ -32,7 +32,7 @@ import {
    un POST de synchronisation n'est déclenché que par le bouton manuel.
 ============================================================ */
 
-const LIVE_SYNC_INTERVAL_MS = 5_000;
+const LIVE_SYNC_INTERVAL_MS = 15_000;
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -159,9 +159,16 @@ export default function Sessions() {
   // Cette page ne doit pas lancer un POST automatiquement : cela pouvait
   // maintenir le verrou occupé et empêcher le bouton manuel de fonctionner.
   // On actualise uniquement les données de session en lecture seule.
+  const sessionsRefreshInFlight = useRef(false);
+
   useEffect(() => {
     const interval = setInterval(() => {
-      void loadSessions(true);
+      // Ne pas empiler les GET si le backend ou la base répond lentement.
+      if (sessionsRefreshInFlight.current) return;
+      sessionsRefreshInFlight.current = true;
+      void loadSessions(true).finally(() => {
+        sessionsRefreshInFlight.current = false;
+      });
     }, LIVE_SYNC_INTERVAL_MS);
 
     return () => clearInterval(interval);
